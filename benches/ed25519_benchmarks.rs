@@ -20,9 +20,8 @@ mod ed25519_benches {
     use super::*;
     use schnorr_dalek::{SecretKey, Keypair, PublicKey, Signature, verify_batch};
     use schnorr_dalek::context::signing_context;
-    use rand::thread_rng;
-    use rand::ThreadRng;
-	use sha3::Shake128;
+    use rand::prelude::*; // ThreadRng,thread_rng
+    use sha3::Shake128;
     // use sha2::Sha512;
 
     // TODO: fn sign_mini(c: &mut Criterion)

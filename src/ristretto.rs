@@ -356,13 +356,14 @@ impl MiniSecretKey {
     ///
     /// ```
     /// # extern crate rand;
+    /// # extern crate rand_chacha;
     /// # extern crate sha2;
     /// # extern crate schnorr_dalek;
     /// #
     /// # fn main() {
     /// #
     /// # use rand::Rng;
-    /// # use rand::ChaChaRng;
+    /// # use rand_chacha::ChaChaRng;
     /// # use rand::SeedableRng;
     /// # use sha2::Sha512;
     /// # use schnorr_dalek::PublicKey;
@@ -382,7 +383,7 @@ impl MiniSecretKey {
     ///
     /// # Input
     ///
-    /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`
+    /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`
     pub fn generate<R>(csprng: &mut R) -> MiniSecretKey
     where R: CryptoRng + Rng,
     {
@@ -1063,7 +1064,7 @@ impl<'d> Deserialize<'d> for PublicKey {
 /// use schnorr_dalek::context::signing_context;
 /// use schnorr_dalek::{Keypair,PublicKey,Signature,verify_batch};
 /// use rand::thread_rng;
-/// use rand::ThreadRng;
+/// use rand::rngs::ThreadRng;
 /// use sha3::Shake128;
 ///
 /// # fn main() {
@@ -1232,7 +1233,7 @@ impl Keypair {
     ///
     /// # Input
     ///
-    /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`.
+    /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`.
     /// 
     /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
@@ -1332,8 +1333,7 @@ impl Keypair {
     ///
     /// use schnorr_dalek::Keypair;
     /// use schnorr_dalek::Signature;
-    /// use rand::thread_rng;
-    /// use rand::ThreadRng;
+    /// use rand::prelude::*; // ThreadRng,thread_rng
     /// # use sha3::Shake128;
     ///
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
@@ -1379,8 +1379,7 @@ impl Keypair {
     /// #
     /// # use schnorr_dalek::{Keypair,Signature};
     /// # use schnorr_dalek::context::signing_context;
-    /// # use rand::thread_rng;
-    /// # use rand::ThreadRng;
+    /// # use rand::prelude::*; // ThreadRng,thread_rng
     /// # use sha3::Shake128;
     /// #
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
@@ -1447,7 +1446,7 @@ impl Keypair {
     ///
     /// use schnorr_dalek::{Keypair,Signature};
     /// use schnorr_dalek::context::signing_context;
-    /// use rand::{thread_rng,ThreadRng};
+    /// use rand::prelude::*; // ThreadRng,thread_rng
     /// use sha3::Shake128;
 	/// use sha3::digest::{Input};
     ///
@@ -1521,10 +1520,9 @@ mod test {
     use std::fs::File;
     use std::string::String;
     use std::vec::Vec;
-    use rand::thread_rng;
-    use rand::ChaChaRng;
+    use rand::prelude::*; // ThreadRng,thread_rng
     use rand::SeedableRng;
-    use rand::ThreadRng;
+    use rand_chacha::ChaChaRng;
     use hex::FromHex;
 	use sha3::Shake128;
     use sha2::Sha512;

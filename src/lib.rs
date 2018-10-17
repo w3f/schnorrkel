@@ -42,10 +42,12 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use rand::{SeedableRng}; // Rng
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair,Signature};
 //! # use schnorr_dalek::context::signing_context;
@@ -62,10 +64,12 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use rand::{SeedableRng}; // Rng
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair,Signature};
 //! # use schnorr_dalek::context::signing_context;
@@ -83,10 +87,12 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use rand::{SeedableRng}; // Rng
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair,Signature};
 //! # use schnorr_dalek::context::signing_context;
@@ -111,10 +117,12 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::{Rng, ChaChaRng, SeedableRng};
+//! # use rand::{Rng, SeedableRng};
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair, Signature, PublicKey};
 //! # use schnorr_dalek::context::signing_context;
@@ -137,9 +145,11 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
-//! # use rand::{Rng, ChaChaRng, SeedableRng};
+//! # use rand::{Rng, SeedableRng};
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{SecretKey, Keypair, Signature, PublicKey, SignatureError};
 //! # use schnorr_dalek::context::signing_context;
@@ -182,6 +192,7 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # #[cfg(feature = "serde")]
@@ -191,7 +202,8 @@
 //!
 //! # #[cfg(feature = "serde")]
 //! # fn main() {
-//! # use rand::{Rng, ChaChaRng, SeedableRng};
+//! # use rand::{Rng, SeedableRng};
+//! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair, Signature, PublicKey};
 //! # use schnorr_dalek::context::signing_context;
@@ -216,6 +228,7 @@
 //!
 //! ```
 //! # extern crate rand;
+//! # extern crate rand_chacha;
 //! # extern crate sha2;
 //! # extern crate schnorr_dalek;
 //! # #[cfg(feature = "serde")]
@@ -225,7 +238,8 @@
 //! #
 //! # #[cfg(feature = "serde")]
 //! # fn main() {
-//! # use rand::{Rng, ChaChaRng, SeedableRng};
+//! # use rand::{Rng, SeedableRng};
+//! # use rand_chacha::ChaChaRng;
 //! # use sha2::Sha512;
 //! # use schnorr_dalek::{Keypair, Signature, PublicKey};
 //! # use bincode::{serialize, Infinite};
@@ -299,6 +313,9 @@ extern crate sha2;
 
 #[cfg(test)]
 extern crate hex;
+
+#[cfg(test)]
+extern crate rand_chacha;
 
 #[cfg(feature = "serde")]
 extern crate serde;
