@@ -34,8 +34,8 @@ use curve25519_dalek::digest::Digest;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use curve25519_dalek::edwards::EdwardsPoint;
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
 use errors::SignatureError;
@@ -82,7 +82,7 @@ pub struct Signature {
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.  The scalar is then multiplied by the distinguished
     /// basepoint to produce `R`, and `EdwardsPoint`.
-    pub (crate) R: CompressedEdwardsY,
+    pub (crate) R: CompressedRistretto,
 
     /// `s` is a `Scalar`, formed by using an hash function with 512-bits output
     /// to produce the digest of:
@@ -134,7 +134,7 @@ impl Signature {
             return Err(SignatureError(InternalError::ScalarFormatError));
         }
 
-        Ok(Signature{ R: CompressedEdwardsY(lower), s: Scalar::from_bits(upper) })
+        Ok(Signature{ R: CompressedRistretto(lower), s: Scalar::from_bits(upper) })
     }
 }
 
@@ -574,7 +574,7 @@ impl ExpandedSecretKey {
     pub fn sign<D>(&self, message: &[u8], public_key: &PublicKey) -> Signature
             where D: Digest<OutputSize = U64> + Default {
         let mut h: D = D::default();
-        let R: CompressedEdwardsY;
+        let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
         let k: Scalar;
@@ -583,7 +583,7 @@ impl ExpandedSecretKey {
         h.input(&message);
 
         r = Scalar::from_hash(h);
-        R = (&r * &constants::ED25519_BASEPOINT_TABLE).compress();
+        R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         h = D::default();
         h.input(R.as_bytes());
@@ -623,7 +623,7 @@ impl ExpandedSecretKey {
     {
         let mut h: D;
         let mut prehash: [u8; 64] = [0u8; 64];
-        let R: CompressedEdwardsY;
+        let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
         let k: Scalar;
@@ -658,7 +658,7 @@ impl ExpandedSecretKey {
             .chain(&prehash[..]);
 
         r = Scalar::from_hash(h);
-        R = (&r * &constants::ED25519_BASEPOINT_TABLE).compress();
+        R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         h = D::default()
             .chain(b"SigEd25519 no Ed25519 collisions")
@@ -707,11 +707,11 @@ impl<'d> Deserialize<'d> for ExpandedSecretKey {
 /// An ed25519 public key.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 #[repr(C)]
-pub struct PublicKey(pub (crate) CompressedEdwardsY);
+pub struct PublicKey(pub (crate) CompressedRistretto);
 
 impl Debug for PublicKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "PublicKey( CompressedEdwardsY( {:?} ))", self.0)
+        write!(f, "PublicKey( CompressedRistretto( {:?} ))", self.0)
     }
 }
 
@@ -733,7 +733,7 @@ impl PublicKey {
     /// # Warning
     ///
     /// The caller is responsible for ensuring that the bytes passed into this
-    /// method actually represent a `curve25519_dalek::curve::CompressedEdwardsY`
+    /// method actually represent a `curve25519_dalek::ristretto::CompressedRistretto`
     /// and that said compressed point is actually a point on the curve.
     ///
     /// # Example
@@ -773,7 +773,7 @@ impl PublicKey {
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
 
-        Ok(PublicKey(CompressedEdwardsY(bits)))
+        Ok(PublicKey(CompressedRistretto(bits)))
     }
 
     /// Derive this public key from its corresponding `SecretKey`.
@@ -808,9 +808,9 @@ impl PublicKey {
         bits[31] &= 127;
         bits[31] |= 64;
 
-        let pk = (&Scalar::from_bits(*bits) * &constants::ED25519_BASEPOINT_TABLE).compress().to_bytes();
+        let pk = (&Scalar::from_bits(*bits) * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
 
-        PublicKey(CompressedEdwardsY(pk))
+        PublicKey(CompressedRistretto(pk))
     }
 
     /// Verify a signature on a message with this keypair's public key.
@@ -823,10 +823,10 @@ impl PublicKey {
             where D: Digest<OutputSize = U64> + Default
     {
         let mut h: D = D::default();
-        let R: EdwardsPoint;
+        let R: RistrettoPoint;
         let k: Scalar;
 
-        let A: EdwardsPoint = match self.0.decompress() {
+        let A: RistrettoPoint = match self.0.decompress() {
             Some(x) => x,
             None    => return Err(SignatureError(InternalError::PointDecompressionError)),
         };
@@ -836,7 +836,7 @@ impl PublicKey {
         h.input(&message);
 
         k = Scalar::from_hash(h);
-        R = EdwardsPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
+        R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R {
             Ok(())
@@ -871,13 +871,13 @@ impl PublicKey {
         where D: Digest<OutputSize = U64> + Default
     {
         let mut h: D = D::default();
-        let R: EdwardsPoint;
+        let R: RistrettoPoint;
         let k: Scalar;
 
         let ctx: &[u8] = context.unwrap_or(b"");
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
 
-        let A: EdwardsPoint = match self.0.decompress() {
+        let A: RistrettoPoint = match self.0.decompress() {
             Some(x) => x,
             None    => return Err(SignatureError(InternalError::PointDecompressionError)),
         };
@@ -891,7 +891,7 @@ impl PublicKey {
         h.input(prehashed_message.result().as_slice());
 
         k = Scalar::from_hash(h);
-        R = EdwardsPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
+        R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R {
             Ok(())
@@ -1005,10 +1005,10 @@ pub fn verify_batch<D>(messages: &[&[u8]],
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
     let As = public_keys.iter().map(|pk| pk.0.decompress());
-    let B = once(Some(constants::ED25519_BASEPOINT_POINT));
+    let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
-    let id = EdwardsPoint::optional_multiscalar_mul(
+    let id = RistrettoPoint::optional_multiscalar_mul(
         once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
         B.chain(Rs).chain(As),
     ).ok_or_else(|| SignatureError(InternalError::VerifyError))?;
@@ -1081,7 +1081,7 @@ impl Keypair {
     /// # Inputs
     ///
     /// * `bytes`: an `&[u8]` representing the scalar for the secret key, and a
-    ///   compressed Edwards-Y coordinate of a point on curve25519, both as bytes.
+    ///   compressed Ristretto point, both as bytes.
     ///   (As obtained from `Keypair::to_bytes()`.)
     ///
     /// # Warning
@@ -1388,7 +1388,7 @@ mod test {
     use super::*;
 
     #[cfg(all(test, feature = "serde"))]
-    static PUBLIC_KEY: PublicKey = PublicKey(CompressedEdwardsY([
+    static PUBLIC_KEY: PublicKey = PublicKey(CompressedRistretto([
         130, 039, 155, 015, 062, 076, 188, 063,
         124, 122, 026, 251, 233, 253, 225, 220,
         014, 041, 166, 120, 108, 035, 254, 077,
@@ -1435,6 +1435,8 @@ mod test {
         assert!(keypair.verify::<Sha512>(&bad,  &good_sig).is_err(),
                 "Verification of a signature on a different message passed!");
     }
+
+    /* *** We have no test vectors obviously ***
 
     // TESTVECTORS is taken from sign.input.gz in agl's ed25519 Golang
     // package. It is a selection of test cases from
@@ -1553,6 +1555,8 @@ mod test {
                 "Verification of a signature on a different message passed!");
     }
 
+    *** We have no test vectors obviously *** */
+
     #[test]
     fn verify_batch_seven_signatures() {
         let messages: [&[u8]; 7] = [
@@ -1592,7 +1596,7 @@ mod test {
 
             Ok(public_key)
         }
-        assert_eq!(do_the_test(), Ok(PublicKey(CompressedEdwardsY([
+        assert_eq!(do_the_test(), Ok(PublicKey(CompressedRistretto([
             215, 090, 152, 001, 130, 177, 010, 183,
             213, 075, 254, 211, 201, 100, 007, 058,
             014, 225, 114, 243, 218, 166, 035, 037,
