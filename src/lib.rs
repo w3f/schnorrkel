@@ -109,7 +109,7 @@
 //!
 //! ## Serialisation
 //!
-//! `PublicKey`s, `SecretKey`s, `Keypair`s, and `Signature`s can be serialised
+//! `PublicKey`s, `MiniSecretKey`s, `Keypair`s, and `Signature`s can be serialised
 //! into byte-arrays by calling `.to_bytes()`.  It's perfectly acceptible and
 //! safe to transfer and/or store those bytes.  (Of course, never transfer your
 //! secret key to anyone else, since they will only need the public key to
@@ -123,7 +123,7 @@
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
 //! # use ed25519_dalek::{Keypair, Signature, PublicKey};
-//! use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
+//! use ed25519_dalek::{PUBLIC_KEY_LENGTH, MINI_SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
@@ -131,7 +131,7 @@
 //! # let public_key: PublicKey = keypair.public;
 //!
 //! let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
-//! let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = keypair.secret.to_bytes();
+//! let secret_key_bytes: [u8; MINI_SECRET_KEY_LENGTH] = keypair.secret.to_bytes();
 //! let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair.to_bytes();
 //! let signature_bytes:  [u8; SIGNATURE_LENGTH]  = signature.to_bytes();
 //! # }
@@ -145,20 +145,20 @@
 //! # extern crate ed25519_dalek;
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::{Keypair, Signature, PublicKey, SecretKey, SignatureError};
-//! # use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
-//! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
+//! # use ed25519_dalek::{Keypair, Signature, PublicKey, MiniSecretKey, SignatureError};
+//! # use ed25519_dalek::{PUBLIC_KEY_LENGTH, MINI_SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
+//! # fn do_test() -> Result<(MiniSecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair_orig: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature_orig: Signature = keypair_orig.sign::<Sha512>(message);
 //! # let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = keypair_orig.public.to_bytes();
-//! # let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = keypair_orig.secret.to_bytes();
+//! # let secret_key_bytes: [u8; MINI_SECRET_KEY_LENGTH] = keypair_orig.secret.to_bytes();
 //! # let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair_orig.to_bytes();
 //! # let signature_bytes:  [u8; SIGNATURE_LENGTH]  = signature_orig.to_bytes();
 //! #
 //! let public_key: PublicKey = PublicKey::from_bytes(&public_key_bytes)?;
-//! let secret_key: SecretKey = SecretKey::from_bytes(&secret_key_bytes)?;
+//! let secret_key: MiniSecretKey = MiniSecretKey::from_bytes(&secret_key_bytes)?;
 //! let keypair:    Keypair   = Keypair::from_bytes(&keypair_bytes)?;
 //! let signature:  Signature = Signature::from_bytes(&signature_bytes)?;
 //! #

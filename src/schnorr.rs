@@ -44,23 +44,23 @@ use errors::InternalError;
 /// The length of a curve25519 EdDSA `Signature`, in bytes.
 pub const SIGNATURE_LENGTH: usize = 64;
 
-/// The length of a curve25519 EdDSA `SecretKey`, in bytes.
-pub const SECRET_KEY_LENGTH: usize = 32;
+/// The length of a curve25519 EdDSA `MiniSecretKey`, in bytes.
+pub const MINI_SECRET_KEY_LENGTH: usize = 32;
 
 /// The length of an ed25519 EdDSA `PublicKey`, in bytes.
 pub const PUBLIC_KEY_LENGTH: usize = 32;
 
 /// The length of an ed25519 EdDSA `Keypair`, in bytes.
-pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
+pub const KEYPAIR_LENGTH: usize = MINI_SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
 /// The length of the "key" portion of an "expanded" curve25519 EdDSA secret key, in bytes.
-const EXPANDED_SECRET_KEY_KEY_LENGTH: usize = 32;
+const SECRET_KEY_KEY_LENGTH: usize = 32;
 
 /// The length of the "nonce" portion of an "expanded" curve25519 EdDSA secret key, in bytes.
-const EXPANDED_SECRET_KEY_NONCE_LENGTH: usize = 32;
+const SECRET_KEY_NONCE_LENGTH: usize = 32;
 
-/// The length of an "expanded" curve25519 EdDSA key, `ExpandedSecretKey`, in bytes.
-pub const EXPANDED_SECRET_KEY_LENGTH: usize = EXPANDED_SECRET_KEY_KEY_LENGTH + EXPANDED_SECRET_KEY_NONCE_LENGTH;
+/// The length of an "expanded" curve25519 EdDSA key, `SecretKey`, in bytes.
+pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LENGTH;
 
 /// An EdDSA signature.
 ///
@@ -76,7 +76,7 @@ pub struct Signature {
     /// `R` is an `EdwardsPoint`, formed by using an hash function with
     /// 512-bits output to produce the digest of:
     ///
-    /// - the nonce half of the `ExpandedSecretKey`, and
+    /// - the nonce half of the `SecretKey`, and
     /// - the message to be signed.
     ///
     /// This digest is then interpreted as a `Scalar` and reduced into an
@@ -168,60 +168,60 @@ impl<'d> Deserialize<'d> for Signature {
 /// An EdDSA secret key.
 #[repr(C)]
 #[derive(Default)] // we derive Default in order to use the clear() method in Drop
-pub struct SecretKey(pub (crate) [u8; SECRET_KEY_LENGTH]);
+pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
-impl Debug for SecretKey {
+impl Debug for MiniSecretKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "SecretKey: {:?}", &self.0[..])
+        write!(f, "MiniSecretKey: {:?}", &self.0[..])
     }
 }
 
 /// Overwrite secret key material with null bytes when it goes out of scope.
-impl Drop for SecretKey {
+impl Drop for MiniSecretKey {
     fn drop(&mut self) {
         self.0.clear();
     }
 }
 
-impl SecretKey {
-    /// Expand this `SecretKey` into an `ExpandedSecretKey`.
-    pub fn expand<D>(&self) -> ExpandedSecretKey
+impl MiniSecretKey {
+    /// Expand this `MiniSecretKey` into an `SecretKey`.
+    pub fn expand<D>(&self) -> SecretKey
         where D: Digest<OutputSize = U64> + Default
     {
-        ExpandedSecretKey::from_secret_key::<D>(&self)
+        SecretKey::from_secret_key::<D>(&self)
     }
 
     /// Convert this secret key to a byte array.
     #[inline]
-    pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
+    pub fn to_bytes(&self) -> [u8; MINI_SECRET_KEY_LENGTH] {
         self.0
     }
 
     /// View this secret key as a byte array.
     #[inline]
-    pub fn as_bytes<'a>(&'a self) -> &'a [u8; SECRET_KEY_LENGTH] {
+    pub fn as_bytes<'a>(&'a self) -> &'a [u8; MINI_SECRET_KEY_LENGTH] {
         &self.0
     }
 
-    /// Construct a `SecretKey` from a slice of bytes.
+    /// Construct a `MiniSecretKey` from a slice of bytes.
     ///
     /// # Example
     ///
     /// ```
     /// # extern crate ed25519_dalek;
     /// #
-    /// use ed25519_dalek::SecretKey;
-    /// use ed25519_dalek::SECRET_KEY_LENGTH;
+    /// use ed25519_dalek::MiniSecretKey;
+    /// use ed25519_dalek::MINI_SECRET_KEY_LENGTH;
     /// use ed25519_dalek::SignatureError;
     ///
-    /// # fn doctest() -> Result<SecretKey, SignatureError> {
-    /// let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = [
+    /// # fn doctest() -> Result<MiniSecretKey, SignatureError> {
+    /// let secret_key_bytes: [u8; MINI_SECRET_KEY_LENGTH] = [
     ///    157, 097, 177, 157, 239, 253, 090, 096,
     ///    186, 132, 074, 244, 146, 236, 044, 196,
     ///    068, 073, 197, 105, 123, 050, 105, 025,
     ///    112, 059, 172, 003, 028, 174, 127, 096, ];
     ///
-    /// let secret_key: SecretKey = SecretKey::from_bytes(&secret_key_bytes)?;
+    /// let secret_key: MiniSecretKey = MiniSecretKey::from_bytes(&secret_key_bytes)?;
     /// #
     /// # Ok(secret_key)
     /// # }
@@ -234,21 +234,21 @@ impl SecretKey {
     ///
     /// # Returns
     ///
-    /// A `Result` whose okay value is an EdDSA `SecretKey` or whose error value
+    /// A `Result` whose okay value is an EdDSA `MiniSecretKey` or whose error value
     /// is an `SignatureError` wrapping the internal error that occurred.
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
-        if bytes.len() != SECRET_KEY_LENGTH {
+    pub fn from_bytes(bytes: &[u8]) -> Result<MiniSecretKey, SignatureError> {
+        if bytes.len() != MINI_SECRET_KEY_LENGTH {
             return Err(SignatureError(InternalError::BytesLengthError{
-                name: "SecretKey", length: SECRET_KEY_LENGTH }));
+                name: "MiniSecretKey", length: MINI_SECRET_KEY_LENGTH }));
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
 
-        Ok(SecretKey(bits))
+        Ok(MiniSecretKey(bits))
     }
 
-    /// Generate a `SecretKey` from a `csprng`.
+    /// Generate a `MiniSecretKey` from a `csprng`.
     ///
     /// # Example
     ///
@@ -264,11 +264,11 @@ impl SecretKey {
     /// use rand::OsRng;
     /// use sha2::Sha512;
     /// use ed25519_dalek::PublicKey;
-    /// use ed25519_dalek::SecretKey;
+    /// use ed25519_dalek::MiniSecretKey;
     /// use ed25519_dalek::Signature;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: SecretKey = SecretKey::generate(&mut csprng);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     /// # }
     /// #
     /// # #[cfg(not(feature = "std"))]
@@ -291,11 +291,11 @@ impl SecretKey {
     /// # use rand::SeedableRng;
     /// # use sha2::Sha512;
     /// # use ed25519_dalek::PublicKey;
-    /// # use ed25519_dalek::SecretKey;
+    /// # use ed25519_dalek::MiniSecretKey;
     /// # use ed25519_dalek::Signature;
     /// #
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-    /// # let secret_key: SecretKey = SecretKey::generate(&mut csprng);
+    /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     ///
     /// let public_key: PublicKey = PublicKey::from_secret::<Sha512>(&secret_key);
     /// # }
@@ -308,10 +308,10 @@ impl SecretKey {
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`
-    pub fn generate<T>(csprng: &mut T) -> SecretKey
+    pub fn generate<T>(csprng: &mut T) -> MiniSecretKey
         where T: CryptoRng + Rng,
     {
-        let mut sk: SecretKey = SecretKey([0u8; 32]);
+        let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
 
         csprng.fill_bytes(&mut sk.0);
 
@@ -320,36 +320,36 @@ impl SecretKey {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for SecretKey {
+impl Serialize for MiniSecretKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         serializer.serialize_bytes(self.as_bytes())
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for SecretKey {
+impl<'d> Deserialize<'d> for MiniSecretKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        struct SecretKeyVisitor;
+        struct MiniSecretKeyVisitor;
 
-        impl<'d> Visitor<'d> for SecretKeyVisitor {
-            type Value = SecretKey;
+        impl<'d> Visitor<'d> for MiniSecretKeyVisitor {
+            type Value = MiniSecretKey;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
                 formatter.write_str("An ed25519 secret key as 32 bytes, as specified in RFC8032.")
             }
 
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<SecretKey, E> where E: SerdeError {
-                SecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<MiniSecretKey, E> where E: SerdeError {
+                MiniSecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
-        deserializer.deserialize_bytes(SecretKeyVisitor)
+        deserializer.deserialize_bytes(MiniSecretKeyVisitor)
     }
 }
 
 /// An "expanded" secret key.
 ///
 /// This is produced by using an hash function with 512-bits output to digest a
-/// `SecretKey`.  The output digest is then split in half, the lower half being
+/// `MiniSecretKey`.  The output digest is then split in half, the lower half being
 /// the actual `key` used to sign messages, after twiddling with some bits.¹ The
 /// upper half is used a sort of half-baked, ill-designed² pseudo-domain-separation
 /// "nonce"-like thing, which is used during signature production by
@@ -383,13 +383,13 @@ impl<'d> Deserialize<'d> for SecretKey {
 // "generalised EdDSA" and "VXEdDSA".
 #[repr(C)]
 #[derive(Default)] // we derive Default in order to use the clear() method in Drop
-pub struct ExpandedSecretKey {
+pub struct SecretKey {
     pub (crate) key: Scalar,
     pub (crate) nonce: [u8; 32],
 }
 
 /// Overwrite secret key material with null bytes when it goes out of scope.
-impl Drop for ExpandedSecretKey {
+impl Drop for SecretKey {
     fn drop(&mut self) {
         self.key.clear();
         self.nonce.clear();
@@ -397,8 +397,8 @@ impl Drop for ExpandedSecretKey {
 }
 
 #[cfg(feature = "sha2")]
-impl<'a> From<&'a SecretKey> for ExpandedSecretKey {
-    /// Construct an `ExpandedSecretKey` from a `SecretKey`.
+impl<'a> From<&'a MiniSecretKey> for SecretKey {
+    /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
     /// # Examples
     ///
@@ -412,23 +412,23 @@ impl<'a> From<&'a SecretKey> for ExpandedSecretKey {
     /// #
     /// use rand::{Rng, OsRng};
     /// use sha2::Sha512;
-    /// use ed25519_dalek::{SecretKey, ExpandedSecretKey};
+    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: SecretKey = SecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: ExpandedSecretKey = ExpandedSecretKey::from(&secret_key);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "std"), not(feature = "sha2")))]
     /// # fn main() {}
     /// ```
-    fn from(secret_key: &'a SecretKey) -> ExpandedSecretKey {
-        ExpandedSecretKey::from_secret_key::<Sha512>(&secret_key)
+    fn from(secret_key: &'a MiniSecretKey) -> SecretKey {
+        SecretKey::from_secret_key::<Sha512>(&secret_key)
     }
 }
 
-impl ExpandedSecretKey {
-    /// Convert this `ExpandedSecretKey` into an array of 64 bytes.
+impl SecretKey {
+    /// Convert this `SecretKey` into an array of 64 bytes.
     ///
     /// # Returns
     ///
@@ -448,11 +448,11 @@ impl ExpandedSecretKey {
     /// #
     /// use rand::{Rng, OsRng};
     /// use sha2::Sha512;
-    /// use ed25519_dalek::{SecretKey, ExpandedSecretKey};
+    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: SecretKey = SecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: ExpandedSecretKey = ExpandedSecretKey::from(&secret_key);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
     /// let expanded_secret_key_bytes: [u8; 64] = expanded_secret_key.to_bytes();
     ///
     /// assert!(&expanded_secret_key_bytes[..] != &[0u8; 64][..]);
@@ -462,7 +462,7 @@ impl ExpandedSecretKey {
     /// # fn main() { }
     /// ```
     #[inline]
-    pub fn to_bytes(&self) -> [u8; EXPANDED_SECRET_KEY_LENGTH] {
+    pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
         let mut bytes: [u8; 64] = [0u8; 64];
 
         bytes[..32].copy_from_slice(self.key.as_bytes());
@@ -470,11 +470,11 @@ impl ExpandedSecretKey {
         bytes
     }
 
-    /// Construct an `ExpandedSecretKey` from a slice of bytes.
+    /// Construct an `SecretKey` from a slice of bytes.
     ///
     /// # Returns
     ///
-    /// A `Result` whose okay value is an EdDSA `ExpandedSecretKey` or whose
+    /// A `Result` whose okay value is an EdDSA `SecretKey` or whose
     /// error value is an `SignatureError` describing the error that occurred.
     ///
     /// # Examples
@@ -485,17 +485,17 @@ impl ExpandedSecretKey {
     /// # extern crate ed25519_dalek;
     /// #
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
-    /// # fn do_test() -> Result<ExpandedSecretKey, SignatureError> {
+    /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// #
     /// use rand::{Rng, OsRng};
-    /// use ed25519_dalek::{SecretKey, ExpandedSecretKey};
+    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     /// use ed25519_dalek::SignatureError;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: SecretKey = SecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: ExpandedSecretKey = ExpandedSecretKey::from(&secret_key);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
     /// let bytes: [u8; 64] = expanded_secret_key.to_bytes();
-    /// let expanded_secret_key_again = ExpandedSecretKey::from_bytes(&bytes)?;
+    /// let expanded_secret_key_again = SecretKey::from_bytes(&bytes)?;
     /// #
     /// # Ok(expanded_secret_key_again)
     /// # }
@@ -510,10 +510,10 @@ impl ExpandedSecretKey {
     /// # fn main() { }
     /// ```
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<ExpandedSecretKey, SignatureError> {
-        if bytes.len() != EXPANDED_SECRET_KEY_LENGTH {
+    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
+        if bytes.len() != SECRET_KEY_LENGTH {
             return Err(SignatureError(InternalError::BytesLengthError{
-                name: "ExpandedSecretKey", length: EXPANDED_SECRET_KEY_LENGTH }));
+                name: "SecretKey", length: SECRET_KEY_LENGTH }));
         }
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
@@ -521,13 +521,13 @@ impl ExpandedSecretKey {
         lower.copy_from_slice(&bytes[00..32]);
         upper.copy_from_slice(&bytes[32..64]);
 
-        Ok(ExpandedSecretKey{
+        Ok(SecretKey{
 			key: Scalar::from_bits(lower),
             nonce: upper  
 		})
     }
 
-    /// Construct an `ExpandedSecretKey` from a `SecretKey`, using hash function `D`.
+    /// Construct an `SecretKey` from a `MiniSecretKey`, using hash function `D`.
     ///
     /// # Examples
     ///
@@ -541,17 +541,17 @@ impl ExpandedSecretKey {
     /// #
     /// use rand::{Rng, OsRng};
     /// use sha2::Sha512;
-    /// use ed25519_dalek::{SecretKey, ExpandedSecretKey};
+    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: SecretKey = SecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: ExpandedSecretKey = ExpandedSecretKey::from_secret_key::<Sha512>(&secret_key);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let expanded_secret_key: SecretKey = SecretKey::from_secret_key::<Sha512>(&secret_key);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
     /// # fn main() { }
     /// ```
-    pub fn from_secret_key<D>(secret_key: &SecretKey) -> ExpandedSecretKey
+    pub fn from_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
             where D: Digest<OutputSize = U64> + Default {
         let mut h: D = D::default();
         let mut lower: [u8; 32] = [0u8; 32];
@@ -564,10 +564,10 @@ impl ExpandedSecretKey {
         upper.copy_from_slice(&r.as_slice()[32..64]);
 
 		// No clamping in a Schnorr group
-        ExpandedSecretKey{ key: Scalar::from_bits(lower), nonce: upper, }
+        SecretKey{ key: Scalar::from_bits(lower), nonce: upper, }
     }
 
-    /// Sign a message with this `ExpandedSecretKey`.
+    /// Sign a message with this `SecretKey`.
     #[allow(non_snake_case)]
     pub fn sign<D>(&self, message: &[u8], public_key: &PublicKey) -> Signature
             where D: Digest<OutputSize = U64> + Default {
@@ -594,7 +594,7 @@ impl ExpandedSecretKey {
         Signature{ R, s }
     }
 
-    /// Sign a `prehashed_message` with this `ExpandedSecretKey` using the
+    /// Sign a `prehashed_message` with this `SecretKey` using the
     /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
     ///
     /// # Inputs
@@ -676,29 +676,29 @@ impl ExpandedSecretKey {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for ExpandedSecretKey {
+impl Serialize for SecretKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         serializer.serialize_bytes(&self.to_bytes()[..])
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for ExpandedSecretKey {
+impl<'d> Deserialize<'d> for SecretKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        struct ExpandedSecretKeyVisitor;
+        struct SecretKeyVisitor;
 
-        impl<'d> Visitor<'d> for ExpandedSecretKeyVisitor {
-            type Value = ExpandedSecretKey;
+        impl<'d> Visitor<'d> for SecretKeyVisitor {
+            type Value = SecretKey;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
                 formatter.write_str("An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.")
             }
 
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<ExpandedSecretKey, E> where E: SerdeError {
-                ExpandedSecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<SecretKey, E> where E: SerdeError {
+                SecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
-        deserializer.deserialize_bytes(ExpandedSecretKeyVisitor)
+        deserializer.deserialize_bytes(SecretKeyVisitor)
     }
 }
 
@@ -774,16 +774,16 @@ impl PublicKey {
         Ok(PublicKey(CompressedRistretto(bits)))
     }
 
-    /// Derive this public key from its corresponding `SecretKey`.
+    /// Derive this public key from its corresponding `MiniSecretKey`.
     #[allow(unused_assignments)]
-    pub fn from_secret<D>(secret_key: &SecretKey) -> PublicKey
+    pub fn from_secret<D>(secret_key: &MiniSecretKey) -> PublicKey
         where D: Digest<OutputSize = U64> + Default
     {
-		PublicKey::from_expanded_secret(& ExpandedSecretKey::from_secret_key::<D>(secret_key))
+		PublicKey::from_expanded_secret(& SecretKey::from_secret_key::<D>(secret_key))
     }
 
-    /// Derive this public key from its corresponding `ExpandedSecretKey`.
-    pub fn from_expanded_secret(expanded_secret_key: &ExpandedSecretKey) -> PublicKey {
+    /// Derive this public key from its corresponding `SecretKey`.
+    pub fn from_expanded_secret(expanded_secret_key: &SecretKey) -> PublicKey {
 		// No clamping in a Schnorr group
         let pk = (&expanded_secret_key.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
         PublicKey(CompressedRistretto(pk))
@@ -877,8 +877,8 @@ impl PublicKey {
     }
 }
 
-impl From<ExpandedSecretKey> for PublicKey {
-    fn from(source: ExpandedSecretKey) -> PublicKey {
+impl From<SecretKey> for PublicKey {
+    fn from(source: SecretKey) -> PublicKey {
         PublicKey::from_expanded_secret(&source)
     }
 }
@@ -1029,7 +1029,7 @@ impl<'d> Deserialize<'d> for PublicKey {
 #[repr(C)]
 pub struct Keypair {
     /// The secret half of this keypair.
-    pub secret: SecretKey,
+    pub secret: MiniSecretKey,
     /// The public half of this keypair.
     pub public: PublicKey,
 }
@@ -1040,19 +1040,19 @@ impl Keypair {
     /// # Returns
     ///
     /// An array of bytes, `[u8; KEYPAIR_LENGTH]`.  The first
-    /// `SECRET_KEY_LENGTH` of bytes is the `SecretKey`, and the next
+    /// `MINI_SECRET_KEY_LENGTH` of bytes is the `MiniSecretKey`, and the next
     /// `PUBLIC_KEY_LENGTH` bytes is the `PublicKey` (the same as other
     /// libraries, such as [Adam Langley's ed25519 Golang
     /// implementation](https://github.com/agl/ed25519/)).
     pub fn to_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
 
-        bytes[..SECRET_KEY_LENGTH].copy_from_slice(self.secret.as_bytes());
-        bytes[SECRET_KEY_LENGTH..].copy_from_slice(self.public.as_bytes());
+        bytes[..MINI_SECRET_KEY_LENGTH].copy_from_slice(self.secret.as_bytes());
+        bytes[MINI_SECRET_KEY_LENGTH..].copy_from_slice(self.public.as_bytes());
         bytes
     }
 
-    /// Construct a `Keypair` from the bytes of a `PublicKey` and `SecretKey`.
+    /// Construct a `Keypair` from the bytes of a `PublicKey` and `MiniSecretKey`.
     ///
     /// # Inputs
     ///
@@ -1076,8 +1076,8 @@ impl Keypair {
             return Err(SignatureError(InternalError::BytesLengthError{
                 name: "Keypair", length: KEYPAIR_LENGTH}));
         }
-        let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
-        let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
+        let secret = MiniSecretKey::from_bytes(&bytes[..MINI_SECRET_KEY_LENGTH])?;
+        let public = PublicKey::from_bytes(&bytes[MINI_SECRET_KEY_LENGTH..])?;
 
         Ok(Keypair{ secret: secret, public: public })
     }
@@ -1122,7 +1122,7 @@ impl Keypair {
         where D: Digest<OutputSize = U64> + Default,
               R: CryptoRng + Rng,
     {
-        let sk: SecretKey = SecretKey::generate(csprng);
+        let sk: MiniSecretKey = MiniSecretKey::generate(csprng);
         let pk: PublicKey = PublicKey::from_secret::<D>(&sk);
 
         Keypair{ public: pk, secret: sk }
@@ -1334,8 +1334,8 @@ impl<'d> Deserialize<'d> for Keypair {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
-                let secret_key = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]);
-                let public_key = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]);
+                let secret_key = MiniSecretKey::from_bytes(&bytes[..MINI_SECRET_KEY_LENGTH]);
+                let public_key = PublicKey::from_bytes(&bytes[MINI_SECRET_KEY_LENGTH..]);
 
                 if secret_key.is_ok() && public_key.is_ok() {
                     Ok(Keypair{ secret: secret_key.unwrap(), public: public_key.unwrap() })
@@ -1371,7 +1371,7 @@ mod test {
         160, 083, 172, 058, 219, 042, 086, 120, ]));
 
     #[cfg(all(test, feature = "serde"))]
-    static SECRET_KEY: SecretKey = SecretKey([
+    static SECRET_KEY: MiniSecretKey = MiniSecretKey([
         062, 070, 027, 163, 092, 182, 011, 003,
         077, 234, 098, 004, 011, 127, 079, 228,
         243, 187, 150, 073, 201, 137, 076, 022,
@@ -1445,7 +1445,7 @@ mod test {
             let msg_bytes: Vec<u8> = FromHex::from_hex(&parts[2]).unwrap();
             let sig_bytes: Vec<u8> = FromHex::from_hex(&parts[3]).unwrap();
 
-            let secret: SecretKey = SecretKey::from_bytes(&sec_bytes[..SECRET_KEY_LENGTH]).unwrap();
+            let secret: MiniSecretKey = MiniSecretKey::from_bytes(&sec_bytes[..MINI_SECRET_KEY_LENGTH]).unwrap();
             let public: PublicKey = PublicKey::from_bytes(&pub_bytes[..PUBLIC_KEY_LENGTH]).unwrap();
             let keypair: Keypair  = Keypair{ secret: secret, public: public };
 
@@ -1473,7 +1473,7 @@ mod test {
         let msg_bytes: Vec<u8> = FromHex::from_hex(message).unwrap();
         let sig_bytes: Vec<u8> = FromHex::from_hex(signature).unwrap();
 
-        let secret: SecretKey = SecretKey::from_bytes(&sec_bytes[..SECRET_KEY_LENGTH]).unwrap();
+        let secret: MiniSecretKey = MiniSecretKey::from_bytes(&sec_bytes[..MINI_SECRET_KEY_LENGTH]).unwrap();
         let public: PublicKey = PublicKey::from_bytes(&pub_bytes[..PUBLIC_KEY_LENGTH]).unwrap();
         let keypair: Keypair  = Keypair{ secret: secret, public: public };
         let sig1: Signature = Signature::from_bytes(&sig_bytes[..]).unwrap();
@@ -1600,8 +1600,8 @@ mod test {
     #[test]
     fn pubkey_from_secret_and_expanded_secret() {
         let mut csprng = thread_rng();
-        let secret: SecretKey = SecretKey::generate::<_>(&mut csprng);
-        let expanded_secret: ExpandedSecretKey = ExpandedSecretKey::from_secret_key::<Sha512>(&secret);
+        let secret: MiniSecretKey = MiniSecretKey::generate::<_>(&mut csprng);
+        let expanded_secret: SecretKey = SecretKey::from_secret_key::<Sha512>(&secret);
         let public_from_secret: PublicKey = PublicKey::from_secret::<Sha512>(&secret);
         let public_from_expanded_secret: PublicKey = PublicKey::from_expanded_secret(&expanded_secret);
 
@@ -1634,7 +1634,7 @@ mod test {
     #[test]
     fn serialize_deserialize_secret_key() {
         let encoded_secret_key: Vec<u8> = serialize(&SECRET_KEY, Infinite).unwrap();
-        let decoded_secret_key: SecretKey = deserialize(&encoded_secret_key).unwrap();
+        let decoded_secret_key: MiniSecretKey = deserialize(&encoded_secret_key).unwrap();
 
         for i in 0..32 {
             assert_eq!(SECRET_KEY.0[i], decoded_secret_key.0[i]);

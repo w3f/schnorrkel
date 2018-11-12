@@ -17,7 +17,7 @@ use criterion::Criterion;
 
 mod ed25519_benches {
     use super::*;
-    use ed25519_dalek::ExpandedSecretKey;
+    use ed25519_dalek::SecretKey;
     use ed25519_dalek::Keypair;
     use ed25519_dalek::PublicKey;
     use ed25519_dalek::Signature;
@@ -39,7 +39,7 @@ mod ed25519_benches {
     fn sign_expanded_key(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
         let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
-        let expanded: ExpandedSecretKey = keypair.secret.expand::<Sha512>();
+        let expanded: SecretKey = keypair.secret.expand::<Sha512>();
         let msg: &[u8] = b"";
         
         c.bench_function("Ed25519 signing with an expanded secret key", move |b| {
