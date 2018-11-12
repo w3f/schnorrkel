@@ -521,8 +521,10 @@ impl ExpandedSecretKey {
         lower.copy_from_slice(&bytes[00..32]);
         upper.copy_from_slice(&bytes[32..64]);
 
-        Ok(ExpandedSecretKey{ key:   Scalar::from_bits(lower),
-                              nonce:                   upper  })
+        Ok(ExpandedSecretKey{
+			key: Scalar::from_bits(lower),
+            nonce: upper  
+		})
     }
 
     /// Construct an `ExpandedSecretKey` from a `SecretKey`, using hash function `D`.
@@ -552,20 +554,16 @@ impl ExpandedSecretKey {
     pub fn from_secret_key<D>(secret_key: &SecretKey) -> ExpandedSecretKey
             where D: Digest<OutputSize = U64> + Default {
         let mut h: D = D::default();
-        let mut hash:  [u8; 64] = [0u8; 64];
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
 
         h.input(secret_key.as_bytes());
-        hash.copy_from_slice(h.result().as_slice());
+        let r = h.result();
 
-        lower.copy_from_slice(&hash[00..32]);
-        upper.copy_from_slice(&hash[32..64]);
+        lower.copy_from_slice(&r.as_slice()[00..32]);
+        upper.copy_from_slice(&r.as_slice()[32..64]);
 
-        lower[0]  &= 248;
-        lower[31] &=  63;
-        lower[31] |=  64;
-
+		// No clamping in a Schnorr group
         ExpandedSecretKey{ key: Scalar::from_bits(lower), nonce: upper, }
     }
 
@@ -781,35 +779,13 @@ impl PublicKey {
     pub fn from_secret<D>(secret_key: &SecretKey) -> PublicKey
         where D: Digest<OutputSize = U64> + Default
     {
-        let mut h:    D = D::default();
-        let mut hash:   [u8; 64] = [0u8; 64];
-        let mut digest: [u8; 32] = [0u8; 32];
-
-        h.input(secret_key.as_bytes());
-        hash.copy_from_slice(h.result().as_slice());
-
-        digest.copy_from_slice(&hash[..32]);
-
-        PublicKey::mangle_scalar_bits_and_multiply_by_basepoint_to_produce_public_key(&mut digest)
+		PublicKey::from_expanded_secret(& ExpandedSecretKey::from_secret_key::<D>(secret_key))
     }
 
     /// Derive this public key from its corresponding `ExpandedSecretKey`.
     pub fn from_expanded_secret(expanded_secret_key: &ExpandedSecretKey) -> PublicKey {
-        let mut bits: [u8; 32] = expanded_secret_key.key.to_bytes();
-
-        PublicKey::mangle_scalar_bits_and_multiply_by_basepoint_to_produce_public_key(&mut bits)
-    }
-
-    /// Internal utility function for mangling the bits of a (formerly
-    /// mathematically well-defined) "scalar" and multiplying it to produce a
-    /// public key.
-    fn mangle_scalar_bits_and_multiply_by_basepoint_to_produce_public_key(bits: &mut [u8; 32]) -> PublicKey {
-        bits[0]  &= 248;
-        bits[31] &= 127;
-        bits[31] |= 64;
-
-        let pk = (&Scalar::from_bits(*bits) * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
-
+		// No clamping in a Schnorr group
+        let pk = (&expanded_secret_key.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
         PublicKey(CompressedRistretto(pk))
     }
 
