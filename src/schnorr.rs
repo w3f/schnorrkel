@@ -50,9 +50,6 @@ pub const MINI_SECRET_KEY_LENGTH: usize = 32;
 /// The length of an ed25519 EdDSA `PublicKey`, in bytes.
 pub const PUBLIC_KEY_LENGTH: usize = 32;
 
-/// The length of an ed25519 EdDSA `Keypair`, in bytes.
-pub const KEYPAIR_LENGTH: usize = MINI_SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
-
 /// The length of the "key" portion of an "expanded" curve25519 EdDSA secret key, in bytes.
 const SECRET_KEY_KEY_LENGTH: usize = 32;
 
@@ -61,6 +58,9 @@ const SECRET_KEY_NONCE_LENGTH: usize = 32;
 
 /// The length of an "expanded" curve25519 EdDSA key, `SecretKey`, in bytes.
 pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LENGTH;
+
+/// The length of an ed25519 EdDSA `Keypair`, in bytes.
+pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
 /// An EdDSA signature.
 ///
@@ -386,6 +386,12 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 pub struct SecretKey {
     pub (crate) key: Scalar,
     pub (crate) nonce: [u8; 32],
+}
+
+impl Debug for SecretKey {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "SecretKey {{ key: {:?} nonce: {:?} }}", &self.key, &self.nonce)
+    }
 }
 
 /// Overwrite secret key material with null bytes when it goes out of scope.
@@ -1029,7 +1035,7 @@ impl<'d> Deserialize<'d> for PublicKey {
 #[repr(C)]
 pub struct Keypair {
     /// The secret half of this keypair.
-    pub secret: MiniSecretKey,
+    pub secret: SecretKey,
     /// The public half of this keypair.
     pub public: PublicKey,
 }
@@ -1047,8 +1053,8 @@ impl Keypair {
     pub fn to_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
 
-        bytes[..MINI_SECRET_KEY_LENGTH].copy_from_slice(self.secret.as_bytes());
-        bytes[MINI_SECRET_KEY_LENGTH..].copy_from_slice(self.public.as_bytes());
+        bytes[..SECRET_KEY_LENGTH].copy_from_slice(& self.secret.to_bytes());
+        bytes[SECRET_KEY_LENGTH..].copy_from_slice(self.public.as_bytes());
         bytes
     }
 
@@ -1076,8 +1082,8 @@ impl Keypair {
             return Err(SignatureError(InternalError::BytesLengthError{
                 name: "Keypair", length: KEYPAIR_LENGTH}));
         }
-        let secret = MiniSecretKey::from_bytes(&bytes[..MINI_SECRET_KEY_LENGTH])?;
-        let public = PublicKey::from_bytes(&bytes[MINI_SECRET_KEY_LENGTH..])?;
+        let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
+        let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
 
         Ok(Keypair{ secret: secret, public: public })
     }
@@ -1122,16 +1128,17 @@ impl Keypair {
         where D: Digest<OutputSize = U64> + Default,
               R: CryptoRng + Rng,
     {
-        let sk: MiniSecretKey = MiniSecretKey::generate(csprng);
-        let pk: PublicKey = PublicKey::from_secret::<D>(&sk);
+        let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
+		let secret: SecretKey = msk.expand::<D>();
+        let public: PublicKey = PublicKey::from_expanded_secret(&secret);
 
-        Keypair{ public: pk, secret: sk }
+        Keypair{ public, secret }
     }
 
     /// Sign a message with this keypair's secret key.
     pub fn sign<D>(&self, message: &[u8]) -> Signature
             where D: Digest<OutputSize = U64> + Default {
-        self.secret.expand::<D>().sign::<D>(&message, &self.public)
+        self.secret.sign::<D>(&message, &self.public)
     }
 
     /// Sign a `prehashed_message` with this `Keypair` using the
@@ -1235,7 +1242,7 @@ impl Keypair {
                              context: Option<&'static [u8]>) -> Signature
         where D: Digest<OutputSize = U64> + Default
     {
-        self.secret.expand::<D>().sign_prehashed::<D>(prehashed_message, &self.public, context)
+        self.secret.sign_prehashed::<D>(prehashed_message, &self.public, context)
     }
 
     /// Verify a signature on a message with this keypair's public key.
@@ -1334,8 +1341,8 @@ impl<'d> Deserialize<'d> for Keypair {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
-                let secret_key = MiniSecretKey::from_bytes(&bytes[..MINI_SECRET_KEY_LENGTH]);
-                let public_key = PublicKey::from_bytes(&bytes[MINI_SECRET_KEY_LENGTH..]);
+                let secret_key = ecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]);
+                let public_key = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]);
 
                 if secret_key.is_ok() && public_key.is_ok() {
                     Ok(Keypair{ secret: secret_key.unwrap(), public: public_key.unwrap() })

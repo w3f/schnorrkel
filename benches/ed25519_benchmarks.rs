@@ -26,6 +26,8 @@ mod ed25519_benches {
     use rand::ThreadRng;
     use sha2::Sha512;
 
+    // TODO: fn sign_mini(c: &mut Criterion)
+
     fn sign(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
         let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
@@ -33,17 +35,6 @@ mod ed25519_benches {
 
         c.bench_function("Ed25519 signing", move |b| {
                          b.iter(| | keypair.sign::<Sha512>(msg))
-        });
-    }
-
-    fn sign_expanded_key(c: &mut Criterion) {
-        let mut csprng: ThreadRng = thread_rng();
-        let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
-        let expanded: SecretKey = keypair.secret.expand::<Sha512>();
-        let msg: &[u8] = b"";
-        
-        c.bench_function("Ed25519 signing with an expanded secret key", move |b| {
-                         b.iter(| | expanded.sign::<Sha512>(msg, &keypair.public))
         });
     }
 
@@ -90,7 +81,6 @@ mod ed25519_benches {
         config = Criterion::default();
         targets =
             sign,
-            sign_expanded_key,
             verify,
             verify_batch_signatures,
             key_generation,
