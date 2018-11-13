@@ -188,7 +188,7 @@ impl MiniSecretKey {
     pub fn expand<D>(&self) -> SecretKey
         where D: Digest<OutputSize = U64> + Default
     {
-        SecretKey::from_secret_key::<D>(&self)
+        SecretKey::from_mini_secret_key::<D>(&self)
     }
 
     /// Convert this secret key to a byte array.
@@ -297,7 +297,7 @@ impl MiniSecretKey {
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     ///
-    /// let public_key: PublicKey = PublicKey::from_secret::<Sha512>(&secret_key);
+    /// let public_key: PublicKey = PublicKey::from_mini_secret::<Sha512>(&secret_key);
     /// # }
     /// ```
     ///
@@ -421,15 +421,15 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "std"), not(feature = "sha2")))]
     /// # fn main() {}
     /// ```
     fn from(secret_key: &'a MiniSecretKey) -> SecretKey {
-        SecretKey::from_secret_key::<Sha512>(&secret_key)
+        SecretKey::from_mini_secret_key::<Sha512>(&secret_key)
     }
 }
 
@@ -457,11 +457,11 @@ impl SecretKey {
     /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
-    /// let expanded_secret_key_bytes: [u8; 64] = expanded_secret_key.to_bytes();
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
+    /// let secret_key_bytes: [u8; 64] = secret_key.to_bytes();
     ///
-    /// assert!(&expanded_secret_key_bytes[..] != &[0u8; 64][..]);
+    /// assert!(&secret_key_bytes[..] != &[0u8; 64][..]);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
@@ -498,12 +498,12 @@ impl SecretKey {
     /// use ed25519_dalek::SignatureError;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: SecretKey = SecretKey::from(&secret_key);
-    /// let bytes: [u8; 64] = expanded_secret_key.to_bytes();
-    /// let expanded_secret_key_again = SecretKey::from_bytes(&bytes)?;
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
+    /// let bytes: [u8; 64] = secret_key.to_bytes();
+    /// let secret_key_again = SecretKey::from_bytes(&bytes)?;
     /// #
-    /// # Ok(expanded_secret_key_again)
+    /// # Ok(secret_key_again)
     /// # }
     /// #
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
@@ -550,14 +550,14 @@ impl SecretKey {
     /// use ed25519_dalek::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let expanded_secret_key: SecretKey = SecretKey::from_secret_key::<Sha512>(&secret_key);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: SecretKey = SecretKey::from_mini_secret_key::<Sha512>(&mini_secret_key);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
     /// # fn main() { }
     /// ```
-    pub fn from_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
+    pub fn from_mini_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
             where D: Digest<OutputSize = U64> + Default {
         let mut h: D = D::default();
         let mut lower: [u8; 32] = [0u8; 32];
@@ -781,17 +781,16 @@ impl PublicKey {
     }
 
     /// Derive this public key from its corresponding `MiniSecretKey`.
-    #[allow(unused_assignments)]
-    pub fn from_secret<D>(secret_key: &MiniSecretKey) -> PublicKey
+    pub fn from_mini_secret<D>(secret_key: &MiniSecretKey) -> PublicKey
         where D: Digest<OutputSize = U64> + Default
     {
-		PublicKey::from_expanded_secret(& SecretKey::from_secret_key::<D>(secret_key))
+		PublicKey::from_secret(& SecretKey::from_mini_secret_key::<D>(secret_key))
     }
 
     /// Derive this public key from its corresponding `SecretKey`.
-    pub fn from_expanded_secret(expanded_secret_key: &SecretKey) -> PublicKey {
+    pub fn from_secret(secret_key: &SecretKey) -> PublicKey {
 		// No clamping in a Schnorr group
-        let pk = (&expanded_secret_key.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
+        let pk = (&secret_key.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
         PublicKey(CompressedRistretto(pk))
     }
 
@@ -885,7 +884,7 @@ impl PublicKey {
 
 impl From<SecretKey> for PublicKey {
     fn from(source: SecretKey) -> PublicKey {
-        PublicKey::from_expanded_secret(&source)
+        PublicKey::from_secret(&source)
     }
 }
 
@@ -1130,7 +1129,7 @@ impl Keypair {
     {
         let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
 		let secret: SecretKey = msk.expand::<D>();
-        let public: PublicKey = PublicKey::from_expanded_secret(&secret);
+        let public: PublicKey = PublicKey::from_secret(&secret);
 
         Keypair{ public, secret }
     }
@@ -1605,14 +1604,14 @@ mod test {
     }
 
     #[test]
-    fn pubkey_from_secret_and_expanded_secret() {
+    fn pubkey_from_mini_secret_and_expanded_secret() {
         let mut csprng = thread_rng();
-        let secret: MiniSecretKey = MiniSecretKey::generate::<_>(&mut csprng);
-        let expanded_secret: SecretKey = SecretKey::from_secret_key::<Sha512>(&secret);
-        let public_from_secret: PublicKey = PublicKey::from_secret::<Sha512>(&secret);
-        let public_from_expanded_secret: PublicKey = PublicKey::from_expanded_secret(&expanded_secret);
+        let mini_secret: MiniSecretKey = MiniSecretKey::generate::<_>(&mut csprng);
+        let secret: SecretKey = SecretKey::from_mini_secret_key::<Sha512>(&mini_secret);
+        let public_from_mini_secret: PublicKey = PublicKey::from_mini_secret::<Sha512>(&mini_secret);
+        let public_from_secret: PublicKey = PublicKey::from_secret(&secret);
 
-        assert!(public_from_secret == public_from_expanded_secret);
+        assert!(public_from_mini_secret == public_from_secret);
     }
 
     #[cfg(all(test, feature = "serde"))]
