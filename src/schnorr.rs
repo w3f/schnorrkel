@@ -186,7 +186,7 @@ impl Drop for MiniSecretKey {
 impl MiniSecretKey {
     /// Expand this `MiniSecretKey` into an `SecretKey`.
     pub fn expand<D>(&self) -> SecretKey
-        where D: Digest<OutputSize = U64> + Default
+        where D: Digest<OutputSize = U64> + Default + Clone
     {
         SecretKey::from_mini_secret_key::<D>(&self)
     }
@@ -558,19 +558,25 @@ impl SecretKey {
     /// # fn main() { }
     /// ```
     pub fn from_mini_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
-            where D: Digest<OutputSize = U64> + Default {
+            where D: Digest<OutputSize = U64> + Default + Clone {
         let mut h: D = D::default();
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
 
         h.input(secret_key.as_bytes());
-        let r = h.result();
+        let r_seed = h.clone().result();
 
-        lower.copy_from_slice(&r.as_slice()[00..32]);
-        upper.copy_from_slice(&r.as_slice()[32..64]);
+        lower.copy_from_slice(&r_seed.as_slice()[00..32]);
+        upper.copy_from_slice(&r_seed.as_slice()[32..64]);
 
 		// No clamping in a Schnorr group
-        SecretKey{ key: Scalar::from_bits(lower), nonce: upper, }
+		let mut key = [0u8; 64];
+		h.input(&lower);
+		let r_key = h.result();
+		key.copy_from_slice(&r_key.as_slice()[00..64]);
+		let key = Scalar::from_bytes_mod_order_wide(&key);
+		
+        SecretKey{ key, nonce: upper, }
     }
 
     /// Sign a message with this `SecretKey`.
@@ -782,7 +788,7 @@ impl PublicKey {
 
     /// Derive this public key from its corresponding `MiniSecretKey`.
     pub fn from_mini_secret<D>(secret_key: &MiniSecretKey) -> PublicKey
-        where D: Digest<OutputSize = U64> + Default
+        where D: Digest<OutputSize = U64> + Default + Clone
     {
 		PublicKey::from_secret(& SecretKey::from_mini_secret_key::<D>(secret_key))
     }
@@ -1124,7 +1130,7 @@ impl Keypair {
     /// which is available with `use sha2::Sha512` as in the example above.
     /// Other suitable hash functions include Keccak-512 and Blake2b-512.
     pub fn generate<D, R>(csprng: &mut R) -> Keypair
-        where D: Digest<OutputSize = U64> + Default,
+        where D: Digest<OutputSize = U64> + Default + Clone,
               R: CryptoRng + Rng,
     {
         let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
