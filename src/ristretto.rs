@@ -167,7 +167,7 @@ impl<'d> Deserialize<'d> for Signature {
 
 /// An EdDSA secret key.
 #[repr(C)]
-#[derive(Default)] // we derive Default in order to use the clear() method in Drop
+#[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
 impl Debug for MiniSecretKey {
@@ -432,7 +432,7 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 // better-designed, Schnorr-based signature scheme, see Trevor Perrin's work on
 // "generalised EdDSA" and "VXEdDSA".
 #[repr(C)]
-#[derive(Default)] // we derive Default in order to use the clear() method in Drop
+#[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct SecretKey {
     pub (crate) key: Scalar,
     pub (crate) nonce: [u8; 32],
@@ -484,17 +484,6 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
 }
 
 impl SecretKey {
-	/// Duplicate a `SecretKey`
-	///
-	/// We do not derive `Clone` for `SecretKey` because neitehr does `ed25519-dalek`,
-	/// but neither should users be left to serialize and deserialize to emulate cloning.
-	fn clone(&self) -> SecretKey {
-		SecretKey{
-			key: self.key.clone(),
-			nonce: self.nonce.clone(),
-		}
-	}
-
     /// Convert this `SecretKey` into an array of 64 bytes.
     ///
     /// # Returns
