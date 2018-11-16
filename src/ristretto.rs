@@ -184,11 +184,54 @@ impl Drop for MiniSecretKey {
 }
 
 impl MiniSecretKey {
-    /// Expand this `MiniSecretKey` into an `SecretKey`.
+    /// Expand this `MiniSecretKey` into a `SecretKey`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate rand;
+    /// # extern crate sha2;
+    /// # extern crate ed25519_dalek;
+    /// #
+    /// # #[cfg(all(feature = "std", feature = "sha2"))]
+    /// # fn main() {
+    /// #
+    /// use rand::{Rng, OsRng};
+    /// use sha2::Sha512;
+    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
+    ///
+    /// let mut csprng: OsRng = OsRng::new().unwrap();
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: SecretKey = mini_secret_key.expand::<Sha512>();
+    /// # }
+    /// #
+    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
+    /// # fn main() { }
+    /// ```
     pub fn expand<D>(&self) -> SecretKey
         where D: Digest<OutputSize = U64> + Default + Clone
     {
-        SecretKey::from_mini_secret_key::<D>(&self)
+        let mut h: D = D::default();
+        h.input(self.as_bytes());
+        let r_seed = h.clone().result();
+        let mut nonce = [0u8; 32];
+        nonce.copy_from_slice(&r_seed.as_slice()[00..32]);  // Ignore [32..64]
+
+		// No clamping in a Schnorr group
+		let mut key = [0u8; 64];
+		h.input(self.as_bytes());
+		let r_key = h.result();
+		key.copy_from_slice(&r_key.as_slice()[00..64]);
+		let key = Scalar::from_bytes_mod_order_wide(&key);
+		
+        SecretKey{ key, nonce }
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    pub fn expand_to_public<D>(&self) -> PublicKey
+        where D: Digest<OutputSize = U64> + Default + Clone
+    {
+		self.expand::<D>().to_public()
     }
 
     /// Convert this secret key to a byte array.
@@ -297,7 +340,7 @@ impl MiniSecretKey {
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     ///
-    /// let public_key: PublicKey = PublicKey::from_mini_secret::<Sha512>(&secret_key);
+    /// let public_key: PublicKey = secret_key.expand_to_public::<Sha512>();
     /// # }
     /// ```
     ///
@@ -429,7 +472,7 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// # fn main() {}
     /// ```
     fn from(secret_key: &'a MiniSecretKey) -> SecretKey {
-        SecretKey::from_mini_secret_key::<Sha512>(&secret_key)
+		secret_key.expand::<Sha512>()
     }
 }
 
@@ -533,46 +576,11 @@ impl SecretKey {
 		})
     }
 
-    /// Construct an `SecretKey` from a `MiniSecretKey`, using hash function `D`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # extern crate rand;
-    /// # extern crate sha2;
-    /// # extern crate ed25519_dalek;
-    /// #
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
-    /// # fn main() {
-    /// #
-    /// use rand::{Rng, OsRng};
-    /// use sha2::Sha512;
-    /// use ed25519_dalek::{MiniSecretKey, SecretKey};
-    ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let secret_key: SecretKey = SecretKey::from_mini_secret_key::<Sha512>(&mini_secret_key);
-    /// # }
-    /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
-    /// # fn main() { }
-    /// ```
-    pub fn from_mini_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
-            where D: Digest<OutputSize = U64> + Default + Clone {
-        let mut h: D = D::default();
-        h.input(secret_key.as_bytes());
-        let r_seed = h.clone().result();
-        let mut nonce = [0u8; 32];
-        nonce.copy_from_slice(&r_seed.as_slice()[00..32]);  // Ignore [32..64]
-
+    /// Derive the `PublicKey` corresponding to this `SecretKey`.
+    pub fn to_public(&self) -> PublicKey {
 		// No clamping in a Schnorr group
-		let mut key = [0u8; 64];
-		h.input(secret_key.as_bytes());
-		let r_key = h.result();
-		key.copy_from_slice(&r_key.as_slice()[00..64]);
-		let key = Scalar::from_bytes_mod_order_wide(&key);
-		
-        SecretKey{ key, nonce }
+        let pk = (&self.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
+        PublicKey(CompressedRistretto(pk))
     }
 
     /// Sign a message with this `SecretKey`.
@@ -782,20 +790,6 @@ impl PublicKey {
         Ok(PublicKey(CompressedRistretto(bits)))
     }
 
-    /// Derive this public key from its corresponding `MiniSecretKey`.
-    pub fn from_mini_secret<D>(secret_key: &MiniSecretKey) -> PublicKey
-        where D: Digest<OutputSize = U64> + Default + Clone
-    {
-		PublicKey::from_secret(& SecretKey::from_mini_secret_key::<D>(secret_key))
-    }
-
-    /// Derive this public key from its corresponding `SecretKey`.
-    pub fn from_secret(secret_key: &SecretKey) -> PublicKey {
-		// No clamping in a Schnorr group
-        let pk = (&secret_key.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
-        PublicKey(CompressedRistretto(pk))
-    }
-
     /// Verify a signature on a message with this keypair's public key.
     ///
     /// # Return
@@ -886,7 +880,7 @@ impl PublicKey {
 
 impl From<SecretKey> for PublicKey {
     fn from(source: SecretKey) -> PublicKey {
-        PublicKey::from_secret(&source)
+		source.to_public()
     }
 }
 
@@ -1131,7 +1125,7 @@ impl Keypair {
     {
         let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
 		let secret: SecretKey = msk.expand::<D>();
-        let public: PublicKey = PublicKey::from_secret(&secret);
+        let public: PublicKey = secret.to_public();
 
         Keypair{ public, secret }
     }
@@ -1609,9 +1603,9 @@ mod test {
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mut csprng = thread_rng();
         let mini_secret: MiniSecretKey = MiniSecretKey::generate::<_>(&mut csprng);
-        let secret: SecretKey = SecretKey::from_mini_secret_key::<Sha512>(&mini_secret);
-        let public_from_mini_secret: PublicKey = PublicKey::from_mini_secret::<Sha512>(&mini_secret);
-        let public_from_secret: PublicKey = PublicKey::from_secret(&secret);
+        let secret: SecretKey = mini_secret.expand::<Sha512>();
+        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public::<Sha512>();
+        let public_from_secret: PublicKey = secret.to_public();
 
         assert!(public_from_mini_secret == public_from_secret);
     }
