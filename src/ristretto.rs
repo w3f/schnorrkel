@@ -560,23 +560,19 @@ impl SecretKey {
     pub fn from_mini_secret_key<D>(secret_key: &MiniSecretKey) -> SecretKey
             where D: Digest<OutputSize = U64> + Default + Clone {
         let mut h: D = D::default();
-        let mut lower: [u8; 32] = [0u8; 32];
-        let mut upper: [u8; 32] = [0u8; 32];
-
         h.input(secret_key.as_bytes());
         let r_seed = h.clone().result();
-
-        lower.copy_from_slice(&r_seed.as_slice()[00..32]);
-        upper.copy_from_slice(&r_seed.as_slice()[32..64]);
+        let mut nonce = [0u8; 32];
+        nonce.copy_from_slice(&r_seed.as_slice()[00..32]);  // Ignore [32..64]
 
 		// No clamping in a Schnorr group
 		let mut key = [0u8; 64];
-		h.input(&lower);
+		h.input(secret_key.as_bytes());
 		let r_key = h.result();
 		key.copy_from_slice(&r_key.as_slice()[00..64]);
 		let key = Scalar::from_bytes_mod_order_wide(&key);
 		
-        SecretKey{ key, nonce: upper, }
+        SecretKey{ key, nonce }
     }
 
     /// Sign a message with this `SecretKey`.
