@@ -434,7 +434,12 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 #[repr(C)]
 #[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct SecretKey {
+    /// Actual public key represented as a scalar.
     pub (crate) key: Scalar,
+    /// Seed for deriving the nonces used in signing.
+	///
+	/// We require this be random and secret or else key compromise attacks will ensue.
+	/// Any modificaiton here may dirupt some non-public key derivation techniques.
     pub (crate) nonce: [u8; 32],
 }
 
