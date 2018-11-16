@@ -484,6 +484,17 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
 }
 
 impl SecretKey {
+	/// Duplicate a `SecretKey`
+	///
+	/// We do not derive `Clone` for `SecretKey` because neitehr does `ed25519-dalek`,
+	/// but neither should users be left to serialize and deserialize to emulate cloning.
+	fn clone(&self) -> SecretKey {
+		SecretKey{
+			key: self.key.clone(),
+			nonce: self.nonce.clone(),
+		}
+	}
+
     /// Convert this `SecretKey` into an array of 64 bytes.
     ///
     /// # Returns
