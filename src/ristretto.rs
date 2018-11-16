@@ -228,6 +228,13 @@ impl MiniSecretKey {
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    pub fn expand_to_keypair<D>(&self) -> Keypair
+        where D: Digest<OutputSize = U64> + Default + Clone
+    {
+		self.expand::<D>().into()
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
     pub fn expand_to_public<D>(&self) -> PublicKey
         where D: Digest<OutputSize = U64> + Default + Clone
     {
@@ -1033,6 +1040,13 @@ pub struct Keypair {
     pub secret: SecretKey,
     /// The public half of this keypair.
     pub public: PublicKey,
+}
+
+impl From<SecretKey> for Keypair {
+	fn from(secret: SecretKey) -> Keypair {
+	    let public = secret.to_public();
+		Keypair{ secret, public }
+	}
 }
 
 impl Keypair {
