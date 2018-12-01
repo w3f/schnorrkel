@@ -624,7 +624,8 @@ impl SecretKey {
     /// Sign a message with this `SecretKey`.
     #[allow(non_snake_case)]
     pub fn sign<D>(&self, message: &[u8], public_key: &PublicKey) -> Signature
-            where D: Digest<OutputSize = U64> + Default {
+            where D: Digest<OutputSize = U64> + Default
+	{
         let mut h: D = D::default();
         let R: CompressedRistretto;
         let r: Scalar;
@@ -671,9 +672,8 @@ impl SecretKey {
                              prehashed_message: D,
                              public_key: &PublicKey,
                              context: Option<&'static [u8]>) -> Signature
-        where D: Digest<OutputSize = U64> + Default
+        where D: Digest<OutputSize = U64> + Default + Clone
     {
-        let mut h: D;
         let mut prehash: [u8; 64] = [0u8; 64];
         let R: CompressedRistretto;
         let r: Scalar;
@@ -681,10 +681,13 @@ impl SecretKey {
         let k: Scalar;
 
         let ctx: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
-
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
-
         let ctx_len: u8 = ctx.len() as u8;
+        let h = D::default()
+            .chain(b"SigEd25519 no Ed25519 collisions")
+            .chain(&[1]) // Ed25519ph
+            .chain(&[ctx_len])
+            .chain(ctx);
 
         // Get the result of the pre-hashed message.
         prehash.copy_from_slice(prehashed_message.result().as_slice());
@@ -701,27 +704,19 @@ impl SecretKey {
         //
         // This is a really fucking stupid bandaid, and the damned scheme is
         // still bleeding from malleability, for fuck's sake.
-        h = D::default()
-            .chain(b"SigEd25519 no Ed25519 collisions")
-            .chain(&[1]) // Ed25519ph
-            .chain(&[ctx_len])
-            .chain(ctx)
-            .chain(&self.nonce)
-            .chain(&prehash[..]);
 
-        r = Scalar::from_hash(h);
+        r = Scalar::from_hash(
+            h.clone()
+			.chain(&self.nonce)
+            .chain(&prehash[..])
+        );
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        h = D::default()
-            .chain(b"SigEd25519 no Ed25519 collisions")
-            .chain(&[1]) // Ed25519ph
-            .chain(&[ctx_len])
-            .chain(ctx)
-            .chain(R.as_bytes())
+        k = Scalar::from_hash(
+            h.chain(R.as_bytes())
             .chain(public_key.as_bytes())
-            .chain(&prehash[..]);
-
-        k = Scalar::from_hash(h);
+            .chain(&prehash[..])
+        );
         s = &(&k * &self.key) + &r;
 
         Signature{ R, s }
@@ -1279,7 +1274,7 @@ impl Keypair {
     pub fn sign_prehashed<D>(&self,
                              prehashed_message: D,
                              context: Option<&'static [u8]>) -> Signature
-        where D: Digest<OutputSize = U64> + Default
+        where D: Digest<OutputSize = U64> + Default + Clone
     {
         self.secret.sign_prehashed::<D>(prehashed_message, &self.public, context)
     }
