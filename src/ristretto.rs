@@ -40,7 +40,6 @@ use curve25519_dalek::scalar::Scalar;
 use subtle::{Choice,ConstantTimeEq};
 
 use errors::SignatureError;
-use errors::InternalError;
 
 /// The length of a curve25519 EdDSA `Signature`, in bytes.
 pub const SIGNATURE_LENGTH: usize = 64;
@@ -122,8 +121,8 @@ impl Signature {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Signature, SignatureError> {
         if bytes.len() != SIGNATURE_LENGTH {
-            return Err(SignatureError(InternalError::BytesLengthError{
-                name: "Signature", length: SIGNATURE_LENGTH }));
+            return Err(SignatureError::BytesLengthError{
+                name: "Signature", length: SIGNATURE_LENGTH });
         }
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
@@ -131,8 +130,10 @@ impl Signature {
         lower.copy_from_slice(&bytes[..32]);
         upper.copy_from_slice(&bytes[32..]);
 
+		// TODO: We could pass this check but exceed l, so maybe we should
+		// reduce and error if the result change?
         if upper[31] & 224 != 0 {
-            return Err(SignatureError(InternalError::ScalarFormatError));
+            return Err(SignatureError::ScalarFormatError);
         }
 
         Ok(Signature{ R: CompressedRistretto(lower), s: Scalar::from_bits(upper) })
@@ -302,8 +303,8 @@ impl MiniSecretKey {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<MiniSecretKey, SignatureError> {
         if bytes.len() != MINI_SECRET_KEY_LENGTH {
-            return Err(SignatureError(InternalError::BytesLengthError{
-                name: "MiniSecretKey", length: MINI_SECRET_KEY_LENGTH }));
+            return Err(SignatureError::BytesLengthError{
+                name: "MiniSecretKey", length: MINI_SECRET_KEY_LENGTH });
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
@@ -598,8 +599,8 @@ impl SecretKey {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
         if bytes.len() != SECRET_KEY_LENGTH {
-            return Err(SignatureError(InternalError::BytesLengthError{
-                name: "SecretKey", length: SECRET_KEY_LENGTH }));
+            return Err(SignatureError::BytesLengthError{
+                name: "SecretKey", length: SECRET_KEY_LENGTH });
         }
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
@@ -766,6 +767,7 @@ impl Debug for PublicKey {
     }
 }
 
+
 impl PublicKey {
     /// Convert this public key to a byte array.
     #[inline]
@@ -818,13 +820,17 @@ impl PublicKey {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
         if bytes.len() != PUBLIC_KEY_LENGTH {
-            return Err(SignatureError(InternalError::BytesLengthError{
-                name: "PublicKey", length: PUBLIC_KEY_LENGTH }));
+            return Err(SignatureError::BytesLengthError{
+                name: "PublicKey", length: PUBLIC_KEY_LENGTH });
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
 
         Ok(PublicKey(CompressedRistretto(bits)))
+    }
+
+    fn decompress(&self) -> Result<RistrettoPoint, SignatureError> {
+		self.0.decompress().ok_or(SignatureError::PointDecompressionError)
     }
 
     /// Verify a signature on a message with this keypair's public key.
@@ -840,10 +846,7 @@ impl PublicKey {
         let R: RistrettoPoint;
         let k: Scalar;
 
-        let A: RistrettoPoint = match self.0.decompress() {
-            Some(x) => x,
-            None    => return Err(SignatureError(InternalError::PointDecompressionError)),
-        };
+        let A: RistrettoPoint = self.decompress() ?; // PointDecompressionError
 
         h.input(signature.R.as_bytes());
         h.input(self.as_bytes());
@@ -855,7 +858,7 @@ impl PublicKey {
         if R.compress() == signature.R {
             Ok(())
         } else {
-            Err(SignatureError(InternalError::VerifyError))
+            Err(SignatureError::VerifyError)
         }
     }
 
@@ -891,10 +894,7 @@ impl PublicKey {
         let ctx: &[u8] = context.unwrap_or(b"");
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
 
-        let A: RistrettoPoint = match self.0.decompress() {
-            Some(x) => x,
-            None    => return Err(SignatureError(InternalError::PointDecompressionError)),
-        };
+        let A: RistrettoPoint = self.decompress() ?; // PointDecompressionError
 
         h.input(b"SigEd25519 no Ed25519 collisions");
         h.input(&[1]); // Ed25519ph
@@ -910,7 +910,7 @@ impl PublicKey {
         if R.compress() == signature.R {
             Ok(())
         } else {
-            Err(SignatureError(InternalError::VerifyError))
+            Err(SignatureError::VerifyError)
         }
     }
 }
@@ -1025,12 +1025,12 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     let id = RistrettoPoint::optional_multiscalar_mul(
         once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
         B.chain(Rs).chain(As),
-    ).ok_or_else(|| SignatureError(InternalError::VerifyError))?;
+    ).ok_or_else(|| SignatureError::VerifyError)?;
 
     if id.is_identity() {
         Ok(())
     } else {
-        Err(SignatureError(InternalError::VerifyError))
+        Err(SignatureError::VerifyError)
     }
 }
 
@@ -1118,8 +1118,8 @@ impl Keypair {
     /// is an `SignatureError` describing the error that occurred.
     pub fn from_bytes<'a>(bytes: &'a [u8]) -> Result<Keypair, SignatureError> {
         if bytes.len() != KEYPAIR_LENGTH {
-            return Err(SignatureError(InternalError::BytesLengthError{
-                name: "Keypair", length: KEYPAIR_LENGTH}));
+            return Err(SignatureError::BytesLengthError{
+                name: "Keypair", length: KEYPAIR_LENGTH});
         }
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
