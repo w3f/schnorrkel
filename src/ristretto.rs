@@ -34,9 +34,10 @@ use curve25519_dalek::digest::Digest;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+
+use subtle::{Choice,ConstantTimeEq};
 
 use errors::SignatureError;
 use errors::InternalError;
@@ -180,6 +181,18 @@ impl Debug for MiniSecretKey {
 impl Drop for MiniSecretKey {
     fn drop(&mut self) {
         self.0.clear();
+    }
+}
+
+impl Eq for MiniSecretKey {}
+impl PartialEq for MiniSecretKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).unwrap_u8() == 1u8
+    }
+}
+impl ConstantTimeEq for MiniSecretKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.0.ct_eq(&other.0)
     }
 }
 
@@ -454,6 +467,18 @@ impl Drop for SecretKey {
     fn drop(&mut self) {
         self.key.clear();
         self.nonce.clear();
+    }
+}
+
+impl Eq for SecretKey {}
+impl PartialEq for SecretKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).unwrap_u8() == 1u8
+    }
+}
+impl ConstantTimeEq for SecretKey {
+    fn ct_eq(&self, other: &Self) -> Choice {
+        self.key.ct_eq(&other.key)
     }
 }
 
