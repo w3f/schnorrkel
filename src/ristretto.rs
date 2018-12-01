@@ -626,19 +626,19 @@ impl SecretKey {
     pub fn sign<D>(&self, message: &[u8], public_key: &PublicKey) -> Signature
             where D: Digest<OutputSize = U64> + Default
 	{
-        let mut h: D = D::default();
         let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
         let k: Scalar;
 
+        let mut h = D::default();
         h.input(&self.nonce);
         h.input(&message);
 
         r = Scalar::from_hash(h);
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        h = D::default();
+        let mut h = D::default();
         h.input(R.as_bytes());
         h.input(public_key.as_bytes());
         h.input(&message);
@@ -721,7 +721,6 @@ impl SecretKey {
 
         Signature{ R, s }
     }
-
 }
 
 #[cfg(feature = "serde")]
