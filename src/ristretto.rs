@@ -225,7 +225,7 @@ impl MiniSecretKey {
     /// # fn main() { }
     /// ```
     pub fn expand<D>(&self) -> SecretKey
-        where D: Digest<OutputSize = U64> + Default + Clone
+    where D: Digest<OutputSize = U64> + Default + Clone
     {
         let mut h: D = D::default();
         h.input(self.as_bytes());
@@ -245,14 +245,14 @@ impl MiniSecretKey {
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
     pub fn expand_to_keypair<D>(&self) -> Keypair
-        where D: Digest<OutputSize = U64> + Default + Clone
+    where D: Digest<OutputSize = U64> + Default + Clone
     {
 		self.expand::<D>().into()
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
     pub fn expand_to_public<D>(&self) -> PublicKey
-        where D: Digest<OutputSize = U64> + Default + Clone
+    where D: Digest<OutputSize = U64> + Default + Clone
     {
 		self.expand::<D>().to_public()
     }
@@ -375,7 +375,7 @@ impl MiniSecretKey {
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`
     pub fn generate<T>(csprng: &mut T) -> MiniSecretKey
-        where T: CryptoRng + Rng,
+    where T: CryptoRng + Rng,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
 
@@ -628,7 +628,7 @@ impl SecretKey {
     /// Sign a message with this `SecretKey`.
     #[allow(non_snake_case)]
     pub fn sign<D>(&self, message: &[u8], public_key: &PublicKey) -> Signature
-            where D: Digest<OutputSize = U64> + Default
+    where D: Digest<OutputSize = U64> + Default
 	{
         let R: CompressedRistretto;
         let r: Scalar;
@@ -672,11 +672,13 @@ impl SecretKey {
     ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
-    pub fn sign_prehashed<D>(&self,
-                             prehashed_message: D,
-                             public_key: &PublicKey,
-                             context: Option<&'static [u8]>) -> Signature
-        where D: Digest<OutputSize = U64> + Default + Clone
+    pub fn sign_prehashed<D>(
+		&self,
+		prehashed_message: D,
+		public_key: &PublicKey,
+		context: Option<&'static [u8]>
+	) -> Signature
+    where D: Digest<OutputSize = U64> + Default + Clone
     {
         let mut prehash: [u8; 64] = [0u8; 64];
         let R: CompressedRistretto;
@@ -844,7 +846,7 @@ impl PublicKey {
     /// Returns `Ok(())` if the signature is valid, and `Err` otherwise.
     #[allow(non_snake_case)]
     pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> bool
-            where D: Digest<OutputSize = U64> + Default
+    where D: Digest<OutputSize = U64> + Default
     {
         let A: RistrettoPoint = self.0;
         let R: RistrettoPoint;
@@ -882,7 +884,7 @@ impl PublicKey {
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
     pub fn verify_prehashed<D>(&self, prehashed_message: D, context: Option<&[u8]>, signature: &Signature) -> bool
-        where D: Digest<OutputSize = U64> + Default
+    where D: Digest<OutputSize = U64> + Default
     {
         let A: RistrettoPoint = self.0;
         let R: RistrettoPoint;
@@ -1008,7 +1010,7 @@ impl<'d> Deserialize<'d> for PublicKey {
 pub fn verify_batch<D>(messages: &[&[u8]],
                        signatures: &[Signature],
                        public_keys: &[PublicKey]) -> Result<bool, SignatureError>
-    where D: Digest<OutputSize = U64> + Default
+where D: Digest<OutputSize = U64> + Default
 {
     const ASSERT_MESSAGE: &'static [u8] = b"The number of messages, signatures, and public keys must be equal.";
     assert!(signatures.len()  == messages.len(),    ASSERT_MESSAGE);
@@ -1165,8 +1167,8 @@ impl Keypair {
     /// which is available with `use sha2::Sha512` as in the example above.
     /// Other suitable hash functions include Keccak-512 and Blake2b-512.
     pub fn generate<D, R>(csprng: &mut R) -> Keypair
-        where D: Digest<OutputSize = U64> + Default + Clone,
-              R: CryptoRng + Rng,
+    where D: Digest<OutputSize = U64> + Default + Clone,
+          R: CryptoRng + Rng,
     {
         let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
 		let secret: SecretKey = msk.expand::<D>();
@@ -1177,7 +1179,8 @@ impl Keypair {
 
     /// Sign a message with this keypair's secret key.
     pub fn sign<D>(&self, message: &[u8]) -> Signature
-            where D: Digest<OutputSize = U64> + Default {
+    where D: Digest<OutputSize = U64> + Default 
+	{
         self.secret.sign::<D>(&message, &self.public)
     }
 
@@ -1278,14 +1281,14 @@ impl Keypair {
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     /// [terrible_idea]: https://github.com/isislovecruft/scripts/blob/master/gpgkey2bc.py
     pub fn sign_prehashed<D>(&self, prehashed_message: D, context: Option<&'static [u8]>) -> Signature
-        where D: Digest<OutputSize = U64> + Default + Clone
+    where D: Digest<OutputSize = U64> + Default + Clone
     {
         self.secret.sign_prehashed::<D>(prehashed_message, &self.public, context)
     }
 
     /// Verify a signature on a message with this keypair's public key.
     pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> bool
-        where D: Digest<OutputSize = U64> + Default 
+    where D: Digest<OutputSize = U64> + Default 
 	{
         self.public.verify::<D>(message, signature)
     }
@@ -1345,8 +1348,13 @@ impl Keypair {
     /// ```
     ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    pub fn verify_prehashed<D>(&self, prehashed_message: D, context: Option<&[u8]>, signature: &Signature) -> bool
-        where D: Digest<OutputSize = U64> + Default
+    pub fn verify_prehashed<D>(
+		&self, 
+		prehashed_message: D, 
+		context: Option<&[u8]>, 
+		signature: &Signature
+	) -> bool
+    where D: Digest<OutputSize = U64> + Default
     {
         self.public.verify_prehashed::<D>(prehashed_message, context, signature)
     }
