@@ -913,6 +913,47 @@ impl From<SecretKey> for PublicKey {
 }
 
 
+#[cfg(feature = "serde")]
+impl Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_bytes(self.0.compress().as_bytes())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'d> Deserialize<'d> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
+
+        struct PublicKeyVisitor;
+
+        impl<'d> Visitor<'d> for PublicKeyVisitor {
+            type Value = PublicKey;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("An ed25519 public key as a 32-byte compressed point, as specified in RFC8032")
+            }
+
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<PublicKey, E> where E: SerdeError {
+				Ok(PublicKey::from_bytes(bytes) ?)
+				/*
+				REMOVE
+		        if bytes.len() != PUBLIC_KEY_LENGTH {
+		            return Err(SerdeError::invalid_length(bytes.len(), &self));
+		        }
+		        let mut bits: [u8; 32] = [0u8; 32];
+		        bits.copy_from_slice(&bytes[..32]);
+		        Ok(PublicKey(  
+					CompressedRistretto(bits).decompress()
+					.or(Err(SerdeError::custom("Ristretto point decompression failed")))?
+				))
+				*/
+            }
+        }
+        deserializer.deserialize_bytes(PublicKeyVisitor)
+    }
+}
+
+
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
 /// # Inputs
@@ -1021,47 +1062,6 @@ pub fn verify_batch<D>(messages: &[&[u8]],
         Ok(())
     } else {
         Err(SignatureError::VerifyError)
-    }
-}
-
-
-#[cfg(feature = "serde")]
-impl Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.0.compress().as_bytes())
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-
-        struct PublicKeyVisitor;
-
-        impl<'d> Visitor<'d> for PublicKeyVisitor {
-            type Value = PublicKey;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                formatter.write_str("An ed25519 public key as a 32-byte compressed point, as specified in RFC8032")
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<PublicKey, E> where E: SerdeError {
-				Ok(PublicKey::from_bytes(bytes) ?)
-				/*
-				REMOVE
-		        if bytes.len() != PUBLIC_KEY_LENGTH {
-		            return Err(SerdeError::invalid_length(bytes.len(), &self));
-		        }
-		        let mut bits: [u8; 32] = [0u8; 32];
-		        bits.copy_from_slice(&bytes[..32]);
-		        Ok(PublicKey(  
-					CompressedRistretto(bits).decompress()
-					.or(Err(SerdeError::custom("Ristretto point decompression failed")))?
-				))
-				*/
-            }
-        }
-        deserializer.deserialize_bytes(PublicKeyVisitor)
     }
 }
 
