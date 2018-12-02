@@ -281,6 +281,8 @@ extern crate bincode;
 
 mod ristretto;
 
+pub mod derive;
+
 pub mod errors;
 
 // Export everything public in ed25519.
