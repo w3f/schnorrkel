@@ -78,7 +78,7 @@
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign::<Sha512>(message);
-//! assert!(keypair.verify::<Sha512>(message, &signature).is_ok());
+//! assert!(keypair.verify::<Sha512>(message, &signature));
 //! # }
 //! ```
 //!
@@ -103,7 +103,7 @@
 //! # let signature: Signature = keypair.sign::<Sha512>(message);
 //!
 //! let public_key: PublicKey = keypair.public;
-//! assert!(public_key.verify::<Sha512>(message, &signature).is_ok());
+//! assert!(public_key.verify::<Sha512>(message, &signature));
 //! # }
 //! ```
 //!

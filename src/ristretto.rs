@@ -34,7 +34,7 @@ use curve25519_dalek::digest::Digest;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
-use curve25519_dalek::edwards::{CompressedEdwardsY,EdwardsPoint};
+use curve25519_dalek::edwards::EdwardsPoint;  // CompressedEdwardsY
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
@@ -843,7 +843,7 @@ impl PublicKey {
     ///
     /// Returns `Ok(())` if the signature is valid, and `Err` otherwise.
     #[allow(non_snake_case)]
-    pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> Result<(), SignatureError>
+    pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> bool
             where D: Digest<OutputSize = U64> + Default
     {
         let A: RistrettoPoint = self.0;
@@ -859,11 +859,7 @@ impl PublicKey {
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         // TODO bool
-        if R.compress() == signature.R {
-            Ok(())
-        } else {
-            Err(SignatureError::VerifyError)
-        }
+        R.compress() == signature.R
     }
 
     /// Verify a `signature` on a `prehashed_message` using the Ed25519ph algorithm.
@@ -885,10 +881,7 @@ impl PublicKey {
     ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
-    pub fn verify_prehashed<D>(&self,
-                               prehashed_message: D,
-                               context: Option<&[u8]>,
-                               signature: &Signature) -> Result<(), SignatureError>
+    pub fn verify_prehashed<D>(&self, prehashed_message: D, context: Option<&[u8]>, signature: &Signature) -> bool
         where D: Digest<OutputSize = U64> + Default
     {
         let A: RistrettoPoint = self.0;
@@ -911,11 +904,7 @@ impl PublicKey {
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         // TODO bool
-        if R.compress() == signature.R {
-            Ok(())
-        } else {
-            Err(SignatureError::VerifyError)
-        }
+        R.compress() == signature.R
     }
 }
 
@@ -1011,14 +1000,14 @@ impl<'d> Deserialize<'d> for PublicKey {
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 ///
 /// let result = verify_batch::<Sha512>(&messages[..], &signatures[..], &public_keys[..]);
-/// assert!(result.is_ok());
+/// assert!(result.unwrap());
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn verify_batch<D>(messages: &[&[u8]],
                        signatures: &[Signature],
-                       public_keys: &[PublicKey]) -> Result<(), SignatureError>
+                       public_keys: &[PublicKey]) -> Result<bool, SignatureError>
     where D: Digest<OutputSize = U64> + Default
 {
     const ASSERT_MESSAGE: &'static [u8] = b"The number of messages, signatures, and public keys must be equal.";
@@ -1069,13 +1058,8 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     let id = RistrettoPoint::optional_multiscalar_mul(
         once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
         B.chain(Rs).chain(As),
-    ).ok_or_else(|| SignatureError::VerifyError)?;
-
-    if id.is_identity() {
-        Ok(())
-    } else {
-        Err(SignatureError::VerifyError)
-    }
+    ).ok_or_else(|| SignatureError::PointDecompressionError) ?;
+    Ok(id.is_identity())
 }
 
 
@@ -1293,17 +1277,16 @@ impl Keypair {
     ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     /// [terrible_idea]: https://github.com/isislovecruft/scripts/blob/master/gpgkey2bc.py
-    pub fn sign_prehashed<D>(&self,
-                             prehashed_message: D,
-                             context: Option<&'static [u8]>) -> Signature
+    pub fn sign_prehashed<D>(&self, prehashed_message: D, context: Option<&'static [u8]>) -> Signature
         where D: Digest<OutputSize = U64> + Default + Clone
     {
         self.secret.sign_prehashed::<D>(prehashed_message, &self.public, context)
     }
 
     /// Verify a signature on a message with this keypair's public key.
-    pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> Result<(), SignatureError>
-            where D: Digest<OutputSize = U64> + Default {
+    pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> bool
+        where D: Digest<OutputSize = U64> + Default 
+	{
         self.public.verify::<D>(message, signature)
     }
 
@@ -1354,9 +1337,7 @@ impl Keypair {
     /// let prehashed_again: Sha512 = Sha512::default();
     /// prehashed_again.input(message);
     ///
-    /// let valid: bool = keypair.public.verify_prehashed(prehashed_again, context, sig);
-    ///
-    /// assert!(valid);
+    /// assert!( keypair.public.verify_prehashed(prehashed_again, context, sig) );
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
@@ -1364,10 +1345,7 @@ impl Keypair {
     /// ```
     ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    pub fn verify_prehashed<D>(&self,
-                               prehashed_message: D,
-                               context: Option<&[u8]>,
-                               signature: &Signature) -> Result<(), SignatureError>
+    pub fn verify_prehashed<D>(&self, prehashed_message: D, context: Option<&[u8]>, signature: &Signature) -> bool
         where D: Digest<OutputSize = U64> + Default
     {
         self.public.verify_prehashed::<D>(prehashed_message, context, signature)
@@ -1469,11 +1447,11 @@ mod test {
         good_sig = keypair.sign::<Sha512>(&good);
         bad_sig  = keypair.sign::<Sha512>(&bad);
 
-        assert!(keypair.verify::<Sha512>(&good, &good_sig).is_ok(),
+        assert!(keypair.verify::<Sha512>(&good, &good_sig),
                 "Verification of a valid signature failed!");
-        assert!(keypair.verify::<Sha512>(&good, &bad_sig).is_err(),
+        assert!(!keypair.verify::<Sha512>(&good, &bad_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(keypair.verify::<Sha512>(&bad,  &good_sig).is_err(),
+        assert!(!keypair.verify::<Sha512>(&bad,  &good_sig),
                 "Verification of a signature on a different message passed!");
     }
 
@@ -1520,7 +1498,7 @@ mod test {
             let sig2: Signature = keypair.sign::<Sha512>(&msg_bytes);
 
             assert!(sig1 == sig2, "Signature bytes not equal on line {}", lineno);
-            assert!(keypair.verify::<Sha512>(&msg_bytes, &sig2).is_ok(),
+            assert!(keypair.verify::<Sha512>(&msg_bytes, &sig2),
                     "Signature verification failed on line {}", lineno);
         }
     }
@@ -1554,7 +1532,7 @@ mod test {
         assert!(sig1 == sig2,
                 "Original signature from test vectors doesn't equal signature produced:\
                 \noriginal:\n{:?}\nproduced:\n{:?}", sig1, sig2);
-        assert!(keypair.verify_prehashed(prehash_for_verifying, None, &sig2).is_ok(),
+        assert!(keypair.verify_prehashed(prehash_for_verifying, None, &sig2),
                 "Could not verify ed25519ph signature!");
     }
     *** We have no test vectors obviously *** */
@@ -1589,11 +1567,11 @@ mod test {
         good_sig = keypair.sign_prehashed::<Sha512>(prehashed_good1, Some(context));
         bad_sig  = keypair.sign_prehashed::<Sha512>(prehashed_bad1,  Some(context));
 
-        assert!(keypair.verify_prehashed::<Sha512>(prehashed_good2, Some(context), &good_sig).is_ok(),
+        assert!(keypair.verify_prehashed::<Sha512>(prehashed_good2, Some(context), &good_sig),
                 "Verification of a valid signature failed!");
-        assert!(keypair.verify_prehashed::<Sha512>(prehashed_good3, Some(context), &bad_sig).is_err(),
+        assert!(! keypair.verify_prehashed::<Sha512>(prehashed_good3, Some(context), &bad_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(keypair.verify_prehashed::<Sha512>(prehashed_bad2,  Some(context), &good_sig).is_err(),
+        assert!(! keypair.verify_prehashed::<Sha512>(prehashed_bad2,  Some(context), &good_sig),
                 "Verification of a signature on a different message passed!");
     }
 
@@ -1618,9 +1596,7 @@ mod test {
         }
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
-        let result = verify_batch::<Sha512>(&messages, &signatures[..], &public_keys[..]);
-
-        assert!(result.is_ok());
+        assert!( verify_batch::<Sha512>(&messages, &signatures[..], &public_keys[..]).unwrap() );
     }
 
     #[test]

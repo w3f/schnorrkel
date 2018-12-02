@@ -47,8 +47,6 @@ pub enum SignatureError {
 		/// Length expected by the constructor in bytes
 		length: usize 
 	},
-    /// The verification equation wasn't satisfied
-    VerifyError,
 }
 
 impl Display for SignatureError {
@@ -60,8 +58,6 @@ impl Display for SignatureError {
                 => write!(f, "Cannot use scalar with high-bit set"),
             SignatureError::BytesLengthError{ name: n, length: l}
                 => write!(f, "{} must be {} bytes in length", n, l),
-            SignatureError::VerifyError
-                => write!(f, "Verification equation was not satisfied"),
         }
     }
 }
@@ -78,8 +74,6 @@ impl<E> From<SignatureError> for E where E: ::serde::de::Error {
                 => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
             SignatureError::BytesLengthError{ name: n, length: l}
                 => E::invalid_length(bytes.len(), &self),
-            SignatureError::VerifyError
-                => panic!("Verification attempted in deserialisation!"),
 		}
 	}
 }
