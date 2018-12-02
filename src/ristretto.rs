@@ -160,7 +160,8 @@ impl<'d> Deserialize<'d> for Signature {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Signature, E> where E: SerdeError{
-                Signature::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+                Ok(Signature::from_bytes(bytes) ?)
+				// REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
         deserializer.deserialize_bytes(SignatureVisitor)
@@ -403,7 +404,8 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<MiniSecretKey, E> where E: SerdeError {
-                MiniSecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+                Ok(MiniSecretKey::from_bytes(bytes) ?)
+				// REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
         deserializer.deserialize_bytes(MiniSecretKeyVisitor)
@@ -617,8 +619,9 @@ impl SecretKey {
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
 		// No clamping in a Schnorr group
-        let pk = (&self.key * &constants::RISTRETTO_BASEPOINT_TABLE).compress().to_bytes();
-        PublicKey(CompressedRistretto(pk))
+		PublicKey(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
+        // let pk = &self.key * &constants::RISTRETTO_BASEPOINT_TABLE;
+        // CompressedPublicKey(CompressedRistretto(pk.compress().to_bytes()))
     }
 
     /// Sign a message with this `SecretKey`.
@@ -640,7 +643,7 @@ impl SecretKey {
 
         let mut h = D::default();
         h.input(R.as_bytes());
-        h.input(public_key.as_bytes());
+        h.input(& public_key.to_bytes());  //TODO as_bytes()
         h.input(&message);
 
         k = Scalar::from_hash(h);
@@ -714,7 +717,7 @@ impl SecretKey {
 
         k = Scalar::from_hash(
             h.chain(R.as_bytes())
-            .chain(public_key.as_bytes())
+            .chain(& public_key.to_bytes())  // TODO as_bytes()
             .chain(&prehash[..])
         );
         s = &(&k * &self.key) + &r;
@@ -743,36 +746,31 @@ impl<'d> Deserialize<'d> for SecretKey {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<SecretKey, E> where E: SerdeError {
-                SecretKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+                Ok(SecretKey::from_bytes(bytes) ?)
+				// REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
         deserializer.deserialize_bytes(SecretKeyVisitor)
     }
 }
 
+
 /// An ed25519 public key.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 #[repr(C)]
-pub struct PublicKey(pub (crate) CompressedRistretto);
+pub struct PublicKey(pub (crate) RistrettoPoint);
 
 impl Debug for PublicKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "PublicKey( CompressedRistretto( {:?} ))", self.0)
+        write!(f, "PublicKey( RistrettoPoint( {:?} ))", self.0.compress())
     }
 }
-
 
 impl PublicKey {
     /// Convert this public key to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
-        self.0.to_bytes()
-    }
-
-    /// View this public key as a byte array.
-    #[inline]
-    pub fn as_bytes<'a>(&'a self) -> &'a [u8; PUBLIC_KEY_LENGTH] {
-        &(self.0).0
+        self.0.compress().to_bytes()
     }
 
     /// Construct a `PublicKey` from a slice of bytes.
@@ -819,12 +817,11 @@ impl PublicKey {
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
-
-        Ok(PublicKey(CompressedRistretto(bits)))
-    }
-
-    fn decompress(&self) -> Result<RistrettoPoint, SignatureError> {
-		self.0.decompress().ok_or(SignatureError::PointDecompressionError)
+        Ok(PublicKey(
+			CompressedRistretto(bits).decompress()
+			.ok_or(SignatureError::PointDecompressionError) ?
+		))
+		// Ok(CompressedPublicKey::from_bytes(bytes)?.compress()?)
     }
 
     /// Verify a signature on a message with this keypair's public key.
@@ -836,19 +833,19 @@ impl PublicKey {
     pub fn verify<D>(&self, message: &[u8], signature: &Signature) -> Result<(), SignatureError>
             where D: Digest<OutputSize = U64> + Default
     {
-        let mut h: D = D::default();
+        let A: RistrettoPoint = self.0;
         let R: RistrettoPoint;
         let k: Scalar;
 
-        let A: RistrettoPoint = self.decompress() ?; // PointDecompressionError
-
+        let mut h: D = D::default();
         h.input(signature.R.as_bytes());
-        h.input(self.as_bytes());
+        h.input(& self.to_bytes());  // TODO as_bytes
         h.input(&message);
 
         k = Scalar::from_hash(h);
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
+        // TODO bool
         if R.compress() == signature.R {
             Ok(())
         } else {
@@ -881,26 +878,26 @@ impl PublicKey {
                                signature: &Signature) -> Result<(), SignatureError>
         where D: Digest<OutputSize = U64> + Default
     {
-        let mut h: D = D::default();
+        let A: RistrettoPoint = self.0;
         let R: RistrettoPoint;
         let k: Scalar;
 
         let ctx: &[u8] = context.unwrap_or(b"");
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
 
-        let A: RistrettoPoint = self.decompress() ?; // PointDecompressionError
-
+        let mut h: D = D::default();
         h.input(b"SigEd25519 no Ed25519 collisions");
         h.input(&[1]); // Ed25519ph
         h.input(&[ctx.len() as u8]);
         h.input(ctx);
         h.input(signature.R.as_bytes());
-        h.input(self.as_bytes());
+        h.input(& self.to_bytes());  // TODO as_bytes
         h.input(prehashed_message.result().as_slice());
 
         k = Scalar::from_hash(h);
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
+        // TODO bool
         if R.compress() == signature.R {
             Ok(())
         } else {
@@ -914,6 +911,7 @@ impl From<SecretKey> for PublicKey {
 		source.to_public()
     }
 }
+
 
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
@@ -986,14 +984,12 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
     // Select a random 128-bit scalar for each signature.
-    let zs: Vec<Scalar> = signatures
-        .iter()
+    let zs: Vec<Scalar> = signatures.iter()
         .map(|_| Scalar::from(thread_rng().gen::<u128>()))
         .collect();
 
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
-    let B_coefficient: Scalar = signatures
-        .iter()
+    let B_coefficient: Scalar = signatures.iter()
         .map(|sig| sig.s)
         .zip(zs.iter())
         .map(|(s, z)| z * s)
@@ -1003,7 +999,7 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     let hrams = (0..signatures.len()).map(|i| {
         let mut h: D = D::default();
         h.input(signatures[i].R.as_bytes());
-        h.input(public_keys[i].as_bytes());
+        h.input(& public_keys[i].to_bytes());  // TODO as_bytes
         h.input(&messages[i]);
         Scalar::from_hash(h)
     });
@@ -1012,7 +1008,7 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     let zhrams = hrams.zip(zs.iter()).map(|(hram, z)| hram * z);
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
-    let As = public_keys.iter().map(|pk| pk.0.decompress());
+    let As = public_keys.iter().map(|pk| Some(pk.0));  // TODO batch decompress()?
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
@@ -1028,10 +1024,11 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     }
 }
 
+
 #[cfg(feature = "serde")]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.as_bytes())
+        serializer.serialize_bytes(self.0.compress().as_bytes())
     }
 }
 
@@ -1049,12 +1046,25 @@ impl<'d> Deserialize<'d> for PublicKey {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<PublicKey, E> where E: SerdeError {
-                PublicKey::from_bytes(bytes).or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+				Ok(PublicKey::from_bytes(bytes) ?)
+				/*
+				REMOVE
+		        if bytes.len() != PUBLIC_KEY_LENGTH {
+		            return Err(SerdeError::invalid_length(bytes.len(), &self));
+		        }
+		        let mut bits: [u8; 32] = [0u8; 32];
+		        bits.copy_from_slice(&bytes[..32]);
+		        Ok(PublicKey(  
+					CompressedRistretto(bits).decompress()
+					.or(Err(SerdeError::custom("Ristretto point decompression failed")))?
+				))
+				*/
             }
         }
         deserializer.deserialize_bytes(PublicKeyVisitor)
     }
 }
+
 
 /// An ed25519 keypair.
 #[derive(Debug, Default)] // we derive Default in order to use the clear() method in Drop
@@ -1087,7 +1097,7 @@ impl Keypair {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
 
         bytes[..SECRET_KEY_LENGTH].copy_from_slice(& self.secret.to_bytes());
-        bytes[SECRET_KEY_LENGTH..].copy_from_slice(self.public.as_bytes());
+        bytes[SECRET_KEY_LENGTH..].copy_from_slice(& self.public.to_bytes());
         bytes
     }
 
@@ -1374,14 +1384,9 @@ impl<'d> Deserialize<'d> for Keypair {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
-                let secret_key = ecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]);
-                let public_key = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]);
-
-                if secret_key.is_ok() && public_key.is_ok() {
-                    Ok(Keypair{ secret: secret_key.unwrap(), public: public_key.unwrap() })
-                } else {
-                    Err(SerdeError::invalid_length(bytes.len(), &self))
-                }
+                let secret_key = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
+                let public_key = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
+                Ok(Keypair{ secret, public })
             }
         }
         deserializer.deserialize_bytes(KeypairVisitor)
@@ -1403,15 +1408,29 @@ mod test {
     use sha2::Sha512;
     use super::*;
 
+	use curve25519_dalek::edwards::{CompressedEdwardsY,EdwardsPoint};
+
+    /// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
+	fn edwards_to_ristretto(p: EdwardsPoint) -> RistrettoPoint {
+		unsafe { ::std::mem::transmute::<EdwardsPoint,RistrettoPoint>(p) }
+	}
+
+	/*
+    /// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
+	fn ristretto_to_edwards(p: EdwardsPoint) -> RistrettoPoint {
+		unsafe { ::std::mem::transmute::<RistrettoPoint,EdwardsPoint>(p) }
+	}
+	*/
+
     #[cfg(all(test, feature = "serde"))]
-    static PUBLIC_KEY: PublicKey = PublicKey(CompressedRistretto([
+    static ED25519_PUBLIC_KEY: PublicKey = PublicKey(CompressedEdwardsY([
         130, 039, 155, 015, 062, 076, 188, 063,
         124, 122, 026, 251, 233, 253, 225, 220,
         014, 041, 166, 120, 108, 035, 254, 077,
         160, 083, 172, 058, 219, 042, 086, 120, ]));
 
     #[cfg(all(test, feature = "serde"))]
-    static SECRET_KEY: MiniSecretKey = MiniSecretKey([
+    static ED25519_SECRET_KEY: MiniSecretKey = MiniSecretKey([
         062, 070, 027, 163, 092, 182, 011, 003,
         077, 234, 098, 004, 011, 127, 079, 228,
         243, 187, 150, 073, 201, 137, 076, 022,
@@ -1532,6 +1551,7 @@ mod test {
         assert!(keypair.verify_prehashed(prehash_for_verifying, None, &sig2).is_ok(),
                 "Could not verify ed25519ph signature!");
     }
+    *** We have no test vectors obviously *** */
 
     #[test]
     fn ed25519ph_sign_verify() {
@@ -1571,8 +1591,6 @@ mod test {
                 "Verification of a signature on a different message passed!");
     }
 
-    *** We have no test vectors obviously *** */
-
     #[test]
     fn verify_batch_seven_signatures() {
         let messages: [&[u8]; 7] = [
@@ -1601,27 +1619,29 @@ mod test {
 
     #[test]
     fn public_key_from_bytes() {
-        // Make another function so that we can test the ? operator.
-        fn do_the_test() -> Result<PublicKey, SignatureError> {
-            let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = [
-                215, 090, 152, 001, 130, 177, 010, 183,
-                213, 075, 254, 211, 201, 100, 007, 058,
-                014, 225, 114, 243, 218, 166, 035, 037,
-                175, 002, 026, 104, 247, 007, 081, 026, ];
-            let public_key = PublicKey::from_bytes(&public_key_bytes)?;
+		static ED25519_PUBLIC_KEY : CompressedEdwardsY = CompressedEdwardsY([
+	        215, 090, 152, 001, 130, 177, 010, 183,
+	        213, 075, 254, 211, 201, 100, 007, 058,
+	        014, 225, 114, 243, 218, 166, 035, 037,
+	        175, 002, 026, 104, 247, 007, 081, 026, ]);
+		let ristretto_public_key = edwards_to_ristretto(ED25519_PUBLIC_KEY.decompress().unwrap());
 
+        // Make another function so that we can test the ? operator.
+        fn do_the_test(s: &[u8]) -> Result<PublicKey, SignatureError> {
+            let public_key = PublicKey::from_bytes(s) ?;
             Ok(public_key)
         }
-        assert_eq!(do_the_test(), Ok(PublicKey(CompressedRistretto([
-            215, 090, 152, 001, 130, 177, 010, 183,
-            213, 075, 254, 211, 201, 100, 007, 058,
-            014, 225, 114, 243, 218, 166, 035, 037,
-            175, 002, 026, 104, 247, 007, 081, 026, ]))))
+		assert_eq!(do_the_test(ristretto_public_key.compress().as_bytes()),
+            Ok(PublicKey(ristretto_public_key))
+		);
+		assert_eq!(do_the_test(&ED25519_PUBLIC_KEY.0),  // Not a Ristretto public key
+            Err(SignatureError::PointDecompressionError)
+		);
     }
 
     #[test]
     fn keypair_clear_on_drop() {
-        let mut keypair: Keypair = Keypair::from_bytes(&[15u8; KEYPAIR_LENGTH][..]).unwrap();
+        let mut keypair: Keypair = Keypair::generate::<Sha512, _>(&mut thread_rng());
 
         keypair.clear();
 
@@ -1634,7 +1654,7 @@ mod test {
             }
         }
 
-        assert!(!as_bytes(&keypair).contains(&0x15));
+        assert!(!as_bytes(&keypair).iter().all(|x| *x == 0u8));
     }
 
     #[test]

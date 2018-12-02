@@ -68,3 +68,19 @@ impl Display for SignatureError {
 
 impl ::failure::Fail for SignatureError {}
 
+#[cfg(feature = "serde")]
+impl<E> From<SignatureError> for E where E: ::serde::de::Error {
+	fn from(err: SignatureError) -> E {
+		match err {
+            SignatureError::PointDecompressionError
+                => E::custom("Ristretto point decompression failed"),
+            SignatureError::ScalarFormatError
+                => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
+            SignatureError::BytesLengthError{ name: n, length: l}
+                => E::invalid_length(bytes.len(), &self),
+            SignatureError::VerifyError
+                => panic!("Verification attempted in deserialisation!"),
+		}
+	}
+}
+
