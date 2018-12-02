@@ -34,6 +34,7 @@ use curve25519_dalek::digest::Digest;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
+use curve25519_dalek::edwards::{CompressedEdwardsY,EdwardsPoint};
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
@@ -643,7 +644,7 @@ impl SecretKey {
 
         let mut h = D::default();
         h.input(R.as_bytes());
-        h.input(& public_key.to_bytes());  //TODO as_bytes()
+        h.input(public_key.to_edwards_bytes());
         h.input(&message);
 
         k = Scalar::from_hash(h);
@@ -717,7 +718,7 @@ impl SecretKey {
 
         k = Scalar::from_hash(
             h.chain(R.as_bytes())
-            .chain(& public_key.to_bytes())  // TODO as_bytes()
+            .chain(& public_key.to_edwards_bytes())
             .chain(&prehash[..])
         );
         s = &(&k * &self.key) + &r;
@@ -764,6 +765,11 @@ impl Debug for PublicKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
         write!(f, "PublicKey( RistrettoPoint( {:?} ))", self.0.compress())
     }
+}
+
+/// Implementation requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
+fn ristretto_to_edwards(p: RistrettoPoint) -> EdwardsPoint {
+	unsafe { ::std::mem::transmute::<RistrettoPoint,EdwardsPoint>(p) }
 }
 
 impl PublicKey {
@@ -824,6 +830,13 @@ impl PublicKey {
 		// Ok(CompressedPublicKey::from_bytes(bytes)?.compress()?)
     }
 
+	/// We always hash the `CompressedEdwardsY` cordinate form of public keys
+	/// in signatures, key derivations, etc. because these hashing does not
+	/// not benifit from the Ristretto encoding and Ristretto is slower.
+	pub (crate) fn to_edwards_bytes(&self) -> [u8; 32] {
+		ristretto_to_edwards(self.0).compress().to_bytes()
+	}
+
     /// Verify a signature on a message with this keypair's public key.
     ///
     /// # Return
@@ -839,7 +852,7 @@ impl PublicKey {
 
         let mut h: D = D::default();
         h.input(signature.R.as_bytes());
-        h.input(& self.to_bytes());  // TODO as_bytes
+        h.input(& self.to_edwards_bytes());
         h.input(&message);
 
         k = Scalar::from_hash(h);
@@ -891,7 +904,7 @@ impl PublicKey {
         h.input(&[ctx.len() as u8]);
         h.input(ctx);
         h.input(signature.R.as_bytes());
-        h.input(& self.to_bytes());  // TODO as_bytes
+        h.input(& self.to_edwards_bytes());
         h.input(prehashed_message.result().as_slice());
 
         k = Scalar::from_hash(h);
@@ -1040,7 +1053,7 @@ pub fn verify_batch<D>(messages: &[&[u8]],
     let hrams = (0..signatures.len()).map(|i| {
         let mut h: D = D::default();
         h.input(signatures[i].R.as_bytes());
-        h.input(& public_keys[i].to_bytes());  // TODO as_bytes
+        h.input(& public_keys[i].to_edwards_bytes());
         h.input(&messages[i]);
         Scalar::from_hash(h)
     });
@@ -1414,13 +1427,6 @@ mod test {
 	fn edwards_to_ristretto(p: EdwardsPoint) -> RistrettoPoint {
 		unsafe { ::std::mem::transmute::<EdwardsPoint,RistrettoPoint>(p) }
 	}
-
-	/*
-    /// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
-	fn ristretto_to_edwards(p: EdwardsPoint) -> RistrettoPoint {
-		unsafe { ::std::mem::transmute::<RistrettoPoint,EdwardsPoint>(p) }
-	}
-	*/
 
     #[cfg(all(test, feature = "serde"))]
     static ED25519_PUBLIC_KEY: PublicKey = PublicKey(CompressedEdwardsY([
