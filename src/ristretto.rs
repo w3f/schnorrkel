@@ -229,17 +229,20 @@ impl MiniSecretKey {
     {
         let mut h: D = D::default();
         h.input(self.as_bytes());
-        let r_seed = h.clone().result();
-        let mut nonce = [0u8; 32];
-        nonce.copy_from_slice(&r_seed.as_slice()[00..32]);  // Ignore [32..64]
+        let r = h.result();
 
-		// No clamping in a Schnorr group
-		let mut key = [0u8; 64];
-		h.input(self.as_bytes());
-		let r_key = h.result();
-		key.copy_from_slice(&r_key.as_slice()[00..64]);
-		let key = Scalar::from_bytes_mod_order_wide(&key);
-		
+		// We need not clamp in a Schnorr group like Ristretto, but here
+		// we do so to improve Ed25519 comparability.  
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&r.as_slice()[0..32]);
+        key[0]  &= 248;
+        key[31] &=  63;
+        key[31] |=  64;
+		let key = Scalar::from_bits(key);
+
+        let mut nonce = [0u8; 32];
+        nonce.copy_from_slice(&r.as_slice()[32..64]);
+
         SecretKey{ key, nonce }
     }
 
@@ -310,7 +313,6 @@ impl MiniSecretKey {
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
-
         Ok(MiniSecretKey(bits))
     }
 
@@ -378,9 +380,7 @@ impl MiniSecretKey {
     where T: CryptoRng + Rng,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
-
         csprng.fill_bytes(&mut sk.0);
-
         sk
     }
 }
@@ -554,7 +554,6 @@ impl SecretKey {
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
         let mut bytes: [u8; 64] = [0u8; 64];
-
         bytes[..32].copy_from_slice(self.key.as_bytes());
         bytes[32..].copy_from_slice(&self.nonce[..]);
         bytes
@@ -676,11 +675,10 @@ impl SecretKey {
 		&self,
 		prehashed_message: D,
 		public_key: &PublicKey,
-		context: Option<&'static [u8]>
+		context: Option<&'static [u8]>,
 	) -> Signature
-    where D: Digest<OutputSize = U64> + Default + Clone
+    where D: Digest<OutputSize = U64> + Default + Clone,
     {
-        let mut prehash: [u8; 64] = [0u8; 64];
         let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
@@ -696,6 +694,7 @@ impl SecretKey {
             .chain(ctx);
 
         // Get the result of the pre-hashed message.
+        let mut prehash: [u8; 64] = [0u8; 64];
         prehash.copy_from_slice(prehashed_message.result().as_slice());
 
         // This is the dumbest, ten-years-late, non-admission of fucking up the
@@ -713,7 +712,7 @@ impl SecretKey {
 
         r = Scalar::from_hash(
             h.clone()
-			.chain(&self.nonce)
+            .chain(&self.nonce)
             .chain(&prehash[..])
         );
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
