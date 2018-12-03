@@ -71,7 +71,7 @@ pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 /// "detached"—that is, they do **not** include a copy of the message which has
 /// been signed.
 #[allow(non_snake_case)]
-#[derive(Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(C)]
 pub struct Signature {
     /// `R` is an `EdwardsPoint`, formed by using an hash function with
@@ -95,10 +95,6 @@ pub struct Signature {
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.
     pub (crate) s: Scalar,
-}
-
-impl Clone for Signature {
-    fn clone(&self) -> Self { *self }
 }
 
 impl Debug for Signature {
