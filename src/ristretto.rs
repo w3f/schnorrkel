@@ -1615,6 +1615,8 @@ mod test {
 	        175, 002, 026, 104, 247, 007, 081, 026, ]);
 		let ristretto_public_key = edwards_to_ristretto(ED25519_PUBLIC_KEY.decompress().unwrap());
 
+		assert_eq!(PublicKey(ristretto_public_key).to_edwards_bytes(), ED25519_PUBLIC_KEY.0);
+
         // Make another function so that we can test the ? operator.
         fn do_the_test(s: &[u8]) -> Result<PublicKey, SignatureError> {
             let public_key = PublicKey::from_bytes(s) ?;
