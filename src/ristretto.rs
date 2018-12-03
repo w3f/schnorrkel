@@ -1000,15 +1000,14 @@ impl<'d> Deserialize<'d> for PublicKey {
 /// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign::<Sha512>(&msg)).collect();
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 ///
-/// let result = verify_batch::<Sha512>(&messages[..], &signatures[..], &public_keys[..]);
-/// assert!(result.unwrap());
+/// assert!( verify_batch::<Sha512>(&messages[..], &signatures[..], &public_keys[..]) );
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn verify_batch<D>(messages: &[&[u8]],
                        signatures: &[Signature],
-                       public_keys: &[PublicKey]) -> Result<bool, SignatureError>
+                       public_keys: &[PublicKey]) -> bool
 where D: Digest<OutputSize = U64> + Default
 {
     const ASSERT_MESSAGE: &'static [u8] = b"The number of messages, signatures, and public keys must be equal.";
@@ -1056,11 +1055,12 @@ where D: Digest<OutputSize = U64> + Default
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
-    let id = RistrettoPoint::optional_multiscalar_mul(
+    RistrettoPoint::optional_multiscalar_mul(
         once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
         B.chain(Rs).chain(As),
-    ).ok_or_else(|| SignatureError::PointDecompressionError) ?;
-    Ok(id.is_identity())
+	).map(|id| id.is_identity()).unwrap_or(false)
+	// We need not return SigenatureError::PointDecompressionError because
+	// the decompression failures occur for R represent invalid signatures.
 }
 
 
@@ -1603,7 +1603,7 @@ mod test {
         }
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
-        assert!( verify_batch::<Sha512>(&messages, &signatures[..], &public_keys[..]).unwrap() );
+        assert!( verify_batch::<Sha512>(&messages, &signatures[..], &public_keys[..]) );
     }
 
     #[test]
