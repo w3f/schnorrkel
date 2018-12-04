@@ -40,6 +40,7 @@ use curve25519_dalek::scalar::Scalar;
 
 use subtle::{Choice,ConstantTimeEq};
 
+use util;
 use errors::SignatureError;
 
 /// The length of a curve25519 EdDSA `Signature`, in bytes.
@@ -764,11 +765,6 @@ impl Debug for PublicKey {
     }
 }
 
-/// Implementation requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
-fn ristretto_to_edwards(p: RistrettoPoint) -> EdwardsPoint {
-	unsafe { ::std::mem::transmute::<RistrettoPoint,EdwardsPoint>(p) }
-}
-
 impl PublicKey {
     /// Convert this public key to a byte array.
     #[inline]
@@ -831,7 +827,7 @@ impl PublicKey {
 	/// in signatures, key derivations, etc. because these hashing does not
 	/// not benifit from the Ristretto encoding and Ristretto is slower.
 	pub (crate) fn to_edwards_bytes(&self) -> [u8; 32] {
-		ristretto_to_edwards(self.0).compress().to_bytes()
+		super::util::ristretto_to_edwards(self.0).compress().to_bytes()
 	}
 
     /// Verify a signature on a message with this keypair's public key.
@@ -1402,12 +1398,7 @@ mod test {
     use sha2::Sha512;
     use super::*;
 
-	use curve25519_dalek::edwards::{CompressedEdwardsY,EdwardsPoint};
-
-    /// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
-	fn edwards_to_ristretto(p: EdwardsPoint) -> RistrettoPoint {
-		unsafe { ::std::mem::transmute::<EdwardsPoint,RistrettoPoint>(p) }
-	}
+	use curve25519_dalek::edwards::{CompressedEdwardsY};  // EdwardsPoint
 
     #[cfg(all(test, feature = "serde"))]
     static ED25519_PUBLIC_KEY: PublicKey = PublicKey(CompressedEdwardsY([
@@ -1609,7 +1600,7 @@ mod test {
 	        213, 075, 254, 211, 201, 100, 007, 058,
 	        014, 225, 114, 243, 218, 166, 035, 037,
 	        175, 002, 026, 104, 247, 007, 081, 026, ]);
-		let ristretto_public_key = edwards_to_ristretto(ED25519_PUBLIC_KEY.decompress().unwrap());
+		let ristretto_public_key = super::util::edwards_to_ristretto(ED25519_PUBLIC_KEY.decompress().unwrap());
 
 		assert_eq!(PublicKey(ristretto_public_key).to_edwards_bytes(), ED25519_PUBLIC_KEY.0);
 
