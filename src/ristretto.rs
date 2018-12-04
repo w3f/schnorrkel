@@ -640,7 +640,7 @@ impl SecretKey {
 
         let mut h = D::default();
         h.input(R.as_bytes());
-        h.input(public_key.to_edwards_bytes());
+        h.input(public_key.to_ed25519_public_key_bytes());
         h.input(&message);
 
         k = Scalar::from_hash(h);
@@ -716,7 +716,7 @@ impl SecretKey {
 
         k = Scalar::from_hash(
             h.chain(R.as_bytes())
-            .chain(& public_key.to_edwards_bytes())
+            .chain(& public_key.to_ed25519_public_key_bytes())
             .chain(&prehash[..])
         );
         s = &(&k * &self.key) + &r;
@@ -845,7 +845,7 @@ impl PublicKey {
 
         let mut h: D = D::default();
         h.input(signature.R.as_bytes());
-        h.input(& self.to_edwards_bytes());
+        h.input(& self.to_ed25519_public_key_bytes());
         h.input(&message);
 
         k = Scalar::from_hash(h);
@@ -890,7 +890,7 @@ impl PublicKey {
         h.input(&[ctx.len() as u8]);
         h.input(ctx);
         h.input(signature.R.as_bytes());
-        h.input(& self.to_edwards_bytes());
+        h.input(& self.to_ed25519_public_key_bytes());
         h.input(prehashed_message.result().as_slice());
 
         k = Scalar::from_hash(h);
@@ -1034,7 +1034,7 @@ where D: Digest<OutputSize = U64> + Default
     let hrams = (0..signatures.len()).map(|i| {
         let mut h: D = D::default();
         h.input(signatures[i].R.as_bytes());
-        h.input(& public_keys[i].to_edwards_bytes());
+        h.input(& public_keys[i].to_ed25519_public_key_bytes());
         h.input(&messages[i]);
         Scalar::from_hash(h)
     });

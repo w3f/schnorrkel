@@ -65,7 +65,7 @@ impl PublicKey {
     where D: Digest<OutputSize = U64> + Clone
     {
         if let Some(cc) = cc { h.input(&cc.0); }
-        h.input(& self.to_edwards_bytes());
+        h.input(& self.to_ed25519_public_key_bytes());
 
         // No clamping in a Schnorr group
         let mut scalar = [0u8; 64];
