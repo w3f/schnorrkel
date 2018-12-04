@@ -235,6 +235,7 @@ impl MiniSecretKey {
         key[0]  &= 248;
         key[31] &=  63;
         key[31] |=  64;
+		util::divide_scalar_bytes_by_cofactor(&mut key);
 		let key = Scalar::from_bits(key);
 
         let mut nonce = [0u8; 32];
@@ -403,14 +404,20 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<MiniSecretKey, E> where E: SerdeError {
                 Ok(MiniSecretKey::from_bytes(bytes) ?)
-				// REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
         deserializer.deserialize_bytes(MiniSecretKeyVisitor)
     }
 }
 
-/// An "expanded" secret key.
+
+/// A seceret key for use with Ristretto Schnorr signatures.
+///
+/// These are almost compatable with EdDSA "expanded" secret keys, except
+/// we do not keep the scalar's high bit set during key derivations.  
+/// We do however represent the scalar by an integer mod 8*l with the
+/// low three bits cleared, so any scalar arithmatic must be done
+
 ///
 /// This is produced by using an hash function with 512-bits output to digest a
 /// `MiniSecretKey`.  The output digest is then split in half, the lower half being
@@ -509,13 +516,14 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// # #[cfg(any(not(feature = "std"), not(feature = "sha2")))]
     /// # fn main() {}
     /// ```
-    fn from(secret_key: &'a MiniSecretKey) -> SecretKey {
-		secret_key.expand::<Sha512>()
+    fn from(msk: &'a MiniSecretKey) -> SecretKey {
+		msk.expand::<Sha512>()
     }
 }
 
 impl SecretKey {
-    /// Convert this `SecretKey` into an array of 64 bytes.
+    /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
+	/// an Ed25519 expanded secreyt key.
     ///
     /// # Returns
     ///
@@ -551,7 +559,9 @@ impl SecretKey {
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
         let mut bytes: [u8; 64] = [0u8; 64];
-        bytes[..32].copy_from_slice(self.key.as_bytes());
+		let mut key = self.key.to_bytes();
+		util::multiply_scalar_bytes_by_cofactor(&mut key);
+        bytes[..32].copy_from_slice(&key[..]);
         bytes[32..].copy_from_slice(&self.nonce[..]);
         bytes
     }
@@ -601,15 +611,17 @@ impl SecretKey {
             return Err(SignatureError::BytesLengthError{
                 name: "SecretKey", length: SECRET_KEY_LENGTH });
         }
-        let mut lower: [u8; 32] = [0u8; 32];
-        let mut upper: [u8; 32] = [0u8; 32];
 
-        lower.copy_from_slice(&bytes[00..32]);
-        upper.copy_from_slice(&bytes[32..64]);
+        let mut key: [u8; 32] = [0u8; 32];
+        key.copy_from_slice(&bytes[00..32]);
+		util::divide_scalar_bytes_by_cofactor(&mut key);
+
+        let mut nonce: [u8; 32] = [0u8; 32];
+        nonce.copy_from_slice(&bytes[32..64]);
 
         Ok(SecretKey{
-			key: Scalar::from_bits(lower),
-            nonce: upper  
+			key: Scalar::from_bits(key),
+            nonce,  
 		})
     }
 
@@ -826,8 +838,8 @@ impl PublicKey {
 	/// We always hash the `CompressedEdwardsY` cordinate form of public keys
 	/// in signatures, key derivations, etc. because these hashing does not
 	/// not benifit from the Ristretto encoding and Ristretto is slower.
-	pub (crate) fn to_edwards_bytes(&self) -> [u8; 32] {
-		super::util::ristretto_to_edwards(self.0).compress().to_bytes()
+	pub (crate) fn to_ed25519_public_key_bytes(&self) -> [u8; 32] {
+		util::ristretto_to_edwards(self.0).mul_by_cofactor().compress().to_bytes()
 	}
 
     /// Verify a signature on a message with this keypair's public key.
@@ -1600,19 +1612,25 @@ mod test {
 	        213, 075, 254, 211, 201, 100, 007, 058,
 	        014, 225, 114, 243, 218, 166, 035, 037,
 	        175, 002, 026, 104, 247, 007, 081, 026, ]);
-		let ristretto_public_key = super::util::edwards_to_ristretto(ED25519_PUBLIC_KEY.decompress().unwrap());
+		let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
+		let ristretto_public_key = util::edwards_to_ristretto(pk);
 
-		assert_eq!(PublicKey(ristretto_public_key).to_edwards_bytes(), ED25519_PUBLIC_KEY.0);
+		assert_eq!(
+			PublicKey(ristretto_public_key).to_ed25519_public_key_bytes(),
+		    pk.mul_by_cofactor().compress().0
+		);
 
         // Make another function so that we can test the ? operator.
         fn do_the_test(s: &[u8]) -> Result<PublicKey, SignatureError> {
             let public_key = PublicKey::from_bytes(s) ?;
             Ok(public_key)
         }
-		assert_eq!(do_the_test(ristretto_public_key.compress().as_bytes()),
+		assert_eq!(
+			do_the_test(ristretto_public_key.compress().as_bytes()),
             Ok(PublicKey(ristretto_public_key))
 		);
-		assert_eq!(do_the_test(&ED25519_PUBLIC_KEY.0),  // Not a Ristretto public key
+		assert_eq!(
+			do_the_test(&ED25519_PUBLIC_KEY.0),  // Not a Ristretto public key
             Err(SignatureError::PointDecompressionError)
 		);
     }
