@@ -600,6 +600,18 @@ impl SecretKey {
 		})
     }
 
+    /// Generate a `SecretKey` an "unbiased" secret key without worrying
+	/// about Ed25519 `MiniSecretKey` compatability.
+    pub fn generate_unbiased<T>(csprng: &mut T) -> SecretKey
+    where T: CryptoRng + Rng,
+    {
+        let mut key: [u8; 64] = [0u8; 64];
+        csprng.fill_bytes(&mut key);
+        let mut nonce: [u8; 32] = [0u8; 32];
+        csprng.fill_bytes(&mut nonce);
+		SecretKey { key: Scalar::from_bytes_mod_order_wide(&key), nonce }
+    }
+
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
 		// No clamping in a Schnorr group
