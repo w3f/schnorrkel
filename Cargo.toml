@@ -1,6 +1,6 @@
 [package]
-name = "ed25519-dalek"
-version = "1.0.0-pre.0"
+name = "schnorr-dalek"
+version = "0.0.1"
 authors = ["Isis Lovecruft <isis@patternsinthevoid.net>"]
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -12,8 +12,8 @@ categories = ["cryptography", "no-std"]
 description = "Fast and efficient ed25519 EdDSA key generations, signing, and verification in pure Rust."
 exclude = [ ".gitignore", "TESTVECTORS", "res/*" ]
 
-[badges]
-travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
+# [badges]
+# travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
 
 [dependencies.curve25519-dalek]
 version = "1.0.0-pre.0"

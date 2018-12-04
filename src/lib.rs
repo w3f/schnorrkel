@@ -22,15 +22,15 @@
 //! ```
 //! extern crate rand;
 //! extern crate sha2;
-//! extern crate ed25519_dalek;
+//! extern crate schnorr_dalek;
 //!
 //! # #[cfg(all(feature = "std", feature = "sha2"))]
 //! # fn main() {
 //! use rand::Rng;
 //! use rand::OsRng;
 //! use sha2::Sha512;
-//! use ed25519_dalek::Keypair;
-//! use ed25519_dalek::Signature;
+//! use schnorr_dalek::Keypair;
+//! use schnorr_dalek::Signature;
 //!
 //! let mut csprng: OsRng = OsRng::new().unwrap();
 //! let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
@@ -45,14 +45,14 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # fn main() {
 //! # use rand::Rng;
 //! # use rand::ChaChaRng;
 //! # use rand::SeedableRng;
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::Keypair;
-//! # use ed25519_dalek::Signature;
+//! # use schnorr_dalek::Keypair;
+//! # use schnorr_dalek::Signature;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
@@ -66,14 +66,14 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # fn main() {
 //! # use rand::Rng;
 //! # use rand::ChaChaRng;
 //! # use rand::SeedableRng;
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::Keypair;
-//! # use ed25519_dalek::Signature;
+//! # use schnorr_dalek::Keypair;
+//! # use schnorr_dalek::Signature;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
@@ -88,15 +88,15 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # fn main() {
 //! # use rand::Rng;
 //! # use rand::ChaChaRng;
 //! # use rand::SeedableRng;
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::Keypair;
-//! # use ed25519_dalek::Signature;
-//! use ed25519_dalek::PublicKey;
+//! # use schnorr_dalek::Keypair;
+//! # use schnorr_dalek::Signature;
+//! use schnorr_dalek::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
@@ -118,12 +118,12 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # fn main() {
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::{Keypair, Signature, PublicKey};
-//! use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
+//! use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
@@ -142,11 +142,11 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::{Keypair, Signature, PublicKey, SecretKey, SignatureError};
-//! # use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey, SecretKey, SignatureError};
+//! # use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair_orig: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
@@ -185,7 +185,7 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # #[cfg(feature = "serde")]
 //! extern crate serde;
 //! # #[cfg(feature = "serde")]
@@ -195,7 +195,7 @@
 //! # fn main() {
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::{Keypair, Signature, PublicKey};
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate::<Sha512>(&mut csprng);
@@ -217,7 +217,7 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate sha2;
-//! # extern crate ed25519_dalek;
+//! # extern crate schnorr_dalek;
 //! # #[cfg(feature = "serde")]
 //! # extern crate serde;
 //! # #[cfg(feature = "serde")]
@@ -227,7 +227,7 @@
 //! # fn main() {
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
 //! # use sha2::Sha512;
-//! # use ed25519_dalek::{Keypair, Signature, PublicKey};
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
 //! # use bincode::{serialize, Infinite};
 //! use bincode::{deserialize};
 //!

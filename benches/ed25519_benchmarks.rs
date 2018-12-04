@@ -9,7 +9,7 @@
 
 #[macro_use]
 extern crate criterion;
-extern crate ed25519_dalek;
+extern crate schnorr_dalek;
 extern crate rand;
 extern crate sha2;
 
@@ -17,11 +17,11 @@ use criterion::Criterion;
 
 mod ed25519_benches {
     use super::*;
-    use ed25519_dalek::SecretKey;
-    use ed25519_dalek::Keypair;
-    use ed25519_dalek::PublicKey;
-    use ed25519_dalek::Signature;
-    use ed25519_dalek::verify_batch;
+    use schnorr_dalek::SecretKey;
+    use schnorr_dalek::Keypair;
+    use schnorr_dalek::PublicKey;
+    use schnorr_dalek::Signature;
+    use schnorr_dalek::verify_batch;
     use rand::thread_rng;
     use rand::ThreadRng;
     use sha2::Sha512;
