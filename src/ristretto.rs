@@ -7,8 +7,8 @@
 // Authors:
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
 
-//! A Rust implementation of ed25519 EdDSA key generation, signing, and
-//! verification.
+//! Schnorr signatures on the 2-tortsion free subgroup of ed25519,
+//! as provided by the Ristretto point compression.
 
 use core::default::Default;
 use core::fmt::{Debug};
@@ -64,13 +64,10 @@ pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LE
 /// The length of an ed25519 EdDSA `Keypair`, in bytes.
 pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
-/// An EdDSA signature.
+/// A Ristretto Schnorr signature "detached" from the signed message.
 ///
-/// # Note
-///
-/// These signatures, unlike the ed25519 signature reference implementation, are
-/// "detached"—that is, they do **not** include a copy of the message which has
-/// been signed.
+/// These cannot be converted to any Ed25519 signature because they hash
+/// curve points in the Ristretto encoding.
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[repr(C)]
@@ -166,7 +163,13 @@ impl<'d> Deserialize<'d> for Signature {
     }
 }
 
-/// An EdDSA secret key.
+/// An EdDSA compatabile "secret" key seed.
+///
+/// These are seeds from which we produce a real `SecretKey`, which
+/// EdDSA itself calls an extended secret key by hashing.  We require
+/// homomorphic properties unavailable from these seeds, so we renamed
+/// these and reserve `SecretKey` for what EdDSA calls an extended
+/// secret key.
 #[repr(C)]
 #[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
@@ -413,45 +416,17 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 
 /// A seceret key for use with Ristretto Schnorr signatures.
 ///
-/// These are almost compatable with EdDSA "expanded" secret keys, except
-/// we do not keep the scalar's high bit set during key derivations.  
-/// We do however represent the scalar by an integer mod 8*l with the
-/// low three bits cleared, so any scalar arithmatic must be done
-
+/// Internally, these consist of a scalar mod l along with a seed for
+/// nonce generation.  In this way, we ensure all scalar arithmatic
+/// works smoothly in operations like threshold or multi-signatures,
+/// or hierarchical deterministic key derivations.
 ///
-/// This is produced by using an hash function with 512-bits output to digest a
-/// `MiniSecretKey`.  The output digest is then split in half, the lower half being
-/// the actual `key` used to sign messages, after twiddling with some bits.¹ The
-/// upper half is used a sort of half-baked, ill-designed² pseudo-domain-separation
-/// "nonce"-like thing, which is used during signature production by
-/// concatenating it with the message to be signed before the message is hashed.
-//
-// ¹ This results in a slight bias towards non-uniformity at one spectrum of
-// the range of valid keys.  Oh well: not my idea; not my problem.
-//
-// ² It is the author's view (specifically, isis agora lovecruft, in the event
-// you'd like to complain about me, again) that this is "ill-designed" because
-// this doesn't actually provide true hash domain separation, in that in many
-// real-world applications a user wishes to have one key which is used in
-// several contexts (such as within tor, which does does domain separation
-// manually by pre-concatenating static strings to messages to achieve more
-// robust domain separation).  In other real-world applications, such as
-// bitcoind, a user might wish to have one master keypair from which others are
-// derived (à la BIP32) and different domain separators between keys derived at
-// different levels (and similarly for tree-based key derivation constructions,
-// such as hash-based signatures).  Leaving the domain separation to
-// application designers, who thus far have produced incompatible,
-// slightly-differing, ad hoc domain separation (at least those application
-// designers who knew enough cryptographic theory to do so!), is therefore a
-// bad design choice on the part of the cryptographer designing primitives
-// which should be simple and as foolproof as possible to use for
-// non-cryptographers.  Further, later in the ed25519 signature scheme, as
-// specified in RFC8032, the public key is added into *another* hash digest
-// (along with the message, again); it is unclear to this author why there's
-// not only one but two poorly-thought-out attempts at domain separation in the
-// same signature scheme, and which both fail in exactly the same way.  For a
-// better-designed, Schnorr-based signature scheme, see Trevor Perrin's work on
-// "generalised EdDSA" and "VXEdDSA".
+/// We keep our secret key serializaion "almost" compatable with EdDSA
+/// "expanded" secret key serializaion by multiplying the scalar by the
+/// cofactor 8, as integers, and dividing on deserializaion.
+/// We do not however attempt to keep the scalar's high bit set, especially
+/// not during hierarchical deterministic key derivations, so some Ed25519
+/// libraries might compute the public key incorrectly from our secret key.
 #[repr(C)]
 #[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct SecretKey {
@@ -769,7 +744,14 @@ where D: Digest<OutputSize = U64> + Default,
         .chain(ctx)
 }
 
-/// An ed25519 public key.
+/// A Ristretto Schnorr public key.
+/// 
+/// Internally, these are represented as a `RistrettoPoint`, meaning
+/// an Edwards point with a static guarantee to be 2-torsion free. 
+///
+/// At present, we decompress `PublicKey`s into this representation
+/// during deserialization, which improves error handling, but costs
+/// a compression during signing and verifiaction.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 #[repr(C)]
 pub struct PublicKey(pub (crate) RistrettoPoint);
@@ -838,9 +820,13 @@ impl PublicKey {
 		// Ok(CompressedPublicKey::from_bytes(bytes)?.compress()?)
     }
 
-	/// We always hash the `CompressedEdwardsY` cordinate form of public keys
-	/// in signatures, key derivations, etc. because these hashing does not
-	/// not benifit from the Ristretto encoding and Ristretto is slower.
+    /// A serialized Ed25519 public key compatable with our serialization
+	/// of the corresponding `SecretKey`.  
+	/// 
+	/// We by the cofactor 8 here because we multiply our scalars by the
+	/// cofactor 8 in serialization too.  In this way, our serializations
+	/// remain somewhat ed25519 compatable, except for clamping, but 
+	/// internally we operate on true scalars represented mod l.
 	pub (crate) fn to_ed25519_public_key_bytes(&self) -> [u8; 32] {
 		util::ristretto_to_edwards(self.0).mul_by_cofactor().compress().to_bytes()
 	}
@@ -866,7 +852,6 @@ impl PublicKey {
         k = Scalar::from_hash(h);
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
-        // TODO bool
         R.compress() == signature.R
     }
 
@@ -907,7 +892,6 @@ impl PublicKey {
         k = Scalar::from_hash(h);
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
-        // TODO bool
         R.compress() == signature.R
     }
 }
