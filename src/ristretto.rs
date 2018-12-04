@@ -693,14 +693,7 @@ impl SecretKey {
         let s: Scalar;
         let k: Scalar;
 
-        let ctx: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
-        debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
-        let ctx_len: u8 = ctx.len() as u8;
-        let h = D::default()
-            .chain(b"SigEd25519 no Ed25519 collisions")
-            .chain(&[1]) // Ed25519ph
-            .chain(&[ctx_len])
-            .chain(ctx);
+        let h = hash_from_context(context)
 
         // Get the result of the pre-hashed message.
         let mut prehash: [u8; 64] = [0u8; 64];
@@ -765,6 +758,16 @@ impl<'d> Deserialize<'d> for SecretKey {
     }
 }
 
+fn hash_from_context<D>(context: Option<&'static [u8]>) -> D
+where D: Digest<OutputSize = U64> + Default,
+      // R: Rng + CryptoRng,
+{
+    let ctx: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
+    debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
+    D::default()
+        .chain(&[ctx.len() as u8])
+        .chain(ctx)
+}
 
 /// An ed25519 public key.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
@@ -896,11 +899,7 @@ impl PublicKey {
         let ctx: &[u8] = context.unwrap_or(b"");
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
 
-        let mut h: D = D::default();
-        h.input(b"SigEd25519 no Ed25519 collisions");
-        h.input(&[1]); // Ed25519ph
-        h.input(&[ctx.len() as u8]);
-        h.input(ctx);
+        let mut h = hash_from_context(context);
         h.input(signature.R.as_bytes());
         h.input(& self.to_ed25519_public_key_bytes());
         h.input(prehashed_message.result().as_slice());
