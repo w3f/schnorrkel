@@ -671,7 +671,7 @@ impl SecretKey {
 		&self,
 		prehashed_message: D,
 		public_key: &PublicKey,
-		context: Option<&'static [u8]>,
+		context: Option<&[u8]>,
 	) -> Signature
     where D: Digest<OutputSize = U64> + Default + Clone,
     {
@@ -680,7 +680,7 @@ impl SecretKey {
         let s: Scalar;
         let k: Scalar;
 
-        let h = hash_from_context(context)
+        let h = hash_from_context::<D>(context);
 
         // Get the result of the pre-hashed message.
         let mut prehash: [u8; 64] = [0u8; 64];
@@ -745,7 +745,7 @@ impl<'d> Deserialize<'d> for SecretKey {
     }
 }
 
-fn hash_from_context<D>(context: Option<&'static [u8]>) -> D
+fn hash_from_context<D>(context: Option<&[u8]>) -> D
 where D: Digest<OutputSize = U64> + Default,
       // R: Rng + CryptoRng,
 {
@@ -896,7 +896,7 @@ impl PublicKey {
         let ctx: &[u8] = context.unwrap_or(b"");
         debug_assert!(ctx.len() <= 255, "The context must not be longer than 255 octets.");
 
-        let mut h = hash_from_context(context);
+        let mut h = hash_from_context::<D>(context);
         h.input(signature.R.as_bytes());
         h.input(& self.to_ed25519_public_key_bytes());
         h.input(prehashed_message.result().as_slice());
