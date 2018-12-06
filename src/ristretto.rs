@@ -238,6 +238,8 @@ impl MiniSecretKey {
         key[0]  &= 248;
         key[31] &=  63;
         key[31] |=  64;
+		// We then devide by the cofactor to internally keep a clean
+		// representation mod l.
 		util::divide_scalar_bytes_by_cofactor(&mut key);
 		let key = Scalar::from_bits(key);
 
@@ -535,6 +537,8 @@ impl SecretKey {
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
         let mut bytes: [u8; 64] = [0u8; 64];
 		let mut key = self.key.to_bytes();
+		// We multiply by the cofactor to improve ed25519 compatability,
+		// while our internally using a scalar mod l.
 		util::multiply_scalar_bytes_by_cofactor(&mut key);
         bytes[..32].copy_from_slice(&key[..]);
         bytes[32..].copy_from_slice(&self.nonce[..]);
@@ -589,6 +593,11 @@ impl SecretKey {
 
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
+		// TODO:  We should consider making sure the scalar is valid,
+		// maybe by zering the high bit, orp referably by checking < l.
+        // key[31] &= 0b0111_1111;
+		// We devide by the cofactor to internally keep a clean
+		// representation mod l.
 		util::divide_scalar_bytes_by_cofactor(&mut key);
 
         let mut nonce: [u8; 32] = [0u8; 32];
