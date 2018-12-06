@@ -34,7 +34,7 @@ use curve25519_dalek::digest::Digest;
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
-use curve25519_dalek::edwards::EdwardsPoint;  // CompressedEdwardsY
+use curve25519_dalek::edwards::{CompressedEdwardsY,EdwardsPoint};
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
@@ -835,13 +835,38 @@ impl PublicKey {
     /// A serialized Ed25519 public key compatable with our serialization
 	/// of the corresponding `SecretKey`.  
 	/// 
-	/// We by the cofactor 8 here because we multiply our scalars by the
-	/// cofactor 8 in serialization too.  In this way, our serializations
-	/// remain somewhat ed25519 compatable, except for clamping, but 
-	/// internally we operate on true scalars represented mod l.
+	/// We multiply by the cofactor 8 here because we multiply our
+	/// scalars by the cofactor 8 in serialization as well.  In this way,
+	/// our serializations remain somewhat ed25519 compatable, except for  
+	/// clamping, but internally we only operate on honest scalars
+	/// represented mod l, and thus avoid spooky cofactor bugs.
 	pub (crate) fn to_ed25519_public_key_bytes(&self) -> [u8; 32] {
 		util::ristretto_to_edwards(self.0).mul_by_cofactor().compress().to_bytes()
 	}
+
+    /// Deserialized an Ed25519 public key compatable with our serialization
+	/// of the corresponding `SecretKey`. 
+	/// 
+	/// Avoid using this function.  It is necessarily painfully slow and
+	/// will make you look bad.  Instead, communitate and use only Ristretto
+	/// public keys, and convert to ed25519 keys as required.
+    pub fn from_ed25519_public_key_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
+        if bytes.len() != PUBLIC_KEY_LENGTH {
+            return Err(SignatureError::BytesLengthError{
+                name: "PublicKey", length: PUBLIC_KEY_LENGTH });
+        }
+        let mut bits: [u8; 32] = [0u8; 32];
+        bits.copy_from_slice(&bytes[..32]);
+
+        let p = CompressedEdwardsY(bits).decompress().ok_or(SignatureError::PointDecompressionError) ?;
+        if ! p.is_torsion_free() {
+            return Err(SignatureError::PointDecompressionError);
+        }
+		let eighth = Scalar::from(8u8).invert();
+		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
+        Ok(PublicKey(util::edwards_to_ristretto(&eighth * p)))
+		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
+    }
 
     /// Verify a signature on a message with this keypair's public key.
     ///
