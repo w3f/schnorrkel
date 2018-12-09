@@ -13,8 +13,7 @@
 use core::default::Default;
 use core::fmt::{Debug};
 
-use rand::CryptoRng;
-use rand::Rng;
+use rand::{CryptoRng,Rng};
 
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};

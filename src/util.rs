@@ -61,7 +61,6 @@ mod tests {
     use super::*;
     // use ed25519_dalek::SecretKey;
     use rand::{thread_rng, Rng};
-    use sha2::{Digest, Sha512};
 
     // TODO: Simple test `RistrettoPoint` is implemented as an `EdwardsPoint`
     // #[test]
