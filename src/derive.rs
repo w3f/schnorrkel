@@ -11,12 +11,17 @@
 //! Schnorr signatures compatable with the Ristretto representation of
 //! ed25519.
 
-use curve25519_dalek::digest::generic_array::typenum::U64;
-use curve25519_dalek::digest::Digest;
-// TODO use clear_on_drop::clear::Clear;
+// use curve25519_dalek::digest::generic_array::typenum::U64;
+// use curve25519_dalek::digest::Digest;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::scalar::Scalar;
+
+// TODO use clear_on_drop::clear::Clear;
+
+use sha3::Shake256;
+use sha3::digest::{Input,ExtendableOutput,XofReader};
+// use tiny_keccak::{Keccak,XofReader};
 
 use super::ristretto::*;
 
@@ -38,71 +43,78 @@ pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 /// Key types that support "hierarchical deterministic" key derivation
 pub trait Derrivation : Sized {
     /// Derive key with subkey identified by a byte array
-    /// presented as a hash, and optionally a chain code.
-    fn derived_key_prehashed<D>(&self, h: D, cc: Option<&ChainCode>) -> (Self, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone;
+    /// presented as a hash, and a chain code.
+	///
+	/// At present, your only valid type paramater choice might be
+	/// `sha3::Shake256`, which we explain further in `lib.rs` by the
+	///  `extern crate sha3;` line.  There remain sitautions where
+	/// passing the hash will prove more conenienbt than managing
+	/// strings however.
+	fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (Self, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone;
 
     /// Derive key with subkey identified by a byte array
-    /// and optionally a chain code.
-    fn derived_key<D>(&self, i: &[u8], cc: Option<&ChainCode>) -> (Self, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone + Default
-    {
-        let mut h = D::default();
-        h.input(i);
-        self.derived_key_prehashed(h, cc)
-    }
+    /// and a chain code.  We do not include a context here
+	/// becuase the chain code could serve this purpose.
+	/// We support only Shake256 here for simplicity, and
+	/// the reasons discussed in `lib.rs`, and 
+	/// https://github.com/rust-lang/rust/issues/36887
+    fn derived_key<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
+		self.derived_key_prehashed(cc, Shake256::default().chain(i))
+	}
 }
 
-impl PublicKey {	
-    /// If `i` is the "index", `c` is the chain code, and pk the public key,
-    /// then we define the derived scalar to be the 512 bits `H(i ++ c ++ pk)`
-    /// reduced mod l, and define the new chain code to be low 256 bits of
-    /// `H(i ++ c ++ pk ++ pk)` directly.  
-	/// 
-	/// As a side effect, we update the digest by scaning in the chain code
-	// and public key.
-    fn derive_scalar_and_chaincode<D>(&self, mut h: D, cc: Option<&ChainCode>) -> (Scalar, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone
+impl PublicKey {
+	/// Derive a mutating scalar and new chain code from a public key and chain code.
+	///
+    /// If `i` is the "index", `c` is the chain code, and `pk` the public key,
+    /// then we compute `Shake256(i ++ c ++ pk)` and define our mutating scalar
+	/// to be the 512 bits of output reduced mod l, and define the next chain
+	/// code to be next 256 bits. 
+    fn derive_scalar_and_chaincode<D>(&self, cc: ChainCode, h: D) -> (Scalar, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone
     {
-        if let Some(cc) = cc { h.input(&cc.0); }
-        h.input(& self.to_ed25519_public_key_bytes());
+		let pk = self.to_ed25519_public_key_bytes();
 
-        // No clamping in a Schnorr group
+		let mut r = h.chain(&cc.0).chain(&pk).xof_result();
+
+        // We need not clamp in a Schnorr group.  We shall even use 64 bytes
+		// from XOF to produce a scalar that reduces mod l marginally more
+		// uniformly, so now we just scan the key a second time to define
+		// the chain code. 
         let mut scalar = [0u8; 64];
-        let r_scalar = h.clone().chain(b"key").result();
-        scalar.copy_from_slice(&r_scalar.as_slice()[00..64]);
+		r.read(&mut scalar);
 
-        // We used up all 64 bytes from the digest to produce a scalar
-		// that reduces mod l marginally more uniformly, so now we
-		// just scan the key a second time to define the chain code.  
-        let r_seed = h.chain(b"chaincode").result();
         let mut chaincode = [0u8; 32];
-        chaincode.copy_from_slice(&r_seed.as_slice()[00..32]); // Ignore [32..64]
+		r.read(&mut chaincode);
 
         (Scalar::from_bytes_mod_order_wide(&scalar), ChainCode(chaincode))
     }
 }
 
 impl Keypair {
-    /// Derive a secret key from a key pair
-    ///
-    ///
+    /// Derive a secret key and new chain code from a key pair and chain code.
     ///
     /// We expect the trait methods of `Keypair as Derrivation` to be
-    /// more useful since signing anything requires the public key.
-    pub fn derive_secret_key_prehashed<D>(&self, mut h: D, cc: Option<&ChainCode>) -> (SecretKey, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone
+    /// more useful since signing anything requires the public key too.
+    pub fn derive_secret_key<D>(&self, cc: ChainCode, h: D) -> (SecretKey, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone
     {
-        let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(h.clone(), cc);
+        let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(cc, h.clone());
 
+        let mut nonce = [0u8; 32];
         // We can define the nonce however we like here since it only protects
         // the signature from bad random number generators.  It need not be
-        // specified by any spcification or standard. 
-        if let Some(cc) = cc { h.input(&cc.0); }
-        h.input(& self.secret.to_bytes() as &[u8]);
-        let r = h.chain(b"nonce").result();
-        let mut nonce = [0u8; 32];
-        nonce.copy_from_slice(&r.as_slice()[00..32]); // Ignore [32..64]
+        // specified by any spcification or standard.  It must however be
+		// independent from the mutating scalar and new chain code.
+		//
+		// If `i` were long then we could make this more efficent by hashing `i`
+		// first to combine the computation with `derive_scalar_and_chaincode`, 
+		// but `i` should never get too long, and this slower forumation makes
+		// implementation mistakes less likely.
+		h.chain(& self.secret.to_bytes() as &[u8])
+		.xof_result()
+		.read(&mut nonce);
 
         (SecretKey {
             key: self.secret.key.clone() + scalar,
@@ -112,32 +124,31 @@ impl Keypair {
 }
 
 impl Derrivation for Keypair {
-    fn derived_key_prehashed<D>(&self, h: D, cc: Option<&ChainCode>) -> (Keypair, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone,
+    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (Keypair, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone
     {
-        let (secret, chaincode) = self.derive_secret_key_prehashed(h, cc);
+        let (secret, chaincode) = self.derive_secret_key(cc, h);
         let public = secret.to_public();
         (Keypair { secret, public }, chaincode)
     }
 }
 
 impl Derrivation for SecretKey {
-    fn derived_key_prehashed<D>(&self, h: D, cc: Option<&ChainCode>) -> (SecretKey, ChainCode)
-    where
-        D: Digest<OutputSize = U64> + Clone,
+    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (SecretKey, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone
     {
         Keypair {
             secret: self.clone(),
             public: self.to_public(),
-        }.derive_secret_key_prehashed(h, cc)
+        }.derive_secret_key(cc, h)
     }
 }
 
 impl Derrivation for PublicKey {
-    fn derived_key_prehashed<D>(&self, h: D, cc: Option<&ChainCode>) -> (PublicKey, ChainCode)
-    where D: Digest<OutputSize = U64> + Clone,
+    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (PublicKey, ChainCode)
+	where D: Input + ExtendableOutput + Default + Clone
     {
-        let (scalar, chaincode) = self.derive_scalar_and_chaincode(h, cc);
+        let (scalar, chaincode) = self.derive_scalar_and_chaincode(cc, h);
 		let p = &scalar * &constants::RISTRETTO_BASEPOINT_TABLE;
         (PublicKey(self.0 + p), chaincode)
     }
@@ -159,22 +170,20 @@ pub struct ExtendedKey<K> {
 // TODO: Serialization
 
 impl<K: Derrivation> ExtendedKey<K> {
-    /// Derive key with subkey identified by a byte array presented
-    /// as a hash, and a chain code in the extended key.
-    pub fn derived_key_prehashed<D>(&self, h: D) -> ExtendedKey<K>
-    where D: Digest<OutputSize = U64> + Clone
-    {
-        let (key, chaincode) = self.key.derived_key_prehashed(h, Some(&self.chaincode));
+    /// Derive key with subkey identified by a byte array
+    /// presented as a hash, and a chain code.
+	fn derived_key_prehashed<D>(&self, h: D) -> ExtendedKey<K>
+	where D: Input + ExtendableOutput + Default + Clone
+	{
+        let (key, chaincode) = self.key.derived_key_prehashed(self.chaincode.clone(), h);
         ExtendedKey { key, chaincode }
-    }
-
+	}
 
     /// Derive key with subkey identified by a byte array and 
     /// a chain code in the extended key.
-    pub fn derived_key<D>(&self, i: &[u8]) -> ExtendedKey<K>
-    where D: Digest<OutputSize = U64> + Clone + Default
+    pub fn derived_key<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
     {
-        let (key, chaincode) = self.key.derived_key::<D>(i, Some(&self.chaincode));
+        let (key, chaincode) = self.key.derived_key(self.chaincode.clone(), i);
         ExtendedKey { key, chaincode }
     }
 }
@@ -183,16 +192,16 @@ impl<K: Derrivation> ExtendedKey<K> {
 mod tests {
     use super::*;
     use rand::{thread_rng, Rng};
-    use sha2::{Digest, Sha512};
+    use sha3::{Sha3_512}; // Shake256
 
     #[test]
     fn public_vs_private_paths() {
         let mut rng = thread_rng();
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);
-        let mut h: Sha512 = Sha512::default();
-        h.input(b"Just some test message!");
+        let msg : &'static [u8] = b"Just some test message!";
+        let mut h = Sha3_512::default().chain(msg);
 
-        let key = Keypair::generate::<Sha512,_>(&mut rng);
+        let key = Keypair::generate::<Sha3_512,_>(&mut rng);
         let mut extended_public_key = ExtendedKey {
             key: key.public.clone(),
             chaincode,
@@ -202,9 +211,8 @@ mod tests {
         let context = Some(b"testing testing 1 2 3" as &[u8]);
 
         for i in 0..30 {
-            let extended_keypair1 =
-                extended_keypair.derived_key_prehashed(h.clone());
-            let extended_public_key1 = extended_public_key.derived_key_prehashed(h.clone());
+            let extended_keypair1 = extended_keypair.derived_key(msg);
+            let extended_public_key1 = extended_public_key.derived_key(msg);
             assert_eq!(
                 extended_keypair1.chaincode, extended_public_key1.chaincode,
                 "Chain code derivation failed!"
@@ -219,24 +227,24 @@ mod tests {
 
             if i % 5 == 0 {
                 let good_sig = extended_keypair.key
-                    .sign_prehashed::<Sha512>(h.clone(), context);
+                    .sign_prehashed::<Sha3_512>(h.clone(), context);
                 let h_bad = h.clone().chain(b"oops");
                 let bad_sig = extended_keypair.key
-                    .sign_prehashed::<Sha512>(h_bad.clone(), context);
+                    .sign_prehashed::<Sha3_512>(h_bad.clone(), context);
 
                 assert!(
                     extended_public_key.key
-                        .verify_prehashed::<Sha512>(h.clone(), context, &good_sig),
+                        .verify_prehashed::<Sha3_512>(h.clone(), context, &good_sig),
                     "Verification of a valid signature failed!"
                 );
                 assert!(
                     ! extended_public_key.key
-                        .verify_prehashed::<Sha512>(h.clone(), context, &bad_sig),
+                        .verify_prehashed::<Sha3_512>(h.clone(), context, &bad_sig),
                     "Verification of a signature on a different message passed!"
                 );
                 assert!(
                     ! extended_public_key.key
-                        .verify_prehashed::<Sha512>(h_bad, context, &good_sig),
+                        .verify_prehashed::<Sha3_512>(h_bad, context, &good_sig),
                     "Verification of a signature on a different message passed!"
                 );
             }
