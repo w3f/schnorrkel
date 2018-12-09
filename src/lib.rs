@@ -263,6 +263,31 @@ extern crate rand;
 extern crate clear_on_drop;
 extern crate subtle;
 
+// We shall prefer Shake256 for several reasons: 
+//
+// First, we're nolonger tied to specific bit patterns like Ed25519,
+// so some scalars could be obtained by reducing 64 bytes mod l,
+// which sounds marginally better.  As a result, we often want like
+// 96 bytes of hash output, which makes XOFs useful.
+//
+// Second, Shake256 should be resistant to extension attacks without
+// using HMAC constructions.  And RustCrypto's HMAC machenery is too
+// ugly to foist on developers.
+//
+// Third, Shake256 is only marginally slower than Sha2_256.  We could
+// choose KangarooTwelve by the Keccek team if we wanted raw speed, but
+// this involved understanding if it retains the resistance to length
+// extension attacks.  https://keccak.team/2017/is_sha3_slow.html
+//
+// Fourth, the strobe-rs crate, and thus the merlin crate use only Keccek.
+// I do not yet understand the STROBE framework well enough, but using
+// Shake256 may make switching to STROBE easier.
+//
+// I still think the RustCrypto traits suck, but tiny_keccak's intereface
+// is not better, merely simpler.
+extern crate sha3;
+// extern crate tiny_keccak;
+
 #[cfg(any(feature = "std", test))]
 #[macro_use]
 extern crate std;
