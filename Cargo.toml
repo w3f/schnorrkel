@@ -1,12 +1,12 @@
 [package]
 name = "schnorr-dalek"
 version = "0.0.1"
-authors = ["Isis Lovecruft <isis@patternsinthevoid.net>"]
+authors = ["Isis Lovecruft <isis@patternsinthevoid.net>", "Jeff Burdges <jeff@web3.foundation>"]
 readme = "README.md"
 license = "BSD-3-Clause"
-repository = "https://github.com/dalek-cryptography/ed25519-dalek"
+repository = "https://github.com/w3f/schnorr-dalek"
 homepage = "https://dalek.rs"
-documentation = "https://docs.rs/ed25519-dalek"
+documentation = "https://docs.rs/schnorr-dalek"
 keywords = ["cryptography", "ed25519", "curve25519", "signature", "ECC"]
 categories = ["cryptography", "no-std"]
 description = "Fast and efficient ed25519 EdDSA key generations, signing, and verification in pure Rust."
@@ -16,6 +16,10 @@ exclude = [ ".gitignore", "TESTVECTORS", "res/*" ]
 # travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
 
 [dependencies.curve25519-dalek]
+version = "1.0.0-pre.0"
+default-features = false
+
+[dependencies.ed25519-dalek]
 version = "1.0.0-pre.0"
 default-features = false
 

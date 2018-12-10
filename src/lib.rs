@@ -288,6 +288,8 @@ extern crate subtle;
 extern crate sha3;
 // extern crate tiny_keccak;
 
+extern crate ed25519_dalek;
+
 #[cfg(any(feature = "std", test))]
 #[macro_use]
 extern crate std;
