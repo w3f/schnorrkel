@@ -380,8 +380,8 @@ impl MiniSecretKey {
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`
-    pub fn generate<T>(csprng: &mut T) -> MiniSecretKey
-    where T: CryptoRng + Rng,
+    pub fn generate<R>(csprng: &mut T) -> MiniSecretKey
+    where R: CryptoRng + Rng,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
         csprng.fill_bytes(&mut sk.0);
@@ -616,10 +616,14 @@ impl SecretKey {
         })
     }
 
-    /// Generate a `SecretKey` an "unbiased" secret key without worrying
-    /// about Ed25519 `MiniSecretKey` compatability.
-    pub fn generate_unbiased<T>(csprng: &mut T) -> SecretKey
-    where T: CryptoRng + Rng,
+    /// Generate an "unbiased" `SecretKey` directly, bypassing the
+    /// `MiniSecretKey` Ed25519 compatability layer.
+    ///
+    /// As we generate a `SecretKey` directly bypassing `MiniSecretKey`,
+    /// so our secret keys do not satisfy the high bit "clamping"
+    /// impoised on Ed25519 keys.
+    pub fn generate<R>(csprng: &mut R) -> SecretKey
+    where R: CryptoRng + Rng,
     {
         let mut key: [u8; 64] = [0u8; 64];
         csprng.fill_bytes(&mut key);
@@ -1110,7 +1114,7 @@ impl<'d> Deserialize<'d> for PublicKey {
 ///
 /// # fn main() {
 /// let mut csprng: ThreadRng = thread_rng();
-/// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate::<Sha512, _>(&mut csprng)).collect();
+/// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate(&mut csprng)).collect();
 /// let msg: &[u8] = b"They're good dogs Brant";
 /// let messages: Vec<&[u8]> = (0..64).map(|_| msg).collect();
 /// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign::<Sha512>(&msg)).collect();
@@ -1245,7 +1249,7 @@ impl Keypair {
         Ok(Keypair{ secret: secret, public: public })
     }
 
-    /// Generate an ed25519 keypair.
+    /// Generate a Ristretto Schnorr keypair.
     ///
     /// # Example
     ///
@@ -1254,39 +1258,34 @@ impl Keypair {
     /// extern crate sha2;
     /// extern crate schnorr_dalek;
     ///
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
+    /// # #[cfg(feature = "sha2")]
     /// # fn main() {
     ///
     /// use rand::Rng;
     /// use rand::OsRng;
-    /// use sha2::Sha512;
     /// use schnorr_dalek::Keypair;
     /// use schnorr_dalek::Signature;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate(&mut csprng);
     ///
     /// # }
     /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
+    /// # #[cfg(not(feature = "std"))]
     /// # fn main() { }
     /// ```
     ///
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand::ChaChaRng`.
-    ///
-    /// The caller must also supply a hash function which implements the
-    /// `Digest` and `Default` traits, and which returns 512 bits of output.
-    /// The standard hash function used for most ed25519 libraries is SHA-512,
-    /// which is available with `use sha2::Sha512` as in the example above.
-    /// Other suitable hash functions include Keccak-512 and Blake2b-512.
-    pub fn generate<D, R>(csprng: &mut R) -> Keypair
-    where D: Digest<OutputSize = U64> + Default + Clone,
-          R: CryptoRng + Rng,
+    /// 
+    /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
+    /// so our secret keys do not satisfy the high bit "clamping"
+    /// impoised on Ed25519 keys.
+    pub fn generate<R>(csprng: &mut R) -> Keypair
+    where R: CryptoRng + Rng,
     {
-        let msk: MiniSecretKey = MiniSecretKey::generate(csprng);
-        let secret: SecretKey = msk.expand::<D>();
+        let secret: SecretKey = SecretKey::generate(csprng);
         let public: PublicKey = secret.to_public();
 
         Keypair{ public, secret }
@@ -1384,7 +1383,7 @@ impl Keypair {
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
-    /// let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
     /// // Create a hash digest object which we'll feed the message into:
@@ -1432,7 +1431,7 @@ impl Keypair {
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// # let mut csprng: ThreadRng = thread_rng();
-    /// # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    /// # let keypair: Keypair = Keypair::generate(&mut csprng);
     /// # let message: &[u8] = b"All I want is to pet all of the dogs.";
     /// # let prehashed: Sha512 = Sha512::default();
     /// # prehashed.input(message);
@@ -1494,7 +1493,7 @@ impl Keypair {
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
-    /// let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
     /// let prehashed: Sha512 = Sha512::default();
@@ -1614,7 +1613,7 @@ mod test {
         let bad:  &[u8] = "wrong message".as_bytes();
 
         csprng  = ChaChaRng::from_seed([0u8; 32]);
-        keypair  = Keypair::generate::<Sha512, _>(&mut csprng);
+        keypair  = Keypair::generate(&mut csprng);
         good_sig = keypair.sign::<Sha512>(&good);
         bad_sig  = keypair.sign::<Sha512>(&bad);
 
@@ -1730,7 +1729,7 @@ mod test {
         let context: &[u8] = b"testing testing 1 2 3";
 
         csprng   = ChaChaRng::from_seed([0u8; 32]);
-        keypair  = Keypair::generate::<Sha512, _>(&mut csprng);
+        keypair  = Keypair::generate(&mut csprng);
         good_sig = keypair.sign_prehashed::<Sha512>(prehashed_good1, Some(context));
         bad_sig  = keypair.sign_prehashed::<Sha512>(prehashed_bad1,  Some(context));
 
@@ -1757,7 +1756,7 @@ mod test {
         let mut signatures: Vec<Signature> = Vec::new();
 
         for i in 0..messages.len() {
-            let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+            let keypair: Keypair = Keypair::generate(&mut csprng);
             signatures.push(keypair.sign::<Sha512>(&messages[i]));
             keypairs.push(keypair);
         }
@@ -1798,7 +1797,7 @@ mod test {
 
     #[test]
     fn keypair_clear_on_drop() {
-        let mut keypair: Keypair = Keypair::generate::<Sha512, _>(&mut thread_rng());
+        let mut keypair: Keypair = Keypair::generate(&mut thread_rng());
 
         keypair.clear();
 
@@ -1817,7 +1816,7 @@ mod test {
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mut csprng = thread_rng();
-        let mini_secret: MiniSecretKey = MiniSecretKey::generate::<_>(&mut csprng);
+        let mini_secret: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
         let secret: SecretKey = mini_secret.expand::<Sha512>();
         let public_from_mini_secret: PublicKey = mini_secret.expand_to_public::<Sha512>();
         let public_from_secret: PublicKey = secret.to_public();
