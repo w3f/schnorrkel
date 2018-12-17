@@ -21,22 +21,20 @@
 //!
 //! ```
 //! extern crate rand;
-//! extern crate sha2;
 //! extern crate schnorr_dalek;
 //!
-//! # #[cfg(all(feature = "std", feature = "sha2"))]
+//! # #[cfg(all(feature = "std"))]
 //! # fn main() {
 //! use rand::Rng;
 //! use rand::OsRng;
-//! use sha2::Sha512;
 //! use schnorr_dalek::Keypair;
 //! use schnorr_dalek::Signature;
 //!
 //! let mut csprng: OsRng = OsRng::new().unwrap();
-//! let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # }
 //! #
-//! # #[cfg(any(not(feature = "std"), not(feature = "sha2")))]
+//! # #[cfg(any(not(feature = "std")))]
 //! # fn main() { }
 //! ```
 //!
@@ -44,19 +42,18 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::Rng;
-//! # use rand::ChaChaRng;
-//! # use rand::SeedableRng;
-//! # use sha2::Sha512;
-//! # use schnorr_dalek::Keypair;
-//! # use schnorr_dalek::Signature;
+//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use sha3::Shake128;
+//! # use schnorr_dalek::{Keypair,Signature};
+//! # use schnorr_dalek::context::signing_context;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! let context = signing_context::<Shake128>(b"this signature does this thing");
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! let signature: Signature = keypair.sign::<Sha512>(message);
+//! let signature: Signature = keypair.sign(&context, message);
 //! # }
 //! ```
 //!
@@ -65,20 +62,19 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::Rng;
-//! # use rand::ChaChaRng;
-//! # use rand::SeedableRng;
-//! # use sha2::Sha512;
-//! # use schnorr_dalek::Keypair;
-//! # use schnorr_dalek::Signature;
+//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use sha3::Shake128;
+//! # use schnorr_dalek::{Keypair,Signature};
+//! # use schnorr_dalek::context::signing_context;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let context = signing_context::<Shake128>(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign::<Sha512>(message);
-//! assert!(keypair.verify::<Sha512>(message, &signature));
+//! # let signature: Signature = keypair.sign(&context, message);
+//! assert!(keypair.verify(&context, message, &signature));
 //! # }
 //! ```
 //!
@@ -87,23 +83,21 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
-//! # use rand::Rng;
-//! # use rand::ChaChaRng;
-//! # use rand::SeedableRng;
-//! # use sha2::Sha512;
-//! # use schnorr_dalek::Keypair;
-//! # use schnorr_dalek::Signature;
+//! # use rand::{Rng,ChaChaRng,SeedableRng};
+//! # use sha3::Shake128;
+//! # use schnorr_dalek::{Keypair,Signature};
+//! # use schnorr_dalek::context::signing_context;
 //! use schnorr_dalek::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let context = signing_context::<Shake128>(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign::<Sha512>(message);
-//!
+//! # let signature: Signature = keypair.sign(&context, message);
 //! let public_key: PublicKey = keypair.public;
-//! assert!(public_key.verify::<Sha512>(message, &signature));
+//! assert!(public_key.verify(&context, message, &signature));
 //! # }
 //! ```
 //!
@@ -117,17 +111,19 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # fn main() {
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
-//! # use sha2::Sha512;
+//! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair, Signature, PublicKey};
+//! # use schnorr_dalek::context::signing_context;
 //! use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let context = signing_context::<Shake128>(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign::<Sha512>(message);
+//! # let signature: Signature = keypair.sign(&context, message);
 //! # let public_key: PublicKey = keypair.public;
 //!
 //! let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
@@ -141,17 +137,19 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
-//! # use sha2::Sha512;
-//! # use schnorr_dalek::{Keypair, Signature, PublicKey, SecretKey, SignatureError};
+//! # use sha3::Shake128;
+//! # use schnorr_dalek::{SecretKey, Keypair, Signature, PublicKey, SignatureError};
+//! # use schnorr_dalek::context::signing_context;
 //! # use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair_orig: Keypair = Keypair::generate::<Sha512, _>(&mut csprng);
+//! # let keypair_orig: Keypair = Keypair::generate(&mut csprng);
+//! # let context = signing_context::<Shake128>(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature_orig: Signature = keypair_orig.sign::<Sha512>(message);
+//! # let signature_orig: Signature = keypair_orig.sign(&context, message);
 //! # let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = keypair_orig.public.to_bytes();
 //! # let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = keypair_orig.secret.to_bytes();
 //! # let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair_orig.to_bytes();
@@ -184,7 +182,7 @@
 //!
 //! ```
 //! # extern crate rand;
-//! # extern crate sha2;
+//! # extern crate sha3;
 //! # extern crate schnorr_dalek;
 //! # #[cfg(feature = "serde")]
 //! extern crate serde;
@@ -194,15 +192,17 @@
 //! # #[cfg(feature = "serde")]
 //! # fn main() {
 //! # use rand::{Rng, ChaChaRng, SeedableRng};
-//! # use sha2::Sha512;
+//! # use sha3::Shake128;
 //! # use schnorr_dalek::{Keypair, Signature, PublicKey};
+//! # use schnorr_dalek::context::signing_context;
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let context = signing_context::<Shake128>(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign::<Sha512>(message);
+//! # let signature: Signature = keypair.sign(&context, message);
 //! # let public_key: PublicKey = keypair.public;
-//! # let verified: bool = public_key.verify::<Sha512>(message, &signature);
+//! # let verified: bool = public_key.verify(&context, message, &signature);
 //!
 //! let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
 //! let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
@@ -315,5 +315,6 @@ pub mod derive;
 pub mod errors;
 
 // Export everything public in ed25519.
+// pub use ristretto::signing_context;
 pub use ristretto::*;
 pub use errors::*;

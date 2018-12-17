@@ -23,7 +23,7 @@ use super::*;
 ///  due to hashing a context string.
 pub trait SigningContext {
 	/// Hash digest type used in signing and nonce creation
-	type D: Input + Default + Clone;
+	type Digest: Input + Default + Clone;
 
 	/// Initial hash state for creating a public coin, itself created
 	/// by hashing a context string.
@@ -32,7 +32,7 @@ pub trait SigningContext {
 	/// produce the public coin by `input`ing first the nonce point,
 	/// then the public key, and finally the message hash.
 	// the standrd Schnorr ordering
-	fn context_digest(&self) -> Self::D;
+	fn context_digest(&self) -> Self::Digest;
 
 	/// Initial hash state for creating a nonce, itself created by
 	/// extending a `context_digest` with randomness.
@@ -51,7 +51,7 @@ pub trait SigningContext {
 	/// We do however feel derandomization techniques provide valuble
 	/// protections even against attacks on our randomness source, and
 	/// test vectors require a derandomized version.
-	fn nonce_rng(&self) -> Self::D {
+	fn nonce_randomness(&self) -> Self::Digest {
 		use rand::{RngCore,thread_rng};
 		let mut r = [0u8; 32];
 		thread_rng().fill_bytes(&mut r);
@@ -60,10 +60,11 @@ pub trait SigningContext {
 }
 
 /// Initialize a context hash from a byte string.
-pub fn context<D>(context : Option<&'static [u8]>) -> Context<D>
+pub fn signing_context<D>(context : &[u8]) -> Context<D>
 where D: Input + Default + Clone,
 {
-    let context: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
+	// Any reasont to insist on context : Option<&'static [u8]>? 
+    // let context: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
     debug_assert!(context.len() <= 255, "The context must not be longer than 255 bytes.");
 	Context( D::default().chain(&[context.len() as u8]).chain(context) )
 	// let mut c = Context(D::default());
@@ -94,6 +95,6 @@ where D: Input + Default + Clone
 impl<D> SigningContext for Context<D>
 where D: Input + Default + Clone,
 {
-	type D=D;
+	type Digest=D;
 	fn context_digest(&self) -> D {  self.0.clone() /*.chain(&[0u8]) */  }
 }

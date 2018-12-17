@@ -45,10 +45,10 @@ pub trait Derrivation : Sized {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
 	///
-	/// At present, your only valid type paramater choice might be
-	/// `sha3::Shake256`, which we explain further in `lib.rs` by the
-	///  `extern crate sha3;` line.  There remain sitautions where
-	/// passing the hash will prove more conenienbt than managing
+	/// At present, your only valid type paramater choices might be
+	/// `sha3::Shake128`/`126`, which we explain further in `lib.rs` by
+	/// the `extern crate sha3;` line.  There remain sitautions where
+	/// passing the hash will prove more convenient than managing
 	/// strings however.
 	fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (Self, ChainCode)
 	where D: Input + ExtendableOutput + Default + Clone;
@@ -84,6 +84,7 @@ impl PublicKey {
 		// the chain code. 
         let mut scalar = [0u8; 64];
 		r.read(&mut scalar);
+		// We should call util::scalar_from_XOF here but RustCrypto handles XOFs badly.
 
         let mut chaincode = [0u8; 32];
 		r.read(&mut chaincode);
@@ -192,23 +193,24 @@ impl<K: Derrivation> ExtendedKey<K> {
 mod tests {
     use super::*;
     use rand::{thread_rng, Rng};
-    use sha3::{Sha3_512}; // Shake256
+    use sha3::{Shake128,Sha3_512}; // Shake256
 
     #[test]
     fn public_vs_private_paths() {
         let mut rng = thread_rng();
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);
         let msg : &'static [u8] = b"Just some test message!";
-        let mut h = Sha3_512::default().chain(msg);
+        let mut h = Shake128::default().chain(msg);
+        let mut h_ed25519 = Sha3_512::default().chain(msg);
 
-        let key = Keypair::generate::<Sha3_512,_>(&mut rng);
+        let key = Keypair::generate(&mut rng);
         let mut extended_public_key = ExtendedKey {
             key: key.public.clone(),
             chaincode,
         };
         let mut extended_keypair = ExtendedKey { key, chaincode, };
 
-        let context = Some(b"testing testing 1 2 3" as &[u8]);
+        let ctx = ::context::signing_context::<Shake128>(b"testing testing 1 2 3" as &[u8]);
 
         for i in 0..30 {
             let extended_keypair1 = extended_keypair.derived_key(msg);
@@ -227,24 +229,49 @@ mod tests {
 
             if i % 5 == 0 {
                 let good_sig = extended_keypair.key
-                    .sign_prehashed::<Sha3_512>(h.clone(), context);
+                    .sign_prehashed(&ctx, h.clone());
                 let h_bad = h.clone().chain(b"oops");
                 let bad_sig = extended_keypair.key
-                    .sign_prehashed::<Sha3_512>(h_bad.clone(), context);
+                    .sign_prehashed(&ctx, h_bad.clone());
 
                 assert!(
                     extended_public_key.key
-                        .verify_prehashed::<Sha3_512>(h.clone(), context, &good_sig),
+                        .verify_prehashed(&ctx, h.clone(), &good_sig),
                     "Verification of a valid signature failed!"
                 );
                 assert!(
                     ! extended_public_key.key
-                        .verify_prehashed::<Sha3_512>(h.clone(), context, &bad_sig),
+                        .verify_prehashed(&ctx, h.clone(), &bad_sig),
                     "Verification of a signature on a different message passed!"
                 );
                 assert!(
                     ! extended_public_key.key
-                        .verify_prehashed::<Sha3_512>(h_bad, context, &good_sig),
+                        .verify_prehashed(&ctx, h_bad, &good_sig),
+                    "Verification of a signature on a different message passed!"
+                );
+            }
+
+            if i % 7 == 0 {
+                let context = Some(b"testing testing 1 2 3" as &[u8]);
+                let good_sig = extended_keypair.key
+                    .sign_ed25519_prehashed::<Sha3_512>(h_ed25519.clone(), context);
+	            let h_bad = h_ed25519.clone().chain(b"oops");
+                let bad_sig = extended_keypair.key
+                    .sign_ed25519_prehashed::<Sha3_512>(h_bad.clone(), context);
+
+                assert!(
+                    extended_public_key.key
+                        .verify_ed25519_prehashed(h_ed25519.clone(), context, &good_sig),
+                    "Verification of a valid signature failed!"
+                );
+                assert!(
+                    ! extended_public_key.key
+                        .verify_ed25519_prehashed::<Sha3_512>(h_ed25519.clone(), context, &bad_sig),
+                    "Verification of a signature on a different message passed!"
+                );
+                assert!(
+                    ! extended_public_key.key
+                        .verify_ed25519_prehashed::<Sha3_512>(h_bad, context, &good_sig),
                     "Verification of a signature on a different message passed!"
                 );
             }

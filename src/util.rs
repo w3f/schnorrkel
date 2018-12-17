@@ -7,11 +7,23 @@
 // Authors:
 // - Jeff Burdges <jeff@web3.foundation>
 
-//! Not so safe utilities for managing scalars and points
+//! Elliptic curve utilities not provided by curve25519-dalek,
+//! including some not so safe utilities for managing scalars and points.
 
+use curve25519_dalek::digest::{ExtendableOutput,XofReader};
 use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
+
+
+pub fn scalar_from_xof<D>(hash: D) -> Scalar
+where D: ExtendableOutput
+{
+    let mut output = [0u8; 64];
+    hash.xof_result().read(&mut output);
+    Scalar::from_bytes_mod_order_wide(&output)
+}
+
 
 /// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
 pub fn ristretto_to_edwards(p: RistrettoPoint) -> EdwardsPoint {
