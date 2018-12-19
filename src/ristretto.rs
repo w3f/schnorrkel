@@ -877,12 +877,13 @@ impl PublicKey {
 		.expect("Improper serialisation of Ed25519 public key!")
 	}	
 
-    /// Deserialized an Ed25519 public key compatable with our serialization
-    /// of the corresponding `SecretKey`. 
+    /// Deserialized an Ed25519 public key compatable with our
+    /// serialization of the corresponding `SecretKey`. 
     /// 
-    /// Avoid using this function.  It is necessarily painfully slow and
-    /// will make you look bad.  Instead, communitate and use only Ristretto
-    /// public keys, and convert to ed25519 keys as required.
+    /// Avoid using this function.  It is necessarily painfully slow,
+	/// by far the slowest in this crate, and will make you look bad.  
+	/// Instead, communitate and use only Ristretto public keys, and
+	/// convert to ed25519 keys as required.
     pub fn from_ed25519_public_key_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
         if bytes.len() != PUBLIC_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError{
@@ -891,13 +892,13 @@ impl PublicKey {
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
 
-        let p = CompressedEdwardsY(bits).decompress().ok_or(SignatureError::PointDecompressionError) ?;
-        if ! p.is_torsion_free() {
-            return Err(SignatureError::PointDecompressionError);
-        }
+		let mut point = util::edwards_to_ristretto(
+	        CompressedEdwardsY(bits).decompress()
+			.ok_or(SignatureError::PointDecompressionError) ?
+		) ?;  // PointDecompressionError unless 2-torsion free
 		let eighth = Scalar::from(8u8).invert();
 		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
-		let point = util::edwards_to_ristretto(&eighth * p);
+		point *= &eighth;
         Ok(PublicKey { compressed: point.compress(), point })
 		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
     }
@@ -1727,7 +1728,7 @@ mod test {
             014, 225, 114, 243, 218, 166, 035, 037,
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
-        let point = util::edwards_to_ristretto(pk);
+        let point = util::edwards_to_ristretto(pk).unwrap();
 		let ristretto_public_key = PublicKey {
 			compressed: point.compress(),
 			point,
