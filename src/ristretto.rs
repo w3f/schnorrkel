@@ -11,6 +11,7 @@
 //! Schnorr signatures on the 2-tortsion free subgroup of ed25519,
 //! as provided by the Ristretto point compression.
 
+use core::convert::AsRef;
 use core::default::Default;
 use core::fmt::{Debug};
 
@@ -639,9 +640,8 @@ impl SecretKey {
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
         // No clamping in a Schnorr group
-        PublicKey(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
-        // let pk = &self.key * &constants::RISTRETTO_BASEPOINT_TABLE;
-        // CompressedPublicKey(CompressedRistretto(pk.compress().to_bytes()))
+		let point = &self.key * &constants::RISTRETTO_BASEPOINT_TABLE;
+        PublicKey { compressed: point.compress(), point }
     }
 
     /// Sign a message with this `SecretKey` using the old Ed25519
@@ -700,7 +700,7 @@ impl SecretKey {
         k = util::scalar_from_xof(
             context.context_digest()
             .chain(R.as_bytes())
-            .chain(& public_key.to_ed25519_public_key_bytes())
+            .chain(public_key.compressed.as_bytes())
             .chain(&message)
         );
         s = &(&k * &self.key) + &r;
@@ -783,11 +783,20 @@ impl<'d> Deserialize<'d> for SecretKey {
 /// a compression during signing and verifiaction.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 #[repr(C)]
-pub struct PublicKey(pub (crate) RistrettoPoint);
+pub struct PublicKey {
+	pub (crate) point: RistrettoPoint,
+	pub (crate) compressed: CompressedRistretto,
+}
 
 impl Debug for PublicKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-        write!(f, "PublicKey( RistrettoPoint( {:?} ))", self.0.compress())
+        write!(f, "PublicKey( RistrettoPoint( {:?} ))", self.compressed)
+    }
+}
+
+impl AsRef<[u8]> for PublicKey {
+    fn as_ref(&self) -> &[u8] {
+        self.compressed.as_bytes()
     }
 }
 
@@ -795,7 +804,7 @@ impl PublicKey {
     /// Convert this public key to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
-        self.0.compress().to_bytes()
+        self.compressed.to_bytes()
     }
 
     /// Construct a `PublicKey` from a slice of bytes.
@@ -840,13 +849,12 @@ impl PublicKey {
             return Err(SignatureError::BytesLengthError{
                 name: "PublicKey", length: PUBLIC_KEY_LENGTH });
         }
-        let mut bits: [u8; 32] = [0u8; 32];
-        bits.copy_from_slice(&bytes[..32]);
-        Ok(PublicKey(
-            CompressedRistretto(bits).decompress()
-            .ok_or(SignatureError::PointDecompressionError) ?
-        ))
-        // Ok(CompressedPublicKey::from_bytes(bytes)?.compress()?)
+		let mut compressed = CompressedRistretto([0u8; 32]);
+        compressed.0.copy_from_slice(&bytes[..32]);
+        Ok(PublicKey {
+            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
+			compressed
+        } )
     }
 
     /// A serialized Ed25519 public key compatable with our serialization
@@ -858,7 +866,7 @@ impl PublicKey {
     /// clamping, but internally we only operate on honest scalars
     /// represented mod l, and thus avoid spooky cofactor bugs.
     pub fn to_ed25519_public_key_bytes(&self) -> [u8; 32] {
-        util::ristretto_to_edwards(self.0).mul_by_cofactor().compress().to_bytes()
+        util::ristretto_to_edwards(self.point).mul_by_cofactor().compress().to_bytes()
     }
 
     /// An Ed25519 public key compatable with our serialization of
@@ -889,7 +897,8 @@ impl PublicKey {
         }
 		let eighth = Scalar::from(8u8).invert();
 		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
-        Ok(PublicKey(util::edwards_to_ristretto(&eighth * p)))
+		let point = util::edwards_to_ristretto(&eighth * p);
+        Ok(PublicKey { compressed: point.compress(), point })
 		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
     }
 
@@ -935,14 +944,14 @@ impl PublicKey {
     where C: SigningContext,
 	      C::Digest: ExtendableOutput
     {
-        let A: RistrettoPoint = self.0;
+        let A: RistrettoPoint = self.point;
         let R: RistrettoPoint;
         let k: Scalar;
 
         k = util::scalar_from_xof(
             context.context_digest()
             .chain(signature.R.as_bytes())
-            .chain(& self.to_ed25519_public_key_bytes())
+            .chain(self.compressed.as_bytes())
             .chain(&message)
         );
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
@@ -996,7 +1005,7 @@ impl From<SecretKey> for PublicKey {
 #[cfg(feature = "serde")]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.0.compress().as_bytes())
+        serializer.serialize_bytes(self.compressed.as_bytes())
     }
 }
 
@@ -1015,18 +1024,6 @@ impl<'d> Deserialize<'d> for PublicKey {
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<PublicKey, E> where E: SerdeError {
                 Ok(PublicKey::from_bytes(bytes) ?)
-                /*
-                REMOVE
-                if bytes.len() != PUBLIC_KEY_LENGTH {
-                    return Err(SerdeError::invalid_length(bytes.len(), &self));
-                }
-                let mut bits: [u8; 32] = [0u8; 32];
-                bits.copy_from_slice(&bytes[..32]);
-                Ok(PublicKey(  
-                    CompressedRistretto(bits).decompress()
-                    .or(Err(SerdeError::custom("Ristretto point decompression failed")))?
-                ))
-                */
             }
         }
         deserializer.deserialize_bytes(PublicKeyVisitor)
@@ -1123,7 +1120,7 @@ where C: SigningContext,
         util::scalar_from_xof(
             context.context_digest()
             .chain(signatures[i].R.as_bytes())
-            .chain(& public_keys[i].to_ed25519_public_key_bytes())
+            .chain(public_keys[i].compressed.as_bytes())
             .chain(&messages[i])
         )
     });
@@ -1132,7 +1129,7 @@ where C: SigningContext,
     let zhrams = hrams.zip(zs.iter()).map(|(hram, z)| hram * z);
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
-    let As = public_keys.iter().map(|pk| Some(pk.0));  // TODO batch decompress()?
+    let As = public_keys.iter().map(|pk| Some(pk.point));
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
@@ -1532,8 +1529,8 @@ mod test {
 
     use context::signing_context;
 
-    #[cfg(all(test, feature = "serde"))]
-    static ED25519_PUBLIC_KEY: PublicKey = PublicKey(CompressedEdwardsY([
+    #[cfg(all(test, feature = "serde"))]  //TODO: FIX
+    static ED25519_PUBLIC_KEY: PublicKey = ed25519_dalek::PublicKey(CompressedEdwardsY([
         130, 039, 155, 015, 062, 076, 188, 063,
         124, 122, 026, 251, 233, 253, 225, 220,
         014, 041, 166, 120, 108, 035, 254, 077,
@@ -1730,10 +1727,14 @@ mod test {
             014, 225, 114, 243, 218, 166, 035, 037,
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
-        let ristretto_public_key = util::edwards_to_ristretto(pk);
+        let point = util::edwards_to_ristretto(pk);
+		let ristretto_public_key = PublicKey {
+			compressed: point.compress(),
+			point,
+		};
 
         assert_eq!(
-            PublicKey(ristretto_public_key).to_ed25519_public_key_bytes(),
+            ristretto_public_key.to_ed25519_public_key_bytes(),
             pk.mul_by_cofactor().compress().0
         );
 
@@ -1743,8 +1744,8 @@ mod test {
             Ok(public_key)
         }
         assert_eq!(
-            do_the_test(ristretto_public_key.compress().as_bytes()),
-            Ok(PublicKey(ristretto_public_key))
+            do_the_test(ristretto_public_key.as_ref()),
+            Ok(ristretto_public_key)
         );
         assert_eq!(
             do_the_test(&ED25519_PUBLIC_KEY.0),  // Not a Ristretto public key

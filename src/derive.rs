@@ -150,8 +150,11 @@ impl Derrivation for PublicKey {
 	where D: Input + ExtendableOutput + Default + Clone
     {
         let (scalar, chaincode) = self.derive_scalar_and_chaincode(cc, h);
-		let p = &scalar * &constants::RISTRETTO_BASEPOINT_TABLE;
-        (PublicKey(self.0 + p), chaincode)
+		let point = self.point + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
+        (PublicKey {
+			compressed: point.compress(),
+			point,
+		}, chaincode)
     }
 }
 
