@@ -1002,13 +1002,11 @@ impl<'d> Deserialize<'d> for PublicKey {
 /// ```
 /// extern crate schnorr_dalek;
 /// extern crate rand;
-/// extern crate sha3;
 ///
 /// use schnorr_dalek::context::signing_context;
 /// use schnorr_dalek::{Keypair,PublicKey,Signature,verify_batch};
 /// use rand::thread_rng;
 /// use rand::rngs::ThreadRng;
-/// use sha3::Shake128;
 ///
 /// # fn main() {
 /// let ctx = signing_context(b"some batch");
