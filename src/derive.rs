@@ -19,10 +19,7 @@ use curve25519_dalek::scalar::Scalar;
 
 // TODO use clear_on_drop::clear::Clear;
 
-use sha3::Shake256;
-use sha3::digest::{Input,ExtendableOutput,XofReader};
-// use tiny_keccak::{Keccak,XofReader};
-
+use context::{SigningTranscript,SigningContext};
 use super::ristretto::*;
 
 /// Length in bytes of our chain codes.
@@ -50,8 +47,8 @@ pub trait Derrivation : Sized {
 	/// the `extern crate sha3;` line.  There remain sitautions where
 	/// passing the hash will prove more convenient than managing
 	/// strings however.
-	fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (Self, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone;
+	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
+	where T: SigningTranscript+Clone;
 
     /// Derive key with subkey identified by a byte array
     /// and a chain code.  We do not include a context here
@@ -59,8 +56,9 @@ pub trait Derrivation : Sized {
 	/// We support only Shake256 here for simplicity, and
 	/// the reasons discussed in `lib.rs`, and 
 	/// https://github.com/rust-lang/rust/issues/36887
-    fn derived_key<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
-		self.derived_key_prehashed(cc, Shake256::default().chain(i))
+    fn derived_key_simple<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
+		let t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
+		self.derived_key(t, cc)
 	}
 }
 
@@ -68,28 +66,25 @@ impl PublicKey {
 	/// Derive a mutating scalar and new chain code from a public key and chain code.
 	///
     /// If `i` is the "index", `c` is the chain code, and `pk` the public key,
-    /// then we compute `Shake256(i ++ c ++ pk)` and define our mutating scalar
+    /// then we compute `H(i ++ c ++ pk)` and define our mutating scalar
 	/// to be the 512 bits of output reduced mod l, and define the next chain
-	/// code to be next 256 bits. 
-    fn derive_scalar_and_chaincode<D>(&self, cc: ChainCode, h: D) -> (Scalar, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone
+	/// code to be next 256 bits.  
+	///
+	/// We update the signing transcript as a side effect.
+    fn derive_scalar_and_chaincode<T>(&self, t: &mut T, cc: ChainCode) -> (Scalar, ChainCode)
+	where T: SigningTranscript
     {
 		let pk = self.to_ed25519_public_key_bytes();
 
-		let mut r = h.chain(&cc.0).chain(&pk).xof_result();
+        t.commit_bytes(b"chain-code",&cc.0);
+        t.commit_bytes(b"ed25519-pk",&pk);
 
-        // We need not clamp in a Schnorr group.  We shall even use 64 bytes
-		// from XOF to produce a scalar that reduces mod l marginally more
-		// uniformly, so now we just scan the key a second time to define
-		// the chain code. 
-        let mut scalar = [0u8; 64];
-		r.read(&mut scalar);
-		// We should call util::scalar_from_XOF here but RustCrypto handles XOFs badly.
+        let scalar = t.challenge_scalar(b"HDKD-scalar");
 
         let mut chaincode = [0u8; 32];
-		r.read(&mut chaincode);
+        t.challenge_bytes(b"HDKD-scalar", &mut chaincode);
 
-        (Scalar::from_bytes_mod_order_wide(&scalar), ChainCode(chaincode))
+        (scalar, ChainCode(chaincode))
     }
 }
 
@@ -98,24 +93,27 @@ impl Keypair {
     ///
     /// We expect the trait methods of `Keypair as Derrivation` to be
     /// more useful since signing anything requires the public key too.
-    pub fn derive_secret_key<D>(&self, cc: ChainCode, h: D) -> (SecretKey, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone
+    pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
+	where T: SigningTranscript+Clone
     {
-        let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(cc, h.clone());
+		use ::rand::prelude::*;
 
-        let mut nonce = [0u8; 32];
+        let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(&mut t, cc);
+
         // We can define the nonce however we like here since it only protects
         // the signature from bad random number generators.  It need not be
         // specified by any spcification or standard.  It must however be
 		// independent from the mutating scalar and new chain code.
-		//
-		// If `i` were long then we could make this more efficent by hashing `i`
-		// first to combine the computation with `derive_scalar_and_chaincode`, 
-		// but `i` should never get too long, and this slower forumation makes
-		// implementation mistakes less likely.
-		h.chain(& self.secret.to_bytes() as &[u8])
-		.xof_result()
-		.read(&mut nonce);
+        let mut nonce = [0u8; 32];
+		thread_rng().fill_bytes(&mut nonce);
+        // Ideally we'd use the witness mechanism from `merlin::transcript` here,
+		// instead of the commit and challenge machinery.  Yet, we lack access so
+		// long as we work behind the `SigningTranscript` trait, so we fork the
+		// transcript instead.
+		let mut t = t.clone(); 
+        t.commit_bytes(b"",& self.secret.to_bytes() as &[u8]);
+        t.commit_bytes(b"",& nonce);
+		t.challenge_bytes(b"",&mut nonce);
 
         (SecretKey {
             key: self.secret.key.clone() + scalar,
@@ -125,31 +123,31 @@ impl Keypair {
 }
 
 impl Derrivation for Keypair {
-    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (Keypair, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone
+	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Keypair, ChainCode)
+	where T: SigningTranscript+Clone
     {
-        let (secret, chaincode) = self.derive_secret_key(cc, h);
+        let (secret, chaincode) = self.derive_secret_key(t, cc);
         let public = secret.to_public();
         (Keypair { secret, public }, chaincode)
     }
 }
 
 impl Derrivation for SecretKey {
-    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (SecretKey, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone
+	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
+	where T: SigningTranscript+Clone
     {
         Keypair {
             secret: self.clone(),
             public: self.to_public(),
-        }.derive_secret_key(cc, h)
+        }.derive_secret_key(t, cc)
     }
 }
 
 impl Derrivation for PublicKey {
-    fn derived_key_prehashed<D>(&self, cc: ChainCode, h: D) -> (PublicKey, ChainCode)
-	where D: Input + ExtendableOutput + Default + Clone
+	fn derived_key<T>(&self, mut t: T, cc: ChainCode) -> (PublicKey, ChainCode)
+	where T: SigningTranscript+Clone
     {
-        let (scalar, chaincode) = self.derive_scalar_and_chaincode(cc, h);
+        let (scalar, chaincode) = self.derive_scalar_and_chaincode(&mut t, cc);
 		let point = self.point + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
         (PublicKey {
 			compressed: point.compress(),
@@ -176,18 +174,18 @@ pub struct ExtendedKey<K> {
 impl<K: Derrivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
-	fn derived_key_prehashed<D>(&self, h: D) -> ExtendedKey<K>
-	where D: Input + ExtendableOutput + Default + Clone
+	fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
+	where T: SigningTranscript+Clone
 	{
-        let (key, chaincode) = self.key.derived_key_prehashed(self.chaincode.clone(), h);
+        let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
         ExtendedKey { key, chaincode }
 	}
 
     /// Derive key with subkey identified by a byte array and 
     /// a chain code in the extended key.
-    pub fn derived_key<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
+    pub fn derived_key_simple<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
     {
-        let (key, chaincode) = self.key.derived_key(self.chaincode.clone(), i);
+        let (key, chaincode) = self.key.derived_key_simple(self.chaincode.clone(), i);
         ExtendedKey { key, chaincode }
     }
 }
@@ -195,6 +193,8 @@ impl<K: Derrivation> ExtendedKey<K> {
 #[cfg(test)]
 mod tests {
     use rand::prelude::*; // thread_rng
+
+	use sha3::digest::{Input}; // ExtendableOutput,XofReader
     use sha3::{Shake128,Sha3_512}; // Shake256
 
     use super::*;
@@ -217,8 +217,8 @@ mod tests {
         let ctx = ::context::signing_context(b"testing testing 1 2 3");
 
         for i in 0..30 {
-            let extended_keypair1 = extended_keypair.derived_key(msg);
-            let extended_public_key1 = extended_public_key.derived_key(msg);
+            let extended_keypair1 = extended_keypair.derived_key_simple(msg);
+            let extended_public_key1 = extended_public_key.derived_key_simple(msg);
             assert_eq!(
                 extended_keypair1.chaincode, extended_public_key1.chaincode,
                 "Chain code derivation failed!"
