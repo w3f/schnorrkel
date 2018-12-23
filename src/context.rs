@@ -37,14 +37,28 @@ use super::*;
 /// We also abstract over owned and borrowed `merlin::Transcript`s,
 /// so that simple use cases do not suffer from our support for. 
 pub trait SigningTranscript {
+    /// Extend transcript with some bytes, shadowed by `merlin::Transcript`.
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]);
+
     /// Extend transcript with a protocol name
-    fn proto_name(&mut self, label: &'static [u8]);
+    fn proto_name(&mut self, label: &'static [u8]) {
+        self.commit_bytes(b"proto-name", label);
+    }
 
     /// Extend the transcript with a compressed Ristretto point
-    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto);
+    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto) {
+        self.commit_bytes(label, point.as_bytes());
+    }
+
+    /// Produce some challenge bytes, shadowed by `merlin::Transcript`.
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]);
 
     /// Produce the public challenge scalar `e`.
-    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar;
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar {
+        let mut buf = [0; 64];
+        self.challenge_bytes(label, &mut buf);
+        Scalar::from_bytes_mod_order_wide(&buf)
+    }
 
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
 	/// transcript and any "nonce seeds" kept with the secret keys.
@@ -54,18 +68,12 @@ pub trait SigningTranscript {
 impl<T> SigningTranscript for T
 where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcript
 {
-    fn proto_name(&mut self, label: &'static [u8]) {
-        self.borrow_mut().commit_bytes(b"proto-name", label);
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
+        Transcript::commit_bytes(self.borrow_mut(), b"proto-name", bytes);
     }
 
-    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto) {
-        self.borrow_mut().commit_bytes(label, point.as_bytes());
-    }
-
-    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar {
-        let mut buf = [0; 64];
-        self.borrow_mut().challenge_bytes(label, &mut buf);
-        Scalar::from_bytes_mod_order_wide(&buf)
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
+        Transcript::challenge_bytes(self.borrow_mut(), b"proto-name", dest);
     }
 
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
