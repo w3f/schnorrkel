@@ -64,7 +64,7 @@ criterion = "0.2"
 rand_chacha = "0.1.0"
 
 [[bench]]
-name = "ed25519_benchmarks"
+name = "schnorr_benchmarks"
 harness = false
 
 [features]
