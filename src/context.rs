@@ -10,91 +10,123 @@
 //! Schnorr signature contexts and configuration, adaptable
 //! to most Schnorr signature schemes.
 
-use curve25519_dalek::digest::{Input};  // ExtendableOutput,XofReader
-use curve25519_dalek::digest::generic_array::typenum::U64;
+// use rand::prelude::*;  // {RngCore,thread_rng};
 
-// trait DigestXOF = Input + ExtendableOutput + Clone + Default;
+use core::borrow::{Borrow,BorrowMut};
+
+use merlin::{Transcript};
+
+use curve25519_dalek::digest::{FixedOutput,ExtendableOutput,XofReader}; // Input
+use curve25519_dalek::digest::generic_array::typenum::U32;
+
+use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::scalar::Scalar;
 
 use super::*;
 
-/// A Schnorr signing context specifies both
-///  randomization and/or derandomization defenses, as well as
-///  hash functions used, and their initial state,
-///  due to hashing a context string.
-pub trait SigningContext {
-	/// Hash digest type used in signing and nonce creation
-	type Digest: Input + Default + Clone;
+/// Schnorr signing transcript
+/// 
+/// We envision signatures being on messages, but if a signature occurs
+/// inside a larger protocol then the signature scheme's internal 
+/// transcript may exist before or persist after signing.
+/// 
+/// In this trait, we provide an interface for Schnorr signature-like
+/// constructions that is compatable with `merlin::Transcript`, but
+/// abstract enough to support normal hash functions as well.
+///
+/// We also abstract over owned and borrowed `merlin::Transcript`s,
+/// so that simple use cases do not suffer from our support for. 
+pub trait SigningTranscript {
+    /// Extend transcript with a protocol name
+    fn proto_name(&mut self, label: &'static [u8]);
 
-	/// Initial hash state for creating a public coin, itself created
-	/// by hashing a context string.
-	/// 
-	/// In signing and verifying, we must extend this `Digest` to 
-	/// produce the public coin by `input`ing first the nonce point,
-	/// then the public key, and finally the message hash.
-	// the standrd Schnorr ordering
-	fn context_digest(&self) -> Self::Digest;
+    /// Extend the transcript with a compressed Ristretto point
+    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto);
 
-	/// Initial hash state for creating a nonce, itself created by
-	/// extending a `context_digest` with randomness.
-	///
-	/// In signing and verifying, we must extend this `Digest` to produce
-	/// the nonce by `input`ing the secret nonce seed and message hash,
-	/// like in a derandomized scheme like ed25519. 
-	///
-	/// We advise againsrt fully derandomized schemes because actual
-	/// randomness is appear important in cases like multi-signatures.
-	/// As an example, there is a security proof for the 3-RTT MuSig
-	/// scheme, but if randomness were not used then one could lower
-	/// its security to the original 2-RTT MuSig version, which
-	/// lacks any security proof.
-	/// 
-	/// We do however feel derandomization techniques provide valuble
-	/// protections even against attacks on our randomness source, and
-	/// test vectors require a derandomized version.
-	fn nonce_randomness(&self) -> Self::Digest {
-		use rand::{RngCore,thread_rng};
-		let mut r = [0u8; 32];
-		thread_rng().fill_bytes(&mut r);
-		self.context_digest().chain(&r) /* .chain(&secret_nonce_seed).chain(&message) */
-	}
+    /// Produce the public challenge scalar `e`.
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar;
+
+    /// Produce a secret witness scalar `k`, aka nonce, from the protocol
+	/// transcript and any "nonce seeds" kept with the secret keys.
+    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar;
 }
 
-/// Initialize a context hash from a byte string.
-pub fn signing_context<D>(context : &[u8]) -> Context<D>
-where D: Input + Default + Clone,
+impl<T> SigningTranscript for T
+where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcript
 {
-	// Any reasont to insist on context : Option<&'static [u8]>? 
-    // let context: &[u8] = context.unwrap_or(b""); // By default, the context is an empty string.
-    debug_assert!(context.len() <= 255, "The context must not be longer than 255 bytes.");
-	Context( D::default().chain(&[context.len() as u8]).chain(context) )
-	// let mut c = Context(D::default());
-	// if let Some(context) = context { c.more(context); }
-	// c
-}
+    fn proto_name(&mut self, label: &'static [u8]) {
+        self.borrow_mut().commit_bytes(b"proto-name", label);
+    }
 
-/// A typical Schnorr signing context with both
-/// randomized and derandomized defenses
-#[derive(Debug,Clone)]
-pub struct Context<D>(D)
-where D: Input + Default + Clone;
+    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto) {
+        self.borrow_mut().commit_bytes(label, point.as_bytes());
+    }
 
-/*
-impl<D> Context<D>
-where D: Input + Default + Clone
-{
-	/// Extend the initial context hash 
-	pub fn more(&mut self, bytes: &[u8]) {
-		for c in bytes.chunks(255) {
-			self.0.input(&[c.len() as u8]);
-			self.0.input(c);
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar {
+        let mut buf = [0; 64];
+        self.borrow_mut().challenge_bytes(label, &mut buf);
+        Scalar::from_bytes_mod_order_wide(&buf)
+    }
+
+    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
+	{
+        let mut br = self.borrow().build_rng()
+            .commit_witness_bytes(b"", nonce_seed);
+		if let Some(w) = extra_nonce_seed {
+			br = br.commit_witness_bytes(b"", w);
 		}
+		let mut r = br.finalize(&mut rand::prelude::thread_rng());
+		Scalar::random(&mut r)
+    }
+}
+
+/// Schnorr signing context
+///
+/// We expect users to seperate `SigningContext`s for each role that
+/// signature play in their protocol.  These `SigningContext`s may be
+/// global `lazy_static!`s.
+///
+/// To sign a message, apply the appropriate inherent method to create
+/// a signature transcript.
+#[derive(Clone)] // Debug
+pub struct SigningContext(Transcript);
+
+/// Initialize a signing context from a static byte string that
+/// identifies the signature's role in the larger protocol.
+pub fn signing_context(context : &'static [u8]) -> SigningContext {
+    SigningContext::new(context)
+}
+
+impl SigningContext {
+	/// Initialize a signing context from a static byte string that
+	/// identifies the signature's role in the larger protocol.
+	pub fn new(context : &'static [u8]) -> SigningContext {
+        SigningContext(Transcript::new(context))
+	}
+
+    /// Initalize an owned signing transcript on a message provided as a byte array
+	pub fn bytes(&self, bytes: &[u8]) -> Transcript {
+        let mut t = self.0.clone();
+        t.commit_bytes(b"sign-bytes", bytes);
+        t
+	}
+
+    /// Initalize an owned signing transcript on a message provided as a hash function with extensible output
+	pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
+	    let mut prehash = [0u8; 32];
+	    h.xof_result().read(&mut prehash);		
+		let mut t = self.0.clone();
+		t.commit_bytes(b"sign-XoF", &prehash);
+		t
+	}
+
+    /// Initalize an owned signing transcript on a message provided as a hash function with 256 bit output
+	pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
+	    let mut prehash = [0u8; 32];
+		prehash.copy_from_slice(h.fixed_result().as_slice());
+		let mut t = self.0.clone();
+		t.commit_bytes(b"sign-256", &prehash);
+		t
 	}
 }
-*/
 
-impl<D> SigningContext for Context<D>
-where D: Input + Default + Clone,
-{
-	type Digest=D;
-	fn context_digest(&self) -> D {  self.0.clone() /*.chain(&[0u8]) */  }
-}

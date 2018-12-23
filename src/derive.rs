@@ -194,12 +194,13 @@ impl<K: Derrivation> ExtendedKey<K> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use rand::{thread_rng, Rng};
+    use rand::prelude::*; // thread_rng
     use sha3::{Shake128,Sha3_512}; // Shake256
 
+    use super::*;
+
     #[test]
-    fn public_vs_private_paths() {
+    fn derive_key_public_vs_private_paths() {
         let mut rng = thread_rng();
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);
         let msg : &'static [u8] = b"Just some test message!";
@@ -213,7 +214,7 @@ mod tests {
         };
         let mut extended_keypair = ExtendedKey { key, chaincode, };
 
-        let ctx = ::context::signing_context::<Shake128>(b"testing testing 1 2 3" as &[u8]);
+        let ctx = ::context::signing_context(b"testing testing 1 2 3");
 
         for i in 0..30 {
             let extended_keypair1 = extended_keypair.derived_key(msg);
@@ -228,28 +229,25 @@ mod tests {
             );
             extended_keypair = extended_keypair1;
             extended_public_key = extended_public_key1;
+
             h.input(b"Another");
+            h_ed25519.input(b"Another");
 
             if i % 5 == 0 {
-                let good_sig = extended_keypair.key
-                    .sign_prehashed(&ctx, h.clone());
+                let good_sig = extended_keypair.key.sign(ctx.xof(h.clone()));
                 let h_bad = h.clone().chain(b"oops");
-                let bad_sig = extended_keypair.key
-                    .sign_prehashed(&ctx, h_bad.clone());
+                let bad_sig = extended_keypair.key.sign(ctx.xof(h_bad.clone()));
 
                 assert!(
-                    extended_public_key.key
-                        .verify_prehashed(&ctx, h.clone(), &good_sig),
+                    extended_public_key.key.verify(ctx.xof(h.clone()), &good_sig),
                     "Verification of a valid signature failed!"
                 );
                 assert!(
-                    ! extended_public_key.key
-                        .verify_prehashed(&ctx, h.clone(), &bad_sig),
+                    ! extended_public_key.key.verify(ctx.xof(h.clone()), &bad_sig),
                     "Verification of a signature on a different message passed!"
                 );
                 assert!(
-                    ! extended_public_key.key
-                        .verify_prehashed(&ctx, h_bad, &good_sig),
+                    ! extended_public_key.key.verify(ctx.xof(h_bad), &good_sig),
                     "Verification of a signature on a different message passed!"
                 );
             }

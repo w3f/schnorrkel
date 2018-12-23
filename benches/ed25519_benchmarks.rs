@@ -11,18 +11,15 @@
 extern crate criterion;
 extern crate schnorr_dalek;
 extern crate rand;
-extern crate sha3;
 // extern crate sha2;
 
 use criterion::Criterion;
 
-mod ed25519_benches {
+mod schnorr_benches {
     use super::*;
-    use schnorr_dalek::{SecretKey, Keypair, PublicKey, Signature, verify_batch};
+    use schnorr_dalek::{Keypair, PublicKey, Signature, verify_batch}; // SecretKey
     use schnorr_dalek::context::signing_context;
     use rand::prelude::*; // ThreadRng,thread_rng
-    use sha3::Shake128;
-    // use sha2::Sha512;
 
     // TODO: fn sign_mini(c: &mut Criterion)
 
@@ -31,9 +28,9 @@ mod ed25519_benches {
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let msg: &[u8] = b"";
 
-		let ctx = signing_context::<Shake128>(b"this signature does this thing");
-        c.bench_function("Ed25519 signing", move |b| {
-                         b.iter(| | keypair.sign(&ctx, msg))
+		let ctx = signing_context(b"this signature does this thing");
+        c.bench_function("Schnorr signing", move |b| {
+                         b.iter(| | keypair.sign(ctx.bytes(msg)))
         });
     }
 
@@ -41,11 +38,11 @@ mod ed25519_benches {
         let mut csprng: ThreadRng = thread_rng();
         let keypair: Keypair = Keypair::generate(&mut csprng);
         let msg: &[u8] = b"";
-		let ctx = signing_context::<Shake128>(b"this signature does this thing");
-        let sig: Signature = keypair.sign(&ctx, msg);
+		let ctx = signing_context(b"this signature does this thing");
+        let sig: Signature = keypair.sign(ctx.bytes(msg));
         
-        c.bench_function("Ed25519 signature verification", move |b| {
-                         b.iter(| | keypair.verify(&ctx, msg, &sig))
+        c.bench_function("Schnorr signature verification", move |b| {
+                         b.iter(| | keypair.verify(ctx.bytes(msg), &sig))
         });
     }
 
@@ -53,17 +50,19 @@ mod ed25519_benches {
         static BATCH_SIZES: [usize; 8] = [4, 8, 16, 32, 64, 96, 128, 256];
 
         c.bench_function_over_inputs(
-            "Ed25519 batch signature verification",
+            "Schnorr batch signature verification",
             |b, &&size| {
                 let mut csprng: ThreadRng = thread_rng();
                 let keypairs: Vec<Keypair> = (0..size).map(|_| Keypair::generate(&mut csprng)).collect();
                 let msg: &[u8] = b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-                let messages: Vec<&[u8]> = (0..size).map(|_| msg).collect();
-				let ctx = signing_context::<Shake128>(b"this signature does this thing");
-                let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(&ctx, &msg)).collect();
+				let ctx = signing_context(b"this signature does this thing");
+                let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(msg))).collect();
                 let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
-                b.iter(|| verify_batch(&ctx, &messages[..], &signatures[..], &public_keys[..]));
+                b.iter(|| {
+					let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(size);
+					verify_batch(transcripts, &signatures[..], &public_keys[..])
+				});
             },
             &BATCH_SIZES,
         );
@@ -72,13 +71,13 @@ mod ed25519_benches {
     fn key_generation(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
 
-        c.bench_function("Ed25519 keypair generation", move |b| {
+        c.bench_function("Schnorr keypair generation", move |b| {
                          b.iter(| | Keypair::generate(&mut csprng))
         });
     }
 
     criterion_group!{
-        name = ed25519_benches;
+        name = schnorr_benches;
         config = Criterion::default();
         targets =
             sign,
@@ -89,5 +88,5 @@ mod ed25519_benches {
 }
 
 criterion_main!(
-    ed25519_benches::ed25519_benches,
+    schnorr_benches::schnorr_benches,
 );

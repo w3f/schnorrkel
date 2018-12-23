@@ -32,7 +32,7 @@ use sha2::Sha512;
 use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::digest;
-use curve25519_dalek::digest::{Input,FixedOutput,ExtendableOutput,XofReader};
+use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
@@ -42,7 +42,7 @@ use curve25519_dalek::scalar::Scalar;
 
 use subtle::{Choice,ConstantTimeEq};
 
-use context::{SigningContext,signing_context};
+use context::{SigningTranscript,SigningContext};
 use util;
 use errors::SignatureError;
 
@@ -679,68 +679,44 @@ impl SecretKey {
 		.sign_prehashed::<D>(prehashed_message,&public_key,context).to_bytes()
 	}
 
-    /// Sign a message with this `SecretKey`.
+    /// Sign a transcript with this `SecretKey`.
+	///
+	/// Requires a `SigningTranscript`, normally created from a
+	/// `SigningContext` and a message, as well as the public key
+	/// correspodning to `self`.  Returns a Schnorr signature.
+	///
+	/// We employ a randomized nonce here, but also incorporate the
+	/// transcript like in a derandomized scheme, but only after first
+	/// extending the transcript by the public key.  As a result, there
+	/// should be no attacks even if both the random number generator
+	/// fails and the function gets called with the wrong public key.
     #[allow(non_snake_case)]
-    pub fn sign<C>(&self, context: &C, message: &[u8], public_key: &PublicKey) -> Signature
-    where C: SigningContext,
-	      C::Digest: ExtendableOutput
-    {
+    pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
+	{
         let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
         let k: Scalar;
 
-        r = util::scalar_from_xof(
-            context.nonce_randomness()
-            .chain(&self.nonce)
-            .chain(&message)
-        );
+		t.proto_name(b"Schnorr-sig");
+		t.commit_point(b"A",&public_key.compressed);
+
+        r = t.witness_scalar(&self.nonce,None);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        k = util::scalar_from_xof(
-            context.context_digest()
-            .chain(R.as_bytes())
-            .chain(public_key.compressed.as_bytes())
-            .chain(&message)
-        );
+		t.commit_point(b"R",&R);
+
+        k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         s = &(&k * &self.key) + &r;
 
         Signature{ R, s }
     }
 
-    /// Sign a `prehashed_message` with this `SecretKey` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-    ///
-    /// # Inputs
-    ///
-    /// * `prehashed_message` is an instantiated hash digest with 512-bits of
-    ///   output which has had the message to be signed previously fed into its
-    ///   state.
-    /// * `public_key` is a [`PublicKey`] which corresponds to this secret key.
-    /// * `context` is an optional context string, up to 255 bytes inclusive,
-    ///   which may be used to provide additional domain separation.  If not
-    ///   set, this will default to an empty string.
-    ///
-    /// # Returns
-    ///
-    /// An Ed25519ph [`Signature`] on the `prehashed_message`.
-    ///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    #[allow(non_snake_case)]
-    pub fn sign_prehashed<C>(
-        &self,
-        context: &C,
-        prehashed_message: C::Digest,
-        public_key: &PublicKey,
-    ) -> Signature
-    where C: SigningContext,
-	      C::Digest: ExtendableOutput
+    /// Sign a message with this `SecretKey`.
+    pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8], public_key: &PublicKey) -> Signature
     {
-        // Get the result of the pre-hashed message.
-        let mut prehash = [0u8; 64];
-        prehashed_message.xof_result().read(&mut prehash);
-
-        self.sign::<C>(context,&prehash,public_key)
+		let t = SigningContext::new(ctx).bytes(msg);
+        self.sign(t,public_key)
     }
 }
 
@@ -935,64 +911,33 @@ impl PublicKey {
 		.and_then(|s| self.to_ed25519_public_key().verify_prehashed::<D>(prehashed_message,context,&s)).is_ok()
 	}
 
-    /// Verify a signature on a message with this public key.
-    ///
-    /// # Return
-    ///
-    /// Returns `Ok(())` if the signature is valid, and `Err` otherwise.
+    /// Verify a signature by this public key on a transcript.
+	///
+	/// Requires a `SigningTranscript`, normally created from a
+	/// `SigningContext` and a message, as well as the signature
+	/// to be verified.
     #[allow(non_snake_case)]
-    pub fn verify<C>(&self, context: &C, message: &[u8], signature: &Signature) -> bool
-    where C: SigningContext,
-	      C::Digest: ExtendableOutput
+    pub fn verify<T: SigningTranscript>(&self, mut t: T, signature: &Signature) -> bool
     {
         let A: RistrettoPoint = self.point;
         let R: RistrettoPoint;
         let k: Scalar;
 
-        k = util::scalar_from_xof(
-            context.context_digest()
-            .chain(signature.R.as_bytes())
-            .chain(self.compressed.as_bytes())
-            .chain(&message)
-        );
+		t.proto_name(b"Schnorr-sig");
+		t.commit_point(b"A",&self.compressed);
+		t.commit_point(b"R",&signature.R);
+
+        k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         R.compress() == signature.R
     }
 
-    /// Verify a `signature` on a `prehashed_message` using the Ed25519ph algorithm.
-    ///
-    /// # Inputs
-    ///
-    /// * `prehashed_message` is an instantiated hash digest with 512-bits of
-    ///   output which has had the message to be signed previously fed into its
-    ///   state.
-    /// * `context` is an optional context string, up to 255 bytes inclusive,
-    ///   which may be used to provide additional domain separation.  If not
-    ///   set, this will default to an empty string.
-    /// * `signature` is a purported Ed25519ph [`Signature`] on the `prehashed_message`.
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the `signature` was a valid signature created by this
-    /// `Keypair` on the `prehashed_message`.
-    ///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    #[allow(non_snake_case)]
-    pub fn verify_prehashed<C>(
-	    &self,
-	    context: &C,
-	    prehashed_message: C::Digest,
-	    signature: &Signature
-	) -> bool
-    where C: SigningContext, 
-	      C::Digest: ExtendableOutput
+    /// Verify a signature by this public key on a message.
+    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> bool
     {
-        // Get the result of the pre-hashed message.
-        let mut prehash = [0u8; 64];
-        prehashed_message.xof_result().read(&mut prehash);
-
-        self.verify::<C>(context,&prehash,signature)
+		let t = SigningContext::new(ctx).bytes(msg);
+        self.verify(t,signature)
     }
 }
 
@@ -1066,47 +1011,47 @@ impl<'d> Deserialize<'d> for PublicKey {
 /// use sha3::Shake128;
 ///
 /// # fn main() {
-/// let ctx = signing_context::<Shake128>(b"some batch");
+/// let ctx = signing_context(b"some batch");
 /// let mut csprng: ThreadRng = thread_rng();
 /// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate(&mut csprng)).collect();
 /// let msg: &[u8] = b"They're good dogs Brant";
-/// let messages: Vec<&[u8]> = (0..64).map(|_| msg).collect();
-/// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(&ctx,&msg)).collect();
+/// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg))).collect();
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 ///
-/// assert!( verify_batch(&ctx, &messages[..], &signatures[..], &public_keys[..]) );
+/// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
+///
+/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
-pub fn verify_batch<C>(
-	context: &C,
-	messages: &[&[u8]],
+pub fn verify_batch<T,I>(
+	transcripts: I,
 	signatures: &[Signature],
 	public_keys: &[PublicKey]
 ) -> bool
-where C: SigningContext,
-      C::Digest: ExtendableOutput
+where
+    T: SigningTranscript, 
+	I: IntoIterator<Item=T>,
 {
-    const ASSERT_MESSAGE: &'static [u8] = b"The number of messages, signatures, and public keys must be equal.";
-    assert!(signatures.len()  == messages.len(),    ASSERT_MESSAGE);
-    assert!(signatures.len()  == public_keys.len(), ASSERT_MESSAGE);
-    assert!(public_keys.len() == messages.len(),    ASSERT_MESSAGE);
- 
+    const ASSERT_MESSAGE: &'static [u8] = b"The number of messages/transcripts, signatures, and public keys must be equal.";
+    assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
+
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
     #[cfg(feature = "std")]
     use std::vec::Vec;
 
     use core::iter::once;
-    use rand::thread_rng;
 
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
+    let mut rng = rand::prelude::thread_rng();
+	
     // Select a random 128-bit scalar for each signature.
     let zs: Vec<Scalar> = signatures.iter()
-        .map(|_| Scalar::from(thread_rng().gen::<u128>()))
+        .map(|_| Scalar::from(rng.gen::<u128>()))
         .collect();
 
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
@@ -1116,18 +1061,36 @@ where C: SigningContext,
         .map(|(s, z)| z * s)
         .sum();
 
-    // Compute H(R || A || M) for each (signature, public_key, message) triplet
+	/*
     let hrams = (0..signatures.len()).map(|i| {
-        util::scalar_from_xof(
-            context.context_digest()
-            .chain(signatures[i].R.as_bytes())
-            .chain(public_keys[i].compressed.as_bytes())
-            .chain(&messages[i])
-        )
+		let mut t = transcripts[i].borrow().clone();
+		t.proto_name(b"Schnorr-sig");
+		t.commit_point(b"A",&public_keys[i].compressed);
+		t.commit_point(b"R",&signatures[i].R);
+        t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
     });
+	*/
+	// We might collect here anyways, but right now you cannot have
+	//   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
+	// Begin NLL hack
+	let mut transcripts = transcripts.into_iter();
+    let zhrams: Vec<Scalar> = {// NLL hack
+    // Compute H(R || A || M) for each (signature, public_key, message) triplet
+    let hrams = transcripts.by_ref()
+        .zip(0..signatures.len())
+		.map( |(mut t,i)| {
+            t.proto_name(b"Schnorr-sig");
+            t.commit_point(b"A",&public_keys[i].compressed);
+            t.commit_point(b"R",&signatures[i].R);
+            t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
+		} );
 
     // Multiply each H(R || A || M) by the random value
-    let zhrams = hrams.zip(zs.iter()).map(|(hram, z)| hram * z);
+    hrams.zip(zs.iter()).map(|(hram, z)| hram * z).collect()
+    }; 
+	// End NLL hack
+    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
+    assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
     let As = public_keys.iter().map(|pk| Some(pk.point));
@@ -1297,78 +1260,47 @@ impl Keypair {
 		self.public.verify_ed25519_prehashed::<D>(prehashed_message,context,signature)
 	}
 
-
-    /// Sign a message with this keypair's secret key.
-    pub fn sign<C>(&self, context: &C, message: &[u8]) -> Signature
-    where C: SigningContext,
-          C::Digest: ExtendableOutput
-    {
-        self.secret.sign::<C>(context, &message, &self.public)
-    }
-
-    /// Sign a `prehashed_message` with this `Keypair` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-    ///
-    /// # Inputs
-    ///
-    /// * `prehashed_message` is an instantiated hash digest with 512-bits of
-    ///   output which has had the message to be signed previously fed into its
-    ///   state.
-    /// * `context` is an optional context string, up to 255 bytes inclusive,
-    ///   which may be used to provide additional domain separation.  If not
-    ///   set, this will default to an empty string.
-    ///
-    /// # Returns
-    ///
-    /// An Ed25519ph [`Signature`] on the `prehashed_message`.
-    ///
+    /// Sign a transcript with this keypair's secret key.
+	///
+	/// Requires a `SigningTranscript`, normally created from a
+	/// `SigningContext` and a message.  Returns a Schnorr signature.
+	///
     /// # Examples
     ///
+	/// Internally, we manage signature transcripts using a 128 bit secure
+	/// STROBE construction based on Keccak, which itself is extremly fast
+	/// and secure.  You might however influence performance or security
+	/// by prehashing your message, like
+	///
     /// ```
     /// extern crate schnorr_dalek;
     /// extern crate rand;
     /// extern crate sha3;
     ///
-    /// use schnorr_dalek::Keypair;
-    /// use schnorr_dalek::Signature;
+    /// use schnorr_dalek::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
-    /// # use sha3::Shake128;
+	/// use sha3::Shake128;
+	/// use sha3::digest::{Input};
     ///
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
+    /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
     /// let keypair: Keypair = Keypair::generate(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
-    /// // Create a hash digest object which we'll feed the message into:
-    /// let prehashed = Shake128::default();
-    /// prehashed.input(message);
+    /// // Create a hash digest object and feed it the message:
+    /// let prehashed = Shake128::default().chain(message);
     /// # }
     /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
+    /// # #[cfg(any(not(feature = "std")))]
     /// # fn main() { }
     /// ```
     ///
-    /// If you want, you can optionally pass a "context".  It is generally a
-    /// good idea to choose a context and try to make it unique to your project
-    /// and this specific usage of signatures.
-    ///
-    /// For example, without this, if you were to [convert your OpenPGP key
-    /// to a Bitcoin key][terrible_idea] (just as an example, and also Don't
-    /// Ever Do That) and someone tricked you into signing an "email" which was
-    /// actually a Bitcoin transaction moving all your magic internet money to
-    /// their address, it'd be a valid transaction.
-    ///
-    /// By adding a context, this trick becomes impossible, because the context
-    /// is concatenated into the hash, which is then signed.  So, going with the
-    /// previous example, if your bitcoin wallet used a context of
-    /// "BitcoinWalletAppTxnSigning" and OpenPGP used a context (this is likely
-    /// the least of their safety problems) of "GPGsCryptoIsntConstantTimeLol",
-    /// then the signatures produced by both could never match the other, even
-    /// if they signed the exact same message with the same key.
-    ///
-    /// Let's add a context for good measure (remember, you'll want to choose
-    /// your own!):
+	/// We require a "context" string for all signatures, which should
+	/// be chosen judiciously for your project.  It should represent the 
+	/// role the signature plays in your application.  If you use the
+	/// context in two purposes, and the same key, then a signature for
+	/// one purpose can be substituted for the other.
     ///
     /// ```
     /// # extern crate schnorr_dalek;
@@ -1378,104 +1310,73 @@ impl Keypair {
     /// # use schnorr_dalek::{Keypair,Signature};
     /// # use schnorr_dalek::context::signing_context;
     /// # use rand::prelude::*; // ThreadRng,thread_rng
-    /// # use sha3::Shake128;
+	/// # use sha3::digest::Input;
     /// #
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
+    /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
     /// # let mut csprng: ThreadRng = thread_rng();
     /// # let keypair: Keypair = Keypair::generate(&mut csprng);
     /// # let message: &[u8] = b"All I want is to pet all of the dogs.";
-    /// # let prehashed = Shake256::default();
-    /// # prehashed.input(message);
+    /// # let prehashed = ::sha3::Shake256::default().chain(message);
     /// #
-    /// let ctx = signing_context::<Shake128>(b"Ed25519DalekSignPrehashedDoctest");
+    /// let ctx = signing_context(b"My Signing Context");
     ///
-    /// let sig: Signature = keypair.sign_prehashed(ctx, prehashed);
+    /// let sig: Signature = keypair.sign(ctx.xof(prehashed));
     /// # }
     /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
+    /// # #[cfg(any(not(feature = "std")))]
     /// # fn main() { }
     /// ```
     ///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    /// [terrible_idea]: https://github.com/isislovecruft/scripts/blob/master/gpgkey2bc.py
-    pub fn sign_prehashed<C>(
-        &self,
-        context: &C,
-        prehashed_message: C::Digest,
-    ) -> Signature
-    where C: SigningContext,
-          C::Digest: ExtendableOutput
+    // lol  [terrible_idea]: https://github.com/isislovecruft/scripts/blob/master/gpgkey2bc.py
+    pub fn sign<T: SigningTranscript>(&self, t: T) -> Signature
     {
-        self.secret.sign_prehashed::<C>(context, prehashed_message, &self.public)
+        self.secret.sign(t, &self.public)
     }
 
-    /// Verify a signature on a message with this keypair's public key.
-    pub fn verify<C>(&self, context: &C, message: &[u8], signature: &Signature) -> bool
-    where C: SigningContext,
-          C::Digest: ExtendableOutput
+    /// Sign a message with this keypair's secret key.
+    pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8]) -> Signature
     {
-        self.public.verify::<C>(context, message, signature)
+        self.secret.sign_simple(ctx, msg, &self.public)
     }
 
-    /// Verify a `signature` on a `prehashed_message` using the Ed25519ph algorithm.
-    ///
-    /// # Inputs
-    ///
-    /// * `prehashed_message` is an instantiated hash digest with 512-bits of
-    ///   output which has had the message to be signed previously fed into its
-    ///   state.
-    /// * `context` is an optional context string, up to 255 bytes inclusive,
-    ///   which may be used to provide additional domain separation.  If not
-    ///   set, this will default to an empty string.
-    /// * `signature` is a purported Ed25519ph [`Signature`] on the `prehashed_message`.
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the `signature` was a valid signature created by this
-    /// `Keypair` on the `prehashed_message`.
-    ///
+    /// Verify a signature by keypair's public key on a transcript.
+	///
+	/// Requires a `SigningTranscript`, normally created from a
+	/// `SigningContext` and a message, as well as the signature
+	/// to be verified.
+	///
     /// # Examples
     ///
     /// ```
     /// extern crate schnorr_dalek;
     /// extern crate rand;
-    /// extern crate sha3;
     ///
     /// use schnorr_dalek::{Keypair,Signature};
     /// use schnorr_dalek::context::signing_context;
     /// use rand::prelude::*; // ThreadRng,thread_rng
-    /// use sha3::Shake128;
-	/// use sha3::digest::{Input};
     ///
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
     /// let keypair: Keypair = Keypair::generate(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
-    /// let mut prehashed: Shake128 = Shake128::default();
-    /// prehashed.input(message);
+    /// let ctx = signing_context(b"Some context string");
     ///
-    /// let ctx = signing_context::<Shake128>(b"Ed25519DalekSignPrehashedDoctest");
+    /// let sig: Signature = keypair.sign(ctx.bytes(message));
     ///
-	/// // `Shake128: Clone` is a copy dispite not being `Copy`.
-    /// let sig: Signature = keypair.sign_prehashed(&ctx, prehashed.clone());
-    ///
-    /// assert!( keypair.public.verify_prehashed(&ctx, prehashed, &sig) );
+    /// assert!( keypair.public.verify(ctx.bytes(message), &sig) );
     /// # }
     /// ```
-    ///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    pub fn verify_prehashed<C>(
-	    &self,
-	    context: &C,
-	    prehashed_message: C::Digest,
-	    signature: &Signature
-	) -> bool
-    where C: SigningContext, 
-          C::Digest: ExtendableOutput
+    pub fn verify<T: SigningTranscript>(&self, t: T, signature: &Signature) -> bool
     {
-        self.public.verify_prehashed::<C>(context, prehashed_message, signature)
+        self.public.verify(t, signature)
+    }
+
+    /// Verify a signature by keypair's public key on a message.
+    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> bool
+    {
+        self.public.verify_simple(ctx, msg, signature)
     }
 }
 
@@ -1513,10 +1414,6 @@ impl<'d> Deserialize<'d> for Keypair {
 
 #[cfg(test)]
 mod test {
-    use std::io::BufReader;
-    use std::io::BufRead;
-    use std::fs::File;
-    use std::string::String;
     use std::vec::Vec;
     use rand::prelude::*; // ThreadRng,thread_rng
     use rand::SeedableRng;
@@ -1563,27 +1460,32 @@ mod test {
         let good_sig: Signature;
         let bad_sig:  Signature;
 
-        let ctx = signing_context::<Shake128>(b"good");
+        let ctx = signing_context(b"good");
 		
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
         csprng  = ChaChaRng::from_seed([0u8; 32]);
         keypair  = Keypair::generate(&mut csprng);
-        good_sig = keypair.sign(&ctx,&good);
-        bad_sig  = keypair.sign(&ctx,&bad);
+        good_sig = keypair.sign(ctx.bytes(&good));
+        bad_sig  = keypair.sign(ctx.bytes(&bad));
 
-        assert!(keypair.verify(&ctx, &good, &good_sig),
+        assert!(keypair.verify(ctx.bytes(&good), &good_sig),
                 "Verification of a valid signature failed!");
-        assert!(!keypair.verify(&ctx, &good, &bad_sig),
+        assert!(!keypair.verify(ctx.bytes(&good), &bad_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(!keypair.verify(&ctx, &bad,  &good_sig),
+        assert!(!keypair.verify(ctx.bytes(&bad),  &good_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(!keypair.verify(& signing_context::<Shake128>(b"bad"), &good,  &good_sig),
+        assert!(!keypair.verify(signing_context(b"bad").bytes(&good),  &good_sig),
                 "Verification of a signature on a different message passed!");
     }
 
     /* *** We have no test vectors obviously ***
+
+    use std::io::BufReader;
+    use std::io::BufRead;
+    use std::fs::File;
+    use std::string::String;
 
     // TESTVECTORS is taken from sign.input.gz in agl's ed25519 Golang
     // package. It is a selection of test cases from
@@ -1649,8 +1551,8 @@ mod test {
         let public: PublicKey = PublicKey::from_ed25519_public_key_bytes(&pub_bytes[..PUBLIC_KEY_LENGTH]).unwrap();
         let keypair: Keypair  = Keypair{ secret: secret.expand::<Sha512>(), public: public };
 
-        let mut prehash_for_signing: Sha512 = Sha512::default().chain(&msg_bytes[..]);
-        let mut prehash_for_verifying: Sha512 = Sha512::default().chain(&msg_bytes[..]);
+        let prehash_for_signing: Sha512 = Sha512::default().chain(&msg_bytes[..]);
+        let prehash_for_verifying: Sha512 = Sha512::default().chain(&msg_bytes[..]);
 
         let sig2 = keypair.sign_ed25519_prehashed(prehash_for_signing, None);
 
@@ -1668,35 +1570,33 @@ mod test {
         let good_sig: Signature;
         let bad_sig:  Signature;
 
-        let ctx = signing_context::<Shake128>(b"testing testing 1 2 3");
+        let ctx = signing_context(b"testing testing 1 2 3");
 
         let good: &[u8] = b"test message";
         let bad:  &[u8] = b"wrong message";
 
-        // ugh… there's no `impl Copy for Sha512`… i hope we can all agree these are the same hashes
-        let mut prehashed_good1: Shake128 = Shake128::default().chain(good);
-        let mut prehashed_good2: Shake128 = Shake128::default().chain(good);
-        let mut prehashed_good3: Shake128 = Shake128::default().chain(good);
-        let mut prehashed_bad: Shake128 = Shake128::default().chain(bad);
+        let prehashed_good: Shake128 = Shake128::default().chain(good);
+        let prehashed_bad: Shake128 = Shake128::default().chain(bad);
+        // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
         csprng   = ChaChaRng::from_seed([0u8; 32]);
         keypair  = Keypair::generate(&mut csprng);
-        good_sig = keypair.sign_prehashed(&ctx, prehashed_good1);
-        bad_sig  = keypair.sign_prehashed(&ctx, prehashed_bad.clone());
+        good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
+        bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
 
-        assert!(keypair.verify_prehashed(&ctx, prehashed_good2, &good_sig),
+        assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig),
                 "Verification of a valid signature failed!");
-        assert!(! keypair.verify_prehashed(&ctx, prehashed_good3, &bad_sig),
+        assert!(! keypair.verify(ctx.xof(prehashed_good.clone()), &bad_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(! keypair.verify_prehashed(&ctx, prehashed_bad.clone(), &good_sig),
+        assert!(! keypair.verify(ctx.xof(prehashed_bad.clone()), &good_sig),
                 "Verification of a signature on a different message passed!");
-        assert!(! keypair.verify_prehashed(& signing_context::<Shake128>(b"oops"), prehashed_bad, &good_sig),
+        assert!(! keypair.verify(signing_context(b"oops").xof(prehashed_good), &good_sig),
                 "Verification of a signature on a different message passed!");
     }
 
     #[test]
     fn verify_batch_seven_signatures() {
-        let ctx = signing_context::<Shake128>(b"my batch context");
+        let ctx = signing_context(b"my batch context");
 
         let messages: [&[u8]; 7] = [
             b"Watch closely everyone, I'm going to show you how to kill a god.",
@@ -1712,12 +1612,13 @@ mod test {
 
         for i in 0..messages.len() {
             let keypair: Keypair = Keypair::generate(&mut csprng);
-            signatures.push(keypair.sign(&ctx, &messages[i]));
+            signatures.push(keypair.sign(ctx.bytes(messages[i])));
             keypairs.push(keypair);
         }
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
+		let transcripts = messages.iter().map(|m| ctx.bytes(m));
 
-        assert!( verify_batch(&ctx, &messages, &signatures[..], &public_keys[..]) );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
     }
 
     #[test]

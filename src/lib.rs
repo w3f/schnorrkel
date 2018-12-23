@@ -53,9 +53,9 @@
 //! # use schnorr_dalek::context::signing_context;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! let context = signing_context::<Shake128>(b"this signature does this thing");
+//! let context = signing_context(b"this signature does this thing");
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! let signature: Signature = keypair.sign(&context, message);
+//! let signature: Signature = keypair.sign(context.bytes(message));
 //! # }
 //! ```
 //!
@@ -75,10 +75,10 @@
 //! # use schnorr_dalek::context::signing_context;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context::<Shake128>(b"this signature does this thing");
+//! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(&context, message);
-//! assert!(keypair.verify(&context, message, &signature));
+//! # let signature: Signature = keypair.sign(context.bytes(message));
+//! assert!(keypair.verify(context.bytes(message), &signature));
 //! # }
 //! ```
 //!
@@ -99,11 +99,11 @@
 //! use schnorr_dalek::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context::<Shake128>(b"this signature does this thing");
+//! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(&context, message);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! let public_key: PublicKey = keypair.public;
-//! assert!(public_key.verify(&context, message, &signature));
+//! assert!(public_key.verify(context.bytes(message), &signature));
 //! # }
 //! ```
 //!
@@ -129,9 +129,9 @@
 //! use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context::<Shake128>(b"this signature does this thing");
+//! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(&context, message);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
 //!
 //! let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
@@ -157,9 +157,9 @@
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair_orig: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context::<Shake128>(b"this signature does this thing");
+//! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature_orig: Signature = keypair_orig.sign(&context, message);
+//! # let signature_orig: Signature = keypair_orig.sign(context.bytes(message));
 //! # let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = keypair_orig.public.to_bytes();
 //! # let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = keypair_orig.secret.to_bytes();
 //! # let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair_orig.to_bytes();
@@ -210,11 +210,11 @@
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context::<Shake128>(b"this signature does this thing");
+//! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(&context, message);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
-//! # let verified: bool = public_key.verify(&context, message, &signature);
+//! # let verified: bool = public_key.verify(context.bytes(message), &signature);
 //!
 //! let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
 //! let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
@@ -246,11 +246,12 @@
 //! use bincode::{deserialize};
 //!
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate::<Sha512>(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign::<Sha512>(message);
+//! # let context = signing_context(b"this signature does this thing");
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
-//! # let verified: bool = public_key.verify::<Sha512>(message, &signature);
+//! # let verified: bool = public_key.verify(context.bytes(message), &signature);
 //! # let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
 //! # let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
 //! let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
@@ -259,7 +260,7 @@
 //! # assert_eq!(public_key, decoded_public_key);
 //! # assert_eq!(signature, decoded_signature);
 //! #
-//! let verified: bool = decoded_public_key.verify::<Sha512>(&message, &decoded_signature);
+//! let verified: bool = decoded_public_key.verify(context.bytes(message), &decoded_signature);
 //!
 //! assert!(verified);
 //! # }
@@ -272,6 +273,8 @@
 #![deny(missing_docs)] // refuse to compile if documentation is missing
 
 extern crate curve25519_dalek;
+extern crate merlin;
+
 extern crate failure;
 extern crate rand;
 extern crate clear_on_drop;
