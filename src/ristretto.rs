@@ -385,7 +385,7 @@ impl MiniSecretKey {
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`
-    pub fn generate<R>(csprng: &mut R) -> MiniSecretKey
+    pub fn generate<R>(mut csprng: R) -> MiniSecretKey
     where R: CryptoRng + Rng,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
@@ -627,7 +627,7 @@ impl SecretKey {
     /// As we generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
     /// impoised on Ed25519 keys.
-    pub fn generate<R>(csprng: &mut R) -> SecretKey
+    pub fn generate<R>(mut csprng: R) -> SecretKey
     where R: CryptoRng + Rng,
     {
         let mut key: [u8; 64] = [0u8; 64];
@@ -1197,7 +1197,7 @@ impl Keypair {
     /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
     /// impoised on Ed25519 keys.
-    pub fn generate<R>(csprng: &mut R) -> Keypair
+    pub fn generate<R>(csprng: R) -> Keypair
     where R: CryptoRng + Rng,
     {
         let secret: SecretKey = SecretKey::generate(csprng);
