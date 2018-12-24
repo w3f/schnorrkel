@@ -69,11 +69,11 @@ impl<T> SigningTranscript for T
 where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcript
 {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        Transcript::commit_bytes(self.borrow_mut(), b"proto-name", bytes);
+        Transcript::commit_bytes(self.borrow_mut(), label, bytes);
     }
 
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        Transcript::challenge_bytes(self.borrow_mut(), b"proto-name", dest);
+        Transcript::challenge_bytes(self.borrow_mut(), label, dest);
     }
 
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
