@@ -33,17 +33,10 @@ use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
 
-use curve25519_dalek::digest::{Input,ExtendableOutput,XofReader};
+use context::SigningTranscript;
 
 use super::*;
 
-fn scalar_from_xof<D>(hash: D) -> Scalar
-where D: ExtendableOutput
-{
-    let mut output = [0u8; 64];
-    hash.xof_result().read(&mut output);
-    Scalar::from_bytes_mod_order_wide(&output)
-}
 
 /// ECQV Implicit Certificate Secret
 ///
@@ -79,8 +72,8 @@ pub struct ECQVCertPublic(pub [u8; 32]);
 /// TODO: Serde serialization/deserialization
 
 impl ECQVCertPublic {
-	fn derive_e<D: Input+ExtendableOutput>(&self, mut h: D) -> Scalar {
-		scalar_from_xof(h.chain(&self.0))
+	fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
+		t.challenge_scalar(b"e")
 	}
 }
 
@@ -95,24 +88,24 @@ impl Keypair {
 	/// We return an `ECQVCertSecret` which the issuer sent to the
 	/// certificate requester, ans from which the certificate requester
 	/// derives their certified key pair.
-	pub fn issue_ecqv_cert<D>(&self, mut h: D, seed_public_key: &PublicKey) -> ECQVCertSecret
-	where D: Input + ExtendableOutput + Default + Clone
+	pub fn issue_ecqv_cert<T>(&self, mut t: T, seed_public_key: &PublicKey) -> ECQVCertSecret
+	where T: SigningTranscript
 	{
-		h.input(self.public.compressed.as_bytes());
+		t.proto_name(b"ECQV");
+		t.commit_point(b"Issuer-pk",&self.public.compressed);
 
-		let mut r = [0u8; 32];
-        thread_rng().fill_bytes(&mut r);
-		let k = scalar_from_xof(
-			h.clone()
-			.chain(&r)
-			.chain(&self.secret.nonce)
-			.chain(seed_public_key.compressed.as_bytes())
-			.chain(&r)
-		);
+        // We cannot commit the `seed_public_key` to the transcript
+		// because the whole point is to keep the transcript minimal.
+		// Instead we consume it as witness datathat influences only k.
+        let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.compressed.as_bytes()));
 
+        // Compute the public key reconstruction data
 		let gamma = seed_public_key.point + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
 		let cert_public = ECQVCertPublic(gamma.compress().0);
-		let s = cert_public.derive_e(h) * k + self.secret.key;
+
+        // Compute the secret key reconstruction data
+		let s = cert_public.derive_e(t) * k + self.secret.key;
+
 		let mut cert_secret = ECQVCertSecret([0u8; 64]);
 		cert_secret.0[0..32].copy_from_slice(&cert_public.0[..]);
 		cert_secret.0[32..64].copy_from_slice(s.as_bytes());
@@ -139,31 +132,27 @@ impl PublicKey {
 	/// We return both your certificate's new `SecretKey` as well as
 	/// an `ECQVCertPublic` from which third parties may derive
 	/// corresponding public key from `h` and the issuer's public key.
-	pub fn accept_ecqv_cert<D>(
+	pub fn accept_ecqv_cert<T>(
 		&self,
-	    mut h: D,
+	    mut t: T,
 		seed_secret_key: &SecretKey,
 		cert_secret: ECQVCertSecret
 	) -> Result<(ECQVCertPublic, SecretKey),SignatureError>
-	where D: Input + ExtendableOutput + Default + Clone
+	where T: SigningTranscript
     {
-		h.input(self.compressed.as_bytes());
+		t.proto_name(b"ECQV");
+		t.commit_point(b"Issuer-pk",&self.compressed);
 
+        // Again we cannot commit much to the transcript, but we again 
+		// treat anything relevant as a witness when defining the 
         let mut nonce = [0u8; 32];
-        thread_rng().fill_bytes(&mut nonce);
-        let mut r = h.clone()
-            .chain(&nonce)
-    		.chain(&cert_secret.0[..])
-            .chain(&seed_secret_key.nonce)
-            .chain(&nonce)
-            .xof_result();
-        r.read(&mut nonce);
+        t.witness_bytes(&mut nonce, &cert_secret.0[..],Some(&seed_secret_key.nonce));
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
         let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : ECQVCertPublic = cert_secret.into();
-        let key = s + cert_public.derive_e(h) * seed_secret_key.key;
+        let key = s + cert_public.derive_e(t) * seed_secret_key.key;
         Ok(( cert_public, SecretKey { key, nonce } ))
     }
 }
@@ -184,25 +173,27 @@ impl Keypair {
 	/// Aside from the issuing secret key supplied as `self`, you provide
 	/// only a digest `h` that incorporates any context and metadata
 	/// pertaining to the issued key.  
-	pub fn issue_self_ecqv_cert<D>(&self, h: D) -> (ECQVCertPublic, SecretKey)
-	where D: Input + ExtendableOutput + Default + Clone
+	pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
+	where T: SigningTranscript+Clone
 	{
 	    let seed = Keypair::generate(thread_rng());
-		let cert_secret = self.issue_ecqv_cert(h.clone(), &seed.public);
-		self.public.accept_ecqv_cert(h, &seed.secret, cert_secret).unwrap()
+		let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
+		self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).unwrap()
 	}
 }
 
 impl PublicKey {
 	///
-	pub fn open_ecqv_cert<D>(&self, mut h: D, cert_public: &ECQVCertPublic) -> Result<PublicKey,SignatureError>
-	where D: Input + ExtendableOutput + Default + Clone
+	pub fn open_ecqv_cert<T>(&self, mut t: T, cert_public: &ECQVCertPublic) -> Result<PublicKey,SignatureError>
+	where T: SigningTranscript
 	{
-		h.input(self.compressed.as_bytes());
+		t.proto_name(b"ECQV");
+		t.commit_point(b"Issuer-pk",&self.compressed);
+
 		let gamma = CompressedRistretto(cert_public.0.clone()).decompress()
 		    .ok_or(SignatureError::PointDecompressionError) ?;
 
-		let point = self.point + cert_public.derive_e(h) * gamma;
+		let point = self.point + cert_public.derive_e(t) * gamma;
 		Ok(PublicKey {
 			compressed: point.compress(),
 			point
@@ -215,14 +206,15 @@ mod tests {
     use rand::prelude::*;
     use sha3::{Shake128};
 
+    use context::signing_context;
     use super::*;
 
     #[test]
     fn ecqv_cert_public_vs_private_paths() {
-		let h = Shake128::default().chain(b"Meow!");
+		let t = signing_context(b"").bytes(b"MrMeow!");
 	    let issuer = Keypair::generate(thread_rng());
-		let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(h.clone());
-		let public_key = issuer.public.open_ecqv_cert(h,&cert_public).unwrap();
+		let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
+		let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
 		assert_eq!(secret_key.to_public(), public_key);
 	}	
 }
