@@ -101,7 +101,9 @@ impl Keypair {
 
         // Compute the public key reconstruction data
 		let gamma = seed_public_key.point + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
-		let cert_public = ECQVCertPublic(gamma.compress().0);
+		let gamma = gamma.compress();
+		t.commit_point(b"gamma",&gamma);
+		let cert_public = ECQVCertPublic(gamma.0);
 
         // Compute the secret key reconstruction data
 		let s = cert_public.derive_e(t) * k + self.secret.key;
@@ -152,6 +154,9 @@ impl PublicKey {
         s.copy_from_slice(&cert_secret.0[32..64]);
         let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : ECQVCertPublic = cert_secret.into();
+		let gamma = CompressedRistretto(cert_public.0.clone());
+		t.commit_point(b"gamma",&gamma);
+		
         let key = s + cert_public.derive_e(t) * seed_secret_key.key;
         Ok(( cert_public, SecretKey { key, nonce } ))
     }
@@ -190,8 +195,9 @@ impl PublicKey {
 		t.proto_name(b"ECQV");
 		t.commit_point(b"Issuer-pk",&self.compressed);
 
-		let gamma = CompressedRistretto(cert_public.0.clone()).decompress()
-		    .ok_or(SignatureError::PointDecompressionError) ?;
+		let gamma = CompressedRistretto(cert_public.0.clone());
+		t.commit_point(b"gamma",&gamma);
+		let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 
 		let point = self.point + cert_public.derive_e(t) * gamma;
 		Ok(PublicKey {
