@@ -332,6 +332,7 @@ mod ristretto;
 
 pub mod context;
 pub mod derive;
+pub mod cert;
 pub mod errors;
 
 // Export everything public in ed25519.
