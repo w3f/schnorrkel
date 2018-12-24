@@ -130,13 +130,8 @@ impl Signature {
         lower.copy_from_slice(&bytes[..32]);
         upper.copy_from_slice(&bytes[32..]);
 
-        // TODO: We could pass this check but exceed l, so maybe we should
-        // reduce and error if the result change?
-        if upper[31] & 224 != 0 {
-            return Err(SignatureError::ScalarFormatError);
-        }
-
-        Ok(Signature{ R: CompressedRistretto(lower), s: Scalar::from_bits(upper) })
+        let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
+        Ok(Signature{ R: CompressedRistretto(lower), s })
     }
 }
 
