@@ -14,6 +14,8 @@
 
 use core::borrow::{Borrow,BorrowMut};
 
+use rand::prelude::*;
+
 use merlin::{Transcript};
 
 use curve25519_dalek::digest::{FixedOutput,ExtendableOutput,XofReader}; // Input
@@ -63,6 +65,10 @@ pub trait SigningTranscript {
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
 	/// transcript and any "nonce seeds" kept with the secret keys.
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar;
+
+    /// Produce secret witness bytes from the protocol transcript
+	/// and any "nonce seeds" kept with the secret keys.
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>);
 }
 
 impl<T> SigningTranscript for T
@@ -83,8 +89,19 @@ where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcrip
 		if let Some(w) = extra_nonce_seed {
 			br = br.commit_witness_bytes(b"", w);
 		}
-		let mut r = br.finalize(&mut rand::prelude::thread_rng());
+		let mut r = br.finalize(&mut thread_rng());
 		Scalar::random(&mut r)
+    }
+
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
+	{
+        let mut br = self.borrow().build_rng()
+            .commit_witness_bytes(b"", nonce_seed);
+		if let Some(w) = extra_nonce_seed {
+			br = br.commit_witness_bytes(b"", w);
+		}
+		let mut r = br.finalize(&mut thread_rng());
+		r.fill_bytes(dest)
     }
 }
 
