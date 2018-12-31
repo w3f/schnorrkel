@@ -276,8 +276,7 @@ impl PublicKey {
 /// extern crate schnorr_dalek;
 /// extern crate rand;
 ///
-/// use schnorr_dalek::context::signing_context;
-/// use schnorr_dalek::{Keypair,PublicKey,Signature,verify_batch};
+/// use schnorr_dalek::{Keypair,PublicKey,Signature,verify_batch,signing_context};
 /// use rand::thread_rng;
 /// use rand::rngs::ThreadRng;
 ///
@@ -425,8 +424,7 @@ impl Keypair {
     /// # extern crate rand;
     /// # extern crate sha3;
     /// #
-    /// # use schnorr_dalek::{Keypair,Signature};
-    /// # use schnorr_dalek::context::signing_context;
+    /// # use schnorr_dalek::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
 	/// # use sha3::digest::Input;
     /// #
@@ -470,8 +468,7 @@ impl Keypair {
     /// extern crate schnorr_dalek;
     /// extern crate rand;
     ///
-    /// use schnorr_dalek::{Keypair,Signature};
-    /// use schnorr_dalek::context::signing_context;
+    /// use schnorr_dalek::{Keypair,Signature,signing_context};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     ///
     /// # fn main() {

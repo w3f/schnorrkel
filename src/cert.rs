@@ -33,7 +33,7 @@ use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
 
-use context::SigningTranscript;
+use sign::SigningTranscript;
 
 use super::*;
 
@@ -211,7 +211,6 @@ impl PublicKey {
 mod tests {
     use rand::prelude::*;
 
-    use context::signing_context;
     use super::*;
 
     #[test]

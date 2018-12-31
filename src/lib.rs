@@ -49,8 +49,7 @@
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{Keypair,Signature};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! let context = signing_context(b"this signature does this thing");
@@ -71,8 +70,7 @@
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{Keypair,Signature};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
@@ -94,8 +92,7 @@
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{Keypair,Signature};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{Keypair,Signature,signing_context};
 //! use schnorr_dalek::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -124,8 +121,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey, signing_context};
 //! use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -151,8 +147,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{SecretKey, Keypair, Signature, PublicKey, SignatureError};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{SecretKey, Keypair, Signature, PublicKey, SignatureError, signing_context};
 //! # use schnorr_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
@@ -205,8 +200,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use sha3::Shake128;
-//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
-//! # use schnorr_dalek::context::signing_context;
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey, signing_context};
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -328,13 +322,13 @@ extern crate bincode;
 
 mod util;
 
-mod ristretto;
+mod keys;
 
-pub mod context;
+pub mod sign;
 pub mod derive;
 pub mod cert;
 pub mod errors;
 
-pub use ristretto::*;
-pub use context::verify_batch;
+pub use keys::*;
+pub use sign::{signing_context,verify_batch};
 pub use errors::SignatureError;

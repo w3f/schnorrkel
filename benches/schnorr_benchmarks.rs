@@ -17,8 +17,7 @@ use criterion::Criterion;
 
 mod schnorr_benches {
     use super::*;
-    use schnorr_dalek::{Keypair, PublicKey, Signature, verify_batch}; // SecretKey
-    use schnorr_dalek::context::signing_context;
+    use schnorr_dalek::{Keypair, PublicKey, Signature, verify_batch, signing_context}; // SecretKey
     use rand::prelude::*; // ThreadRng,thread_rng
 
     // TODO: fn sign_mini(c: &mut Criterion)

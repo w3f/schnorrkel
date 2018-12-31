@@ -19,8 +19,8 @@ use curve25519_dalek::scalar::Scalar;
 
 // TODO use clear_on_drop::clear::Clear;
 
-use context::{SigningTranscript,SigningContext};
-use super::ristretto::*;
+use sign::{SigningTranscript,SigningContext};
+use super::*;
 
 /// Length in bytes of our chain codes.
 ///
@@ -41,40 +41,40 @@ pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 pub trait Derrivation : Sized {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
-	///
-	/// At present, your only valid type paramater choices might be
-	/// `sha3::Shake128`/`126`, which we explain further in `lib.rs` by
-	/// the `extern crate sha3;` line.  There remain sitautions where
-	/// passing the hash will prove more convenient than managing
-	/// strings however.
-	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
-	where T: SigningTranscript+Clone;
+    ///
+    /// At present, your only valid type paramater choices might be
+    /// `sha3::Shake128`/`126`, which we explain further in `lib.rs` by
+    /// the `extern crate sha3;` line.  There remain sitautions where
+    /// passing the hash will prove more convenient than managing
+    /// strings however.
+    fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
+    where T: SigningTranscript+Clone;
 
     /// Derive key with subkey identified by a byte array
     /// and a chain code.  We do not include a context here
-	/// becuase the chain code could serve this purpose.
-	/// We support only Shake256 here for simplicity, and
-	/// the reasons discussed in `lib.rs`, and 
-	/// https://github.com/rust-lang/rust/issues/36887
+    /// becuase the chain code could serve this purpose.
+    /// We support only Shake256 here for simplicity, and
+    /// the reasons discussed in `lib.rs`, and 
+    /// https://github.com/rust-lang/rust/issues/36887
     fn derived_key_simple<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
-		let t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
-		self.derived_key(t, cc)
-	}
+        let t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
+        self.derived_key(t, cc)
+    }
 }
 
 impl PublicKey {
-	/// Derive a mutating scalar and new chain code from a public key and chain code.
-	///
+    /// Derive a mutating scalar and new chain code from a public key and chain code.
+    ///
     /// If `i` is the "index", `c` is the chain code, and `pk` the public key,
     /// then we compute `H(i ++ c ++ pk)` and define our mutating scalar
-	/// to be the 512 bits of output reduced mod l, and define the next chain
-	/// code to be next 256 bits.  
-	///
-	/// We update the signing transcript as a side effect.
+    /// to be the 512 bits of output reduced mod l, and define the next chain
+    /// code to be next 256 bits.  
+    ///
+    /// We update the signing transcript as a side effect.
     fn derive_scalar_and_chaincode<T>(&self, t: &mut T, cc: ChainCode) -> (Scalar, ChainCode)
-	where T: SigningTranscript
+    where T: SigningTranscript
     {
-		let pk = self.to_ed25519_public_key_bytes();
+        let pk = self.to_ed25519_public_key_bytes();
 
         t.commit_bytes(b"chain-code",&cc.0);
         t.commit_bytes(b"ed25519-pk",&pk);
@@ -94,37 +94,37 @@ impl Keypair {
     /// We expect the trait methods of `Keypair as Derrivation` to be
     /// more useful since signing anything requires the public key too.
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
-	where T: SigningTranscript+Clone
+    where T: SigningTranscript+Clone
     {
-		use ::rand::prelude::*;
+        use ::rand::prelude::*;
 
         let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(&mut t, cc);
 
         // We can define the nonce however we like here since it only protects
         // the signature from bad random number generators.  It need not be
         // specified by any spcification or standard.  It must however be
-		// independent from the mutating scalar and new chain code.
+        // independent from the mutating scalar and new chain code.
         let mut nonce = [0u8; 32];
-		thread_rng().fill_bytes(&mut nonce);
+        thread_rng().fill_bytes(&mut nonce);
         // Ideally we'd use the witness mechanism from `merlin::transcript` here,
-		// instead of the commit and challenge machinery.  Yet, we lack access so
-		// long as we work behind the `SigningTranscript` trait, so we fork the
-		// transcript instead.
-		let mut t = t.clone(); 
+        // instead of the commit and challenge machinery.  Yet, we lack access so
+        // long as we work behind the `SigningTranscript` trait, so we fork the
+        // transcript instead.
+        let mut t = t.clone(); 
         t.commit_bytes(b"",& self.secret.to_bytes() as &[u8]);
         t.commit_bytes(b"",& nonce);
-		t.challenge_bytes(b"",&mut nonce);
+        t.challenge_bytes(b"",&mut nonce);
 
         (SecretKey {
             key: self.secret.key.clone() + scalar,
             nonce,
-		}, chaincode)
+        }, chaincode)
     }
 }
 
 impl Derrivation for Keypair {
-	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Keypair, ChainCode)
-	where T: SigningTranscript+Clone
+    fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Keypair, ChainCode)
+    where T: SigningTranscript+Clone
     {
         let (secret, chaincode) = self.derive_secret_key(t, cc);
         let public = secret.to_public();
@@ -133,8 +133,8 @@ impl Derrivation for Keypair {
 }
 
 impl Derrivation for SecretKey {
-	fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
-	where T: SigningTranscript+Clone
+    fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
+    where T: SigningTranscript+Clone
     {
         Keypair {
             secret: self.clone(),
@@ -144,29 +144,29 @@ impl Derrivation for SecretKey {
 }
 
 impl Derrivation for PublicKey {
-	fn derived_key<T>(&self, mut t: T, cc: ChainCode) -> (PublicKey, ChainCode)
-	where T: SigningTranscript+Clone
+    fn derived_key<T>(&self, mut t: T, cc: ChainCode) -> (PublicKey, ChainCode)
+    where T: SigningTranscript+Clone
     {
         let (scalar, chaincode) = self.derive_scalar_and_chaincode(&mut t, cc);
-		let point = self.point + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
+        let point = self.point + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
         (PublicKey {
-			compressed: point.compress(),
-			point,
-		}, chaincode)
+            compressed: point.compress(),
+            point,
+        }, chaincode)
     }
 }
 
 /// A convenience wraper that combines derivable key and a chain code.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ExtendedKey<K> {
-	/// Appropriate key type
+    /// Appropriate key type
     pub key: K,
-	/// We cannot assume the original public key is secret and additional
-	/// inputs might have low entropy, like `i` in BIP32.  As in BIP32,
-	/// chain codes fill this gap by being a high entropy secret shared
-	/// between public and private key holders.  These are produced by
-	/// key derivations and can be incorporated into subsequence key
-	/// derivations.  
+    /// We cannot assume the original public key is secret and additional
+    /// inputs might have low entropy, like `i` in BIP32.  As in BIP32,
+    /// chain codes fill this gap by being a high entropy secret shared
+    /// between public and private key holders.  These are produced by
+    /// key derivations and can be incorporated into subsequence key
+    /// derivations.  
     pub chaincode: ChainCode,
 }
 // TODO: Serialization
@@ -174,12 +174,12 @@ pub struct ExtendedKey<K> {
 impl<K: Derrivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
-	pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
-	where T: SigningTranscript+Clone
-	{
+    pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
+    where T: SigningTranscript+Clone
+    {
         let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
         ExtendedKey { key, chaincode }
-	}
+    }
 
     /// Derive key with subkey identified by a byte array and 
     /// a chain code in the extended key.
@@ -194,7 +194,7 @@ impl<K: Derrivation> ExtendedKey<K> {
 mod tests {
     use rand::prelude::*; // thread_rng
 
-	use sha3::digest::{Input}; // ExtendableOutput,XofReader
+    use sha3::digest::{Input}; // ExtendableOutput,XofReader
     use sha3::{Shake128,Sha3_512}; // Shake256
 
     use super::*;
@@ -214,7 +214,7 @@ mod tests {
         };
         let mut extended_keypair = ExtendedKey { key, chaincode, };
 
-        let ctx = ::context::signing_context(b"testing testing 1 2 3");
+        let ctx = signing_context(b"testing testing 1 2 3");
 
         for i in 0..30 {
             let extended_keypair1 = extended_keypair.derived_key_simple(msg);
@@ -256,7 +256,7 @@ mod tests {
                 let context = Some(b"testing testing 1 2 3" as &[u8]);
                 let good_sig = extended_keypair.key
                     .sign_ed25519_prehashed::<Sha3_512>(h_ed25519.clone(), context);
-	            let h_bad = h_ed25519.clone().chain(b"oops");
+                let h_bad = h_ed25519.clone().chain(b"oops");
                 let bad_sig = extended_keypair.key
                     .sign_ed25519_prehashed::<Sha3_512>(h_bad.clone(), context);
 
