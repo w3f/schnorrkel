@@ -13,6 +13,7 @@
 // use rand::prelude::*;  // {RngCore,thread_rng};
 
 use core::borrow::{Borrow,BorrowMut};
+use core::fmt::{Debug};
 
 use rand::prelude::*;
 
@@ -174,6 +175,108 @@ impl SigningContext {
 	}
 }
 
+
+/// Actual signature type ////
+
+/// The length of a curve25519 EdDSA `Signature`, in bytes.
+pub const SIGNATURE_LENGTH: usize = 64;
+
+/// A Ristretto Schnorr signature "detached" from the signed message.
+///
+/// These cannot be converted to any Ed25519 signature because they hash
+/// curve points in the Ristretto encoding.
+#[allow(non_snake_case)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[repr(C)]
+pub struct Signature {
+    /// `R` is an `EdwardsPoint`, formed by using an hash function with
+    /// 512-bits output to produce the digest of:
+    ///
+    /// - the nonce half of the `SecretKey`, and
+    /// - the message to be signed.
+    ///
+    /// This digest is then interpreted as a `Scalar` and reduced into an
+    /// element in ℤ/lℤ.  The scalar is then multiplied by the distinguished
+    /// basepoint to produce `R`, and `EdwardsPoint`.
+    pub (crate) R: CompressedRistretto,
+
+    /// `s` is a `Scalar`, formed by using an hash function with 512-bits output
+    /// to produce the digest of:
+    ///
+    /// - the `r` portion of this `Signature`,
+    /// - the `PublicKey` which should be used to verify this `Signature`, and
+    /// - the message to be signed.
+    ///
+    /// This digest is then interpreted as a `Scalar` and reduced into an
+    /// element in ℤ/lℤ.
+    pub (crate) s: Scalar,
+}
+
+impl Debug for Signature {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "Signature( R: {:?}, s: {:?} )", &self.R, &self.s)
+    }
+}
+
+impl Signature {
+    /// Convert this `Signature` to a byte array.
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; SIGNATURE_LENGTH] {
+        let mut signature_bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
+
+        signature_bytes[..32].copy_from_slice(&self.R.as_bytes()[..]);
+        signature_bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
+        signature_bytes
+    }
+
+    /// Construct a `Signature` from a slice of bytes.
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Signature, SignatureError> {
+        if bytes.len() != SIGNATURE_LENGTH {
+            return Err(SignatureError::BytesLengthError{
+                name: "Signature", length: SIGNATURE_LENGTH });
+        }
+        let mut lower: [u8; 32] = [0u8; 32];
+        let mut upper: [u8; 32] = [0u8; 32];
+
+        lower.copy_from_slice(&bytes[..32]);
+        upper.copy_from_slice(&bytes[32..]);
+
+        let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
+        Ok(Signature{ R: CompressedRistretto(lower), s })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_bytes(&self.to_bytes()[..])
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'d> Deserialize<'d> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
+        struct SignatureVisitor;
+
+        impl<'d> Visitor<'d> for SignatureVisitor {
+            type Value = Signature;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("An ed25519 signature as 64 bytes, as specified in RFC8032.")
+            }
+
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Signature, E> where E: SerdeError{
+                Ok(Signature::from_bytes(bytes) ?)
+                // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
+            }
+        }
+        deserializer.deserialize_bytes(SignatureVisitor)
+    }
+}
+
+
+/// Implement signing and verification operations on key types ///
 
 impl SecretKey {
     /// Sign a transcript with this `SecretKey`.

@@ -322,13 +322,12 @@ extern crate bincode;
 
 mod util;
 
-mod keys;
-
+pub mod keys;  // 
 pub mod sign;
 pub mod derive;
 pub mod cert;
 pub mod errors;
 
-pub use keys::*;
-pub use sign::{signing_context,verify_batch};
+pub use keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
+pub use sign::{Signature,SIGNATURE_LENGTH,signing_context,verify_batch}; // SigningContext
 pub use errors::SignatureError;
