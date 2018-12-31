@@ -32,9 +32,9 @@ use core::fmt::Display;
 /// * Failure of a signature to satisfy the verification equation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum SignatureError {
-	/// Invalid point provided, usually to `verify` methods.
+    /// Invalid point provided, usually to `verify` methods.
     PointDecompressionError,
-	/// Invalid scalar provided, usually to `Signature::from_bytes`.
+    /// Invalid scalar provided, usually to `Signature::from_bytes`.
     ScalarFormatError,
     /// An error in the length of bytes handed to a constructor.
     ///
@@ -47,6 +47,11 @@ pub enum SignatureError {
 		/// Length expected by the constructor in bytes
 		length: usize 
 	},
+    // /// Reveal did not match commitment
+    // InvalidReveal,
+// other multisig errors
+// AbsentCommitment
+// InvalidCommitment
 }
 
 impl Display for SignatureError {

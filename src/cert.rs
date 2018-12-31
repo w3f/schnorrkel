@@ -210,7 +210,6 @@ impl PublicKey {
 #[cfg(test)]
 mod tests {
     use rand::prelude::*;
-    use sha3::{Shake128};
 
     use context::signing_context;
     use super::*;

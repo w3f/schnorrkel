@@ -753,7 +753,6 @@ impl<'d> Deserialize<'d> for SecretKey {
 /// during deserialization, which improves error handling, but costs
 /// a compression during signing and verifiaction.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-#[repr(C)]
 pub struct PublicKey {
 	pub (crate) point: RistrettoPoint,
 	pub (crate) compressed: CompressedRistretto,
