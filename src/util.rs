@@ -12,7 +12,7 @@
 
 use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
+// use curve25519_dalek::scalar::Scalar;
 
 use errors::SignatureError;
 
@@ -53,6 +53,7 @@ pub fn multiply_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
     }
 }
 
+/*
 pub fn divide_scalar_by_cofactor(scalar: Scalar) -> Scalar {
     let mut x = scalar.to_bytes();
     divide_scalar_bytes_by_cofactor(&mut x);
@@ -64,6 +65,7 @@ pub fn multiply_scalar_by_cofactor(scalar: Scalar) -> Scalar {
     multiply_scalar_bytes_by_cofactor(&mut x);
     Scalar::from_bits(x)
 }
+*/
 
 #[cfg(test)]
 mod tests {
