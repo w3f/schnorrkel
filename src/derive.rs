@@ -174,7 +174,7 @@ pub struct ExtendedKey<K> {
 impl<K: Derrivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
-	fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
+	pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
 	where T: SigningTranscript+Clone
 	{
         let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
