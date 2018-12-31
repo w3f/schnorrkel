@@ -538,8 +538,7 @@ impl SecretKey {
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
         // No clamping in a Schnorr group
-		let point = &self.key * &constants::RISTRETTO_BASEPOINT_TABLE;
-        PublicKey { compressed: point.compress(), point }
+        PublicKey::from_point(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
     }
 
     /// Sign a message with this `SecretKey` using the old Ed25519
@@ -615,10 +614,10 @@ impl<'d> Deserialize<'d> for SecretKey {
 /// At present, we decompress `PublicKey`s into this representation
 /// during deserialization, which improves error handling, but costs
 /// a compression during signing and verifiaction.
-#[derive(Copy, Clone, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Eq)]  // PartialEq optimnized below
 pub struct PublicKey {
-	pub (crate) point: RistrettoPoint,
-	pub (crate) compressed: CompressedRistretto,
+	point: RistrettoPoint,
+	compressed: CompressedRistretto,
 }
 
 impl Debug for PublicKey {
@@ -627,6 +626,8 @@ impl Debug for PublicKey {
     }
 }
 
+
+// We should imho drop this impl but it benifits users who start with ring.
 impl AsRef<[u8]> for PublicKey {
     fn as_ref(&self) -> &[u8] {
         self.compressed.as_bytes()
@@ -634,6 +635,40 @@ impl AsRef<[u8]> for PublicKey {
 }
 
 impl PublicKey {
+    // I dislike getter methods, and prefer direct field access, but doing
+    // getters here permits the fields being private, and gives us faster
+    // equality comparisons.
+
+    /// Access the compressed Ristretto form
+    pub fn as_compressed(&self) -> &CompressedRistretto { &self.compressed }
+
+    /// Extract the compressed Ristretto form
+    pub fn into_compressed(self) -> CompressedRistretto { self.compressed }
+
+    /// Access the point form
+    pub fn as_point(&self) -> &RistrettoPoint { &self.point }
+
+    /// Extract the point form
+    pub fn into_point(self) -> RistrettoPoint { self.point }
+
+    /// Decompress into the `PublicKey` format that also retains the
+    /// compressed form.
+    pub fn from_compressed(compressed: CompressedRistretto) -> Result<PublicKey,SignatureError> {
+        Ok(PublicKey {
+            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
+            compressed,
+        })
+    }
+
+    /// Compress into the `PublicKey` format that also retains the
+    /// uncompressed form.
+    pub fn from_point(point: RistrettoPoint) -> PublicKey {
+        PublicKey {
+            compressed: point.compress(),
+            point,
+        }
+    }
+
     /// Convert this public key to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
@@ -684,10 +719,7 @@ impl PublicKey {
         }
 		let mut compressed = CompressedRistretto([0u8; 32]);
         compressed.0.copy_from_slice(&bytes[..32]);
-        Ok(PublicKey {
-            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
-			compressed
-        } )
+        PublicKey::from_compressed(compressed)
     }
 
     /// A serialized Ed25519 public key compatable with our serialization
@@ -732,7 +764,7 @@ impl PublicKey {
 		let eighth = Scalar::from(8u8).invert();
 		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
 		point *= &eighth;
-        Ok(PublicKey { compressed: point.compress(), point })
+        Ok(PublicKey::from_point(point))
 		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
     }
 
@@ -779,7 +811,7 @@ impl From<SecretKey> for PublicKey {
 #[cfg(feature = "serde")]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.compressed.as_bytes())
+        serializer.serialize_bytes(self.as_compressed().as_bytes())
     }
 }
 
@@ -804,8 +836,61 @@ impl<'d> Deserialize<'d> for PublicKey {
     }
 }
 
+/// We hide fields largely so that only compairing the compressed forms works.
+impl PartialEq<Self> for PublicKey {
+    fn eq(&self, other: &Self) -> bool {
+        let r = self.compressed.eq(&other.compressed);
+		debug_assert_eq!(r, self.point.eq(&other.point));
+		r
+    }
 
-/// An ed25519 keypair.
+    // fn ne(&self, other: &Rhs) -> bool {
+    //   self.compressed.0.ne(&other.compressed.0)
+    // }
+}
+
+// impl Eq for PublicKey {}
+
+impl PartialOrd<PublicKey> for PublicKey {
+    fn partial_cmp(&self, other: &PublicKey) -> Option<::core::cmp::Ordering> {
+        self.compressed.0.partial_cmp(&other.compressed.0)
+    }
+
+    // fn lt(&self, other: &Rhs) -> bool {
+    //    self.compressed.0.lt(&other.compressed.0)
+    // }
+    // fn le(&self, other: &Rhs) -> bool {
+    //    self.compressed.0.le(&other.compressed.0)
+    // }
+    // fn gt(&self, other: &Rhs) -> bool {
+    //    self.compressed.0.gt(&other.compressed.0)
+    // }
+    // fn ge(&self, other: &Rhs) -> bool {
+    //    self.compressed.0.ge(&other.compressed.0)
+    // }
+}
+
+impl Ord for PublicKey {
+    fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
+        self.compressed.0.cmp(&other.compressed.0)
+    }
+
+    // fn max(self, other: Self) -> Self {
+    //    self.compressed.0.max(other.compressed.0)
+    // }
+    // fn min(self, other: Self) -> Self {
+    //    self.compressed.0.min(other.compressed.0)
+    // }
+}
+
+impl ::core::hash::Hash for PublicKey {
+    fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+        self.compressed.0.hash(state);
+    }
+}
+
+
+/// A Ristretto Schnorr keypair.
 #[derive(Debug, Default)] // we derive Default in order to use the clear() method in Drop
 #[repr(C)]
 pub struct Keypair {
@@ -1120,10 +1205,7 @@ mod test {
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
         let point = util::edwards_to_ristretto(pk).unwrap();
-		let ristretto_public_key = PublicKey {
-			compressed: point.compress(),
-			point,
-		};
+		let ristretto_public_key = PublicKey::from_point(point);
 
         assert_eq!(
             ristretto_public_key.to_ed25519_public_key_bytes(),
@@ -1142,6 +1224,19 @@ mod test {
         assert_eq!(
             do_the_test(&ED25519_PUBLIC_KEY.0),  // Not a Ristretto public key
             Err(SignatureError::PointDecompressionError)
+        );
+    }
+
+    #[test]
+    fn derives_from_core() {
+        let pk_d = PublicKey::default();
+        debug_assert_eq!(
+            pk_d.as_point().compress(),
+            CompressedRistretto::default()
+        );
+        debug_assert_eq!(
+            pk_d.as_compressed().decompress().unwrap(),
+            RistrettoPoint::default()
         );
     }
 

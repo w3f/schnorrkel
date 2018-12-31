@@ -92,15 +92,15 @@ impl Keypair {
 	where T: SigningTranscript
 	{
 		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",&self.public.compressed);
+		t.commit_point(b"Issuer-pk",self.public.as_compressed());
 
         // We cannot commit the `seed_public_key` to the transcript
 		// because the whole point is to keep the transcript minimal.
 		// Instead we consume it as witness datathat influences only k.
-        let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.compressed.as_bytes()));
+        let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.as_compressed().as_bytes()));
 
         // Compute the public key reconstruction data
-		let gamma = seed_public_key.point + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
+		let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
 		let gamma = gamma.compress();
 		t.commit_point(b"gamma",&gamma);
 		let cert_public = ECQVCertPublic(gamma.0);
@@ -143,7 +143,7 @@ impl PublicKey {
 	where T: SigningTranscript
     {
 		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",&self.compressed);
+		t.commit_point(b"Issuer-pk",self.as_compressed());
 
         // Again we cannot commit much to the transcript, but we again 
 		// treat anything relevant as a witness when defining the 
@@ -193,17 +193,14 @@ impl PublicKey {
 	where T: SigningTranscript
 	{
 		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",&self.compressed);
+		t.commit_point(b"Issuer-pk",self.as_compressed());
 
 		let gamma = CompressedRistretto(cert_public.0.clone());
 		t.commit_point(b"gamma",&gamma);
 		let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 
-		let point = self.point + cert_public.derive_e(t) * gamma;
-		Ok(PublicKey {
-			compressed: point.compress(),
-			point
-		})
+		let point = self.as_point() + cert_public.derive_e(t) * gamma;
+		Ok(PublicKey::from_point(point))
 	}
 }
 

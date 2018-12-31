@@ -51,8 +51,8 @@ pub trait SigningTranscript {
     }
 
     /// Extend the transcript with a compressed Ristretto point
-    fn commit_point(&mut self, label: &'static [u8], point: &CompressedRistretto) {
-        self.commit_bytes(label, point.as_bytes());
+    fn commit_point(&mut self, label: &'static [u8], compressed: &CompressedRistretto) {
+        self.commit_bytes(label, compressed.as_bytes());
     }
 
     /*
@@ -299,7 +299,7 @@ impl SecretKey {
         let k: Scalar;
 
 		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",&public_key.compressed);
+		t.commit_point(b"A",public_key.as_compressed());
 
         r = t.witness_scalar(&self.nonce,None);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
@@ -330,12 +330,12 @@ impl PublicKey {
     #[allow(non_snake_case)]
     pub fn verify<T: SigningTranscript>(&self, mut t: T, signature: &Signature) -> bool
     {
-        let A: RistrettoPoint = self.point;
+        let A: &RistrettoPoint = self.as_point();
         let R: RistrettoPoint;
         let k: Scalar;
 
 		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",&self.compressed);
+		t.commit_point(b"A",self.as_compressed());
 		t.commit_point(b"R",&signature.R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
@@ -438,7 +438,7 @@ where
     let hrams = (0..signatures.len()).map(|i| {
 		let mut t = transcripts[i].borrow().clone();
 		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",&public_keys[i].compressed);
+		t.commit_point(b"A",public_keys[i].as_compressed());
 		t.commit_point(b"R",&signatures[i].R);
         t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
     });
@@ -453,7 +453,7 @@ where
         .zip(0..signatures.len())
 		.map( |(mut t,i)| {
             t.proto_name(b"Schnorr-sig");
-            t.commit_point(b"A",&public_keys[i].compressed);
+            t.commit_point(b"A",public_keys[i].as_compressed());
             t.commit_point(b"R",&signatures[i].R);
             t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
 		} );
@@ -466,7 +466,7 @@ where
     assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
-    let As = public_keys.iter().map(|pk| Some(pk.point));
+    let As = public_keys.iter().map(|pk| Some(pk.as_point().clone()));
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
