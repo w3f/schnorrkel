@@ -335,7 +335,6 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
-// Export everything public in ed25519.
-// pub use ristretto::signing_context;
 pub use ristretto::*;
-pub use errors::*;
+pub use context::verify_batch;
+pub use errors::SignatureError;
