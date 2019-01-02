@@ -29,6 +29,8 @@ use curve25519_dalek::scalar::Scalar;
 use super::*;
 
 
+// === Signing context as transcript === //
+
 /// Schnorr signing transcript
 /// 
 /// We envision signatures being on messages, but if a signature occurs
@@ -176,7 +178,7 @@ impl SigningContext {
 }
 
 
-/// Actual signature type ////
+// === Actual signature type === //
 
 /// The length of a curve25519 EdDSA `Signature`, in bytes.
 pub const SIGNATURE_LENGTH: usize = 64;
@@ -276,7 +278,7 @@ impl<'d> Deserialize<'d> for Signature {
 }
 
 
-/// Implement signing and verification operations on key types ///
+// === Implement signing and verification operations on key types === //
 
 impl SecretKey {
     /// Sign a transcript with this `SecretKey`.
