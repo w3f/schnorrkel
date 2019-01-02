@@ -16,6 +16,28 @@
 use core::fmt;
 use core::fmt::Display;
 
+/// Three-round trip multi-signature stage identifies used in error reporting
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub enum MultiSignatureStage {
+    /// Initial commitment phase of a multi-signature
+    Commitment,
+    /// Reveal phase of a multi-signature
+    Reveal,
+    /// Actual cosigning phase of a multi-signature
+    Cosignature,
+}
+
+impl Display for MultiSignatureStage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		use self::MultiSignatureStage::*;
+        match *self {
+            Commitment => write!(f, "commitment"),
+            Reveal => write!(f, "reveal"),
+            Cosignature => write!(f, "cosignature"),
+        }
+    }
+}
+
 /// Errors which may occur while processing signatures and keypairs.
 ///
 /// This error may arise due to:
@@ -29,7 +51,9 @@ use core::fmt::Display;
 ///   is only raised if the high-bit of the scalar was set.  (Scalars must
 ///   only be constructed from 255-bit integers.)
 ///
-/// * Failure of a signature to satisfy the verification equation.
+/// * Multi-signature protocol errors
+//
+// * Failure of a signature to satisfy the verification equation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum SignatureError {
     /// Invalid point provided, usually to `verify` methods.
@@ -38,15 +62,34 @@ pub enum SignatureError {
     ScalarFormatError,
     /// An error in the length of bytes handed to a constructor.
     ///
-    /// To use this, pass a string specifying the `name` of the type which is
-    /// returning the error, and the `length` in bytes which its constructor
-    /// expects.
+    /// To use this, pass a string specifying the `name` of the type 
+    /// which is returning the error, and the `length` in bytes which
+    /// its constructor expects.
     BytesLengthError{
-		/// Identifies the type returning the error
-		name: &'static str,
-		/// Length expected by the constructor in bytes
-		length: usize 
-	},
+        /// Identifies the type returning the error
+        name: &'static str,
+        /// Length expected by the constructor in bytes
+        length: usize 
+    },
+    /// There is no record of the preceeding multi-signautre protocol
+	/// stage for the specified public key.
+    MuSigAbsent {
+        /// Identifies the multi-signature protocol stage during which
+        /// the error occured.
+        musig_stage: MultiSignatureStage,
+    },
+    /// For this public key, there are either conflicting records for
+    /// the preceeding multi-signautre protocol stage or else duplicate
+	/// duplicate records for the current stage.
+    MuSigInconsistent {
+        /// Identifies the multi-signature protocol stage during which
+        /// the error occured.
+        musig_stage: MultiSignatureStage, 
+        /// Set true if the stage was reached correctly once but this
+        /// duplicate disagrees.
+        duplicate: bool,
+    },
+	
     // /// Reveal did not match commitment
     // InvalidReveal,
 // other multisig errors
@@ -56,13 +99,22 @@ pub enum SignatureError {
 
 impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		use self::SignatureError::*;
         match *self {
-            SignatureError::PointDecompressionError
-                => write!(f, "Cannot decompress Edwards point"),
-            SignatureError::ScalarFormatError
-                => write!(f, "Cannot use scalar with high-bit set"),
-            SignatureError::BytesLengthError{ name: n, length: l}
-                => write!(f, "{} must be {} bytes in length", n, l),
+            PointDecompressionError => 
+                write!(f, "Cannot decompress Edwards point"),
+            ScalarFormatError => 
+                write!(f, "Cannot use scalar with high-bit set"),
+            BytesLengthError { name, length, } =>
+                write!(f, "{} must be {} bytes in length", name, length),
+            MuSigAbsent { musig_stage, } =>
+                write!(f, "Absent {} violated multi-signature protocol", musig_stage),
+            MuSigInconsistent { musig_stage, duplicate, } =>
+                if duplicate {
+                    write!(f, "Inconsistent duplicate {} in multi-signature", musig_stage)
+                } else {
+                    write!(f, "Inconsistent {} violated multi-signature protocol", musig_stage)
+                },
         }
     }
 }

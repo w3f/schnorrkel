@@ -326,6 +326,7 @@ pub mod keys;  //
 pub mod sign;
 pub mod derive;
 pub mod cert;
+pub mod multi;
 pub mod errors;
 
 pub use keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
