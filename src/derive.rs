@@ -74,10 +74,8 @@ impl PublicKey {
     fn derive_scalar_and_chaincode<T>(&self, t: &mut T, cc: ChainCode) -> (Scalar, ChainCode)
     where T: SigningTranscript
     {
-        let pk = self.to_ed25519_public_key_bytes();
-
         t.commit_bytes(b"chain-code",&cc.0);
-        t.commit_bytes(b"ed25519-pk",&pk);
+        t.commit_point(b"ed25519-pk",self.as_compressed());
 
         let scalar = t.challenge_scalar(b"HDKD-scalar");
 
