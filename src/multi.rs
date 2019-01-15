@@ -607,7 +607,8 @@ mod tests {
         for i in 0..commits.len() {
         let r = commits[i].our_commitment();
             for j in commits.iter_mut() {
-                j.add_their_commitment(keypairs[i].public.clone(),r);
+                j.add_their_commitment(keypairs[i].public.clone(),r)
+                    .is_ok() != (r == j.our_commitment());
             }
         }
 
@@ -616,7 +617,7 @@ mod tests {
         for i in 0..reveals.len() {
             let r = reveals[i].our_reveal();
             for j in reveals.iter_mut() {
-                j.add_their_reveal(keypairs[i].public.clone(),r);
+                j.add_their_reveal(keypairs[i].public.clone(),r).unwrap();
             }
             reveal_msgs.push(r);
         }
@@ -628,7 +629,7 @@ mod tests {
             assert_eq!(pk, cosigns[i].public_key());
             let r = cosigns[i].our_cosignature();
             for j in cosigns.iter_mut() {
-                j.add_their_cosignature(keypairs[i].public.clone(),r);
+                j.add_their_cosignature(keypairs[i].public.clone(),r).unwrap();
             }
             cosign_msgs.push(r);
             assert_eq!(pk, cosigns[i].public_key());
@@ -637,7 +638,7 @@ mod tests {
         // let signature = cosigns[0].sign().unwrap();
         let mut c = collect_cosignatures(t.clone());
         for i in 0..cosigns.len() {
-            c.add(keypairs[i].public.clone(),reveal_msgs[i].clone(),cosign_msgs[i].clone());
+            c.add(keypairs[i].public.clone(),reveal_msgs[i].clone(),cosign_msgs[i].clone()).unwrap();
         }
         let signature = c.signature();
 
