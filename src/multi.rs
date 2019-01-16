@@ -607,8 +607,8 @@ mod tests {
         for i in 0..commits.len() {
         let r = commits[i].our_commitment();
             for j in commits.iter_mut() {
-                j.add_their_commitment(keypairs[i].public.clone(),r)
-                    .is_ok() != (r == j.our_commitment());
+                assert!( j.add_their_commitment(keypairs[i].public.clone(),r)
+                    .is_ok() != (r == j.our_commitment()) );
             }
         }
 
