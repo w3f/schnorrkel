@@ -75,7 +75,7 @@ impl PublicKey {
     where T: SigningTranscript
     {
         t.commit_bytes(b"chain-code",&cc.0);
-        t.commit_point(b"ed25519-pk",self.as_compressed());
+        t.commit_point(b"public-key",self.as_compressed());
 
         let scalar = t.challenge_scalar(b"HDKD-scalar");
 
