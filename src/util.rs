@@ -10,27 +10,7 @@
 //! Elliptic curve utilities not provided by curve25519-dalek,
 //! including some not so safe utilities for managing scalars and points.
 
-use curve25519_dalek::edwards::EdwardsPoint;
-use curve25519_dalek::ristretto::RistrettoPoint;
 // use curve25519_dalek::scalar::Scalar;
-
-use errors::SignatureError;
-
-
-/// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
-pub fn ristretto_to_edwards(p: RistrettoPoint) -> EdwardsPoint {
-    unsafe { ::std::mem::transmute::<RistrettoPoint,EdwardsPoint>(p) }
-}
-
-/// Requires `RistrettoPoint` be defined as RistrettoPoint(EdwardsPoint)
-///
-/// Avoid using this function.  It is necessarily painfully slow.
-pub fn edwards_to_ristretto(p: EdwardsPoint) -> Result<RistrettoPoint,SignatureError> {
-    if ! p.is_torsion_free() {
-        return Err(SignatureError::PointDecompressionError);
-    }
-    Ok(unsafe { ::std::mem::transmute::<EdwardsPoint,RistrettoPoint>(p) })
-}
 
 
 pub fn divide_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {

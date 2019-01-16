@@ -321,6 +321,7 @@ extern crate serde;
 extern crate bincode;
 
 mod util;
+mod ed25519;
 
 pub mod keys;  // 
 pub mod sign;

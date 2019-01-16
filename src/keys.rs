@@ -31,12 +31,10 @@ use sha2::Sha512;
 
 use clear_on_drop::clear::Clear;
 
-use curve25519_dalek::digest;
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
 use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
-use curve25519_dalek::edwards::{CompressedEdwardsY}; // EdwardsPoint
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
@@ -64,7 +62,6 @@ pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LE
 /// The length of an ed25519 EdDSA `Keypair`, in bytes.
 pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
-type Ed25519Signature = [u8; ::ed25519_dalek::SIGNATURE_LENGTH];
 
 /// An EdDSA compatabile "secret" key seed.
 ///
@@ -540,41 +537,6 @@ impl SecretKey {
         // No clamping in a Schnorr group
         PublicKey::from_point(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
     }
-
-    /// Sign a message with this `SecretKey` using the old Ed25519
-	/// algorithm.
-	///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-    #[allow(non_snake_case)]
-    pub fn sign_ed25519<D>(&self, message: &[u8], public_key: &PublicKey) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-		let public_key = public_key.to_ed25519_public_key();
-		self.to_ed25519_expanded_secret_key()
-		.sign::<D>(message,&public_key).to_bytes()
-	}
-
-    /// Sign a `prehashed_message` with this `SecretKey` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    #[allow(non_snake_case)]
-    pub fn sign_ed25519_prehashed<D>(
-        &self,
-        prehashed_message: D,
-        public_key: &PublicKey,
-        context: Option<&'static [u8]>,
-    ) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default + Clone,
-    {
-		let public_key = public_key.to_ed25519_public_key();
-		self.to_ed25519_expanded_secret_key()
-		.sign_prehashed::<D>(prehashed_message,&public_key,context).to_bytes()
-	}
 }
 
 #[cfg(feature = "serde")]
@@ -721,84 +683,6 @@ impl PublicKey {
         compressed.0.copy_from_slice(&bytes[..32]);
         PublicKey::from_compressed(compressed)
     }
-
-    /// A serialized Ed25519 public key compatable with our serialization
-    /// of the corresponding `SecretKey`.  
-    /// 
-    /// We multiply by the cofactor 8 here because we multiply our
-    /// scalars by the cofactor 8 in serialization as well.  In this way,
-    /// our serializations remain somewhat ed25519 compatable, except for  
-    /// clamping, but internally we only operate on honest scalars
-    /// represented mod l, and thus avoid spooky cofactor bugs.
-    pub fn to_ed25519_public_key_bytes(&self) -> [u8; 32] {
-        util::ristretto_to_edwards(self.point).mul_by_cofactor().compress().to_bytes()
-    }
-
-    /// An Ed25519 public key compatable with our serialization of
-    /// the corresponding `SecretKey`.  
-    pub fn to_ed25519_public_key(&self) -> ::ed25519_dalek::PublicKey {
-		let pkb = self.to_ed25519_public_key_bytes();
-		::ed25519_dalek::PublicKey::from_bytes(&pkb[..])
-		.expect("Improper serialisation of Ed25519 public key!")
-	}	
-
-    /// Deserialized an Ed25519 public key compatable with our
-    /// serialization of the corresponding `SecretKey`. 
-    /// 
-    /// Avoid using this function.  It is necessarily painfully slow,
-	/// by far the slowest in this crate, and will make you look bad.  
-	/// Instead, communitate and use only Ristretto public keys, and
-	/// convert to ed25519 keys as required.
-    pub fn from_ed25519_public_key_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
-        if bytes.len() != PUBLIC_KEY_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name: "PublicKey", length: PUBLIC_KEY_LENGTH });
-        }
-        let mut bits: [u8; 32] = [0u8; 32];
-        bits.copy_from_slice(&bytes[..32]);
-
-		let mut point = util::edwards_to_ristretto(
-	        CompressedEdwardsY(bits).decompress()
-			.ok_or(SignatureError::PointDecompressionError) ?
-		) ?;  // PointDecompressionError unless 2-torsion free
-		let eighth = Scalar::from(8u8).invert();
-		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
-		point *= &eighth;
-        Ok(PublicKey::from_point(point))
-		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
-    }
-
-    /// Verify a signature on a message with this public key.
-    ///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-    #[allow(non_snake_case)]
-    pub fn verify_ed25519<D>(&self, message: &[u8], signature: &Ed25519Signature) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-		::ed25519_dalek::Signature::from_bytes(&signature[..])
-		.and_then(|s| self.to_ed25519_public_key().verify::<D>(message,&s)).is_ok()
-	}
-
-    /// Verify a `signature` on a `prehashed_message` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    #[allow(non_snake_case)]
-    pub fn verify_ed25519_prehashed<D>(
-        &self,
-        prehashed_message: D,
-        context: Option<&[u8]>,
-        signature: &Ed25519Signature
-    ) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-    {
-		::ed25519_dalek::Signature::from_bytes(&signature[..])
-		.and_then(|s| self.to_ed25519_public_key().verify_prehashed::<D>(prehashed_message,context,&s)).is_ok()
-	}
 }
 
 impl From<SecretKey> for PublicKey {
@@ -806,7 +690,6 @@ impl From<SecretKey> for PublicKey {
         source.to_public()
     }
 }
-
 
 #[cfg(feature = "serde")]
 impl Serialize for PublicKey {
@@ -991,58 +874,6 @@ impl Keypair {
 
         Keypair{ public, secret }
     }
-
-    /// Sign a message with this `SecretKey` using ed25519.
-    #[allow(non_snake_case)]
-    pub fn sign_ed25519<D>(&self, message: &[u8]) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-		self.secret.sign_ed25519::<D>(message, &self.public)
-	}
-
-    /// Sign a `prehashed_message` with this `SecretKey` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-    #[allow(non_snake_case)]
-    pub fn sign_ed25519_prehashed<D>(
-        &self,
-        prehashed_message: D,
-        context: Option<&'static [u8]>,
-    ) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default + Clone,
-    {
-        self.secret.sign_ed25519_prehashed::<D>(prehashed_message, &self.public, context)
-	}
-
-    /// Verify a signature on a message with this public key.
-    ///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-    #[allow(non_snake_case)]
-    pub fn verify_ed25519<D>(&self, message: &[u8], signature: &Ed25519Signature) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-        self.public.verify_ed25519::<D>(message,signature)
-	}
-
-    /// Verify a `signature` on a `prehashed_message` using the
-    /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
-    /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
-    #[allow(non_snake_case)]
-    #[allow(non_snake_case)]
-    pub fn verify_ed25519_prehashed<D>(
-        &self,
-        prehashed_message: D,
-        context: Option<&[u8]>,
-        signature: &Ed25519Signature
-    ) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-    {
-		self.public.verify_ed25519_prehashed::<D>(prehashed_message,context,signature)
-	}
 }
 
 #[cfg(feature = "serde")]
@@ -1079,9 +910,9 @@ impl<'d> Deserialize<'d> for Keypair {
 
 #[cfg(test)]
 mod test {
-    use std::vec::Vec;
+    // use std::vec::Vec;
+    // use hex::FromHex;
     use rand::prelude::*; // ThreadRng,thread_rng
-    use hex::FromHex;
     use sha2::Sha512;
     use super::*;
 
@@ -1113,89 +944,6 @@ mod test {
         216, 085, 134, 144, 129, 149, 041, 081,
         063, 120, 126, 100, 092, 059, 050, 011, ];
 
-    /* *** We have no test vectors obviously ***
-
-    use std::io::BufReader;
-    use std::io::BufRead;
-    use std::fs::File;
-    use std::string::String;
-
-    // TESTVECTORS is taken from sign.input.gz in agl's ed25519 Golang
-    // package. It is a selection of test cases from
-    // http://ed25519.cr.yp.to/python/sign.input
-    #[cfg(test)]
-    #[cfg(not(release))]
-    #[test]
-    fn golden() { // TestGolden
-        let mut line: String;
-        let mut lineno: usize = 0;
-
-        let f = File::open("TESTVECTORS");
-        if f.is_err() {
-            println!("This test is only available when the code has been cloned \
-                      from the git repository, since the TESTVECTORS file is large \
-                      and is therefore not included within the distributed crate.");
-            panic!();
-        }
-        let file = BufReader::new(f.unwrap());
-
-        for l in file.lines() {
-            lineno += 1;
-            line = l.unwrap();
-
-            let parts: Vec<&str> = line.split(':').collect();
-            assert_eq!(parts.len(), 5, "wrong number of fields in line {}", lineno);
-
-            let sec_bytes: Vec<u8> = FromHex::from_hex(&parts[0]).unwrap();
-            let pub_bytes: Vec<u8> = FromHex::from_hex(&parts[1]).unwrap();
-            let msg_bytes: Vec<u8> = FromHex::from_hex(&parts[2]).unwrap();
-            let sig_bytes: Vec<u8> = FromHex::from_hex(&parts[3]).unwrap();
-
-            let secret: MiniSecretKey = MiniSecretKey::from_bytes(&sec_bytes[..MINI_SECRET_KEY_LENGTH]).unwrap();
-            let public: PublicKey = PublicKey::from_bytes(&pub_bytes[..PUBLIC_KEY_LENGTH]).unwrap();
-            let keypair: Keypair  = Keypair{ secret: secret, public: public };
-
-            // The signatures in the test vectors also include the message
-            // at the end, but we just want R and S.
-            let sig1: Signature = Signature::from_bytes(&sig_bytes[..64]).unwrap();
-            let sig2: Signature = keypair.sign::<Sha512>(&msg_bytes);
-
-            assert!(sig1 == sig2, "Signature bytes not equal on line {}", lineno);
-            assert!(keypair.verify::<Sha512>(&msg_bytes, &sig2),
-                    "Signature verification failed on line {}", lineno);
-        }
-    }
-    *** We have no test vectors obviously *** */
-
-    // From https://tools.ietf.org/html/rfc8032#section-7.3
-    #[test]
-    fn ed25519ph_rf8032_test_vector() {
-        let secret_key: &[u8] = b"833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42";
-        let public_key: &[u8] = b"ec172b93ad5e563bf4932c70e1245034c35467ef2efd4d64ebf819683467e2bf";
-        let message: &[u8] = b"616263";
-        let sig1: &[u8] = b"98a70222f0b8121aa9d30f813d683f809e462b469c7ff87639499bb94e6dae4131f85042463c2a355a2003d062adf5aaa10b8c61e636062aaad11c2a26083406";
-
-        let sec_bytes: Vec<u8> = FromHex::from_hex(secret_key).unwrap();
-        let pub_bytes: Vec<u8> = FromHex::from_hex(public_key).unwrap();
-        let msg_bytes: Vec<u8> = FromHex::from_hex(message).unwrap();
-        let sig1: Vec<u8> = FromHex::from_hex(sig1).unwrap();
-
-        let secret: MiniSecretKey = MiniSecretKey::from_bytes(&sec_bytes[..MINI_SECRET_KEY_LENGTH]).unwrap();
-        let public: PublicKey = PublicKey::from_ed25519_public_key_bytes(&pub_bytes[..PUBLIC_KEY_LENGTH]).unwrap();
-        let keypair: Keypair  = Keypair{ secret: secret.expand::<Sha512>(), public: public };
-
-        let prehash_for_signing: Sha512 = Sha512::default().chain(&msg_bytes[..]);
-        let prehash_for_verifying: Sha512 = Sha512::default().chain(&msg_bytes[..]);
-
-        let sig2 = keypair.sign_ed25519_prehashed(prehash_for_signing, None);
-
-        assert!(&sig1[..] == &sig2[..],
-                "Original signature from test vectors doesn't equal signature produced:\
-                \noriginal:\n{:?}\nproduced:\n{:?}", &sig1[..], &sig2[..]);
-        assert!(keypair.verify_ed25519_prehashed(prehash_for_verifying, None, &sig2),
-                "Could not verify ed25519ph signature!");
-    }
-
     #[test]
     fn public_key_from_bytes() {
         static ED25519_PUBLIC_KEY : CompressedEdwardsY = CompressedEdwardsY([
@@ -1204,7 +952,7 @@ mod test {
             014, 225, 114, 243, 218, 166, 035, 037,
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
-        let point = util::edwards_to_ristretto(pk).unwrap();
+        let point = super::super::ed25519::edwards_to_ristretto(pk).unwrap();
 		let ristretto_public_key = PublicKey::from_point(point);
 
         assert_eq!(
