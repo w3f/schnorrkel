@@ -40,8 +40,8 @@ use curve25519_dalek::scalar::Scalar;
 
 use subtle::{Choice,ConstantTimeEq};
 
-use util;
-use both::RistrettoBoth;
+use scalars;
+use points::RistrettoBoth;
 use errors::SignatureError;
 
 
@@ -141,7 +141,7 @@ impl MiniSecretKey {
         key[31] |=  64;
         // We then devide by the cofactor to internally keep a clean
         // representation mod l.
-        util::divide_scalar_bytes_by_cofactor(&mut key);
+        scalars::divide_scalar_bytes_by_cofactor(&mut key);
         let key = Scalar::from_bits(key);
 
         let mut nonce = [0u8; 32];
@@ -441,7 +441,7 @@ impl SecretKey {
         let mut key = self.key.to_bytes();
         // We multiply by the cofactor to improve ed25519 compatability,
         // while our internally using a scalar mod l.
-        util::multiply_scalar_bytes_by_cofactor(&mut key);
+        scalars::multiply_scalar_bytes_by_cofactor(&mut key);
         bytes[..32].copy_from_slice(&key[..]);
         bytes[32..].copy_from_slice(&self.nonce[..]);
         bytes
@@ -506,7 +506,7 @@ impl SecretKey {
         // key[31] &= 0b0111_1111;
         // We devide by the cofactor to internally keep a clean
         // representation mod l.
-        util::divide_scalar_bytes_by_cofactor(&mut key);
+        scalars::divide_scalar_bytes_by_cofactor(&mut key);
 
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);

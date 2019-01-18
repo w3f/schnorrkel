@@ -320,11 +320,13 @@ extern crate serde;
 #[cfg(all(test, feature = "serde"))]
 extern crate bincode;
 
-mod util;
+
+mod scalars;
+pub mod points;
+
+pub mod keys;
 mod ed25519;
 
-pub mod both;
-pub mod keys;
 pub mod sign;
 pub mod derive;
 pub mod cert;

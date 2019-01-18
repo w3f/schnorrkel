@@ -7,6 +7,8 @@
 // Authors:
 // - Jeff Burdges <jeff@web3.foundation>
 
+//! Scalar tooling
+//!
 //! Elliptic curve utilities not provided by curve25519-dalek,
 //! including some not so safe utilities for managing scalars and points.
 

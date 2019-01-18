@@ -39,7 +39,7 @@ impl Signature {
 	/// We recommend strongly against doing this.
 	// https://crypto.stackexchange.com/questions/60825/schnorr-pubkey-recovery
     pub signer_from_dangerously_malleable(&self) -> Result<PublicKey,SignatureError> {
-        let k_inv = util::scalar_from_xof(
+        let k_inv = scalars::scalar_from_xof(
             context.context_digest()
             .chain(signature.R.as_bytes())
             // .chain(public_key.compressed.as_bytes())  // DANGER !!!
@@ -80,14 +80,14 @@ impl SecretKey {
         let s: Scalar;
         let k: Scalar;
 
-        r = util::scalar_from_xof(
+        r = scalars::scalar_from_xof(
             context.nonce_randomness()
             .chain(&self.nonce)
             .chain(&message)
         );
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        k = util::scalar_from_xof(
+        k = scalars::scalar_from_xof(
             context.context_digest()
             .chain(R.as_bytes())
             // .chain(public_key.compressed.as_bytes())  // DANGER !!!
@@ -104,7 +104,7 @@ impl PublicKey {
     ///
     /// These dangerously malleable signatures always verify when checked with
     /// the signature produced by `signer_from_dangerously_malleable` so
-	/// perhaps only that funcituon should exist.
+    /// perhaps only that funcituon should exist.
     #[allow(non_snake_case)]
     pub fn verify_dangerously_malleable<C>(&self, context: &C, message: &[u8], signature: &Signature) -> bool
     where C: SigningContext,
@@ -114,7 +114,7 @@ impl PublicKey {
         let R: RistrettoPoint;
         let k: Scalar;
 
-        k = util::scalar_from_xof(
+        k = scalars::scalar_from_xof(
             context.context_digest()
             .chain(signature.R.as_bytes())
             // .chain(public_key.compressed.as_bytes())  // DANGER !!!

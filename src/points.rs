@@ -7,6 +7,8 @@
 // Authors:
 // - Jeff Burdges <jeff@web3.foundation>
 
+//! ristretto point tooling
+//! 
 //! We provide a `RistrettoBoth` type that contains both an uncompressed
 //! `RistrettoPoint` along side its matching `CompressedRistretto`, 
 //! which helps several protocols avoid duplicate ristretto compressions
@@ -98,7 +100,7 @@ impl RistrettoBoth {
     /// ```
     /// # extern crate schnorr_dalek;
     /// #
-    /// use schnorr_dalek::both::RistrettoBoth;
+    /// use schnorr_dalek::points::RistrettoBoth;
     /// use schnorr_dalek::PUBLIC_KEY_LENGTH;
     /// use schnorr_dalek::SignatureError;
     ///
