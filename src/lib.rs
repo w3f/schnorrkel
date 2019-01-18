@@ -323,7 +323,8 @@ extern crate bincode;
 mod util;
 mod ed25519;
 
-pub mod keys;  // 
+pub mod both;
+pub mod keys;
 pub mod sign;
 pub mod derive;
 pub mod cert;
