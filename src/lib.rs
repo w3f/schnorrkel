@@ -25,10 +25,8 @@
 //!
 //! # #[cfg(all(feature = "std"))]
 //! # fn main() {
-//! use rand::Rng;
-//! use rand::OsRng;
-//! use schnorr_dalek::Keypair;
-//! use schnorr_dalek::Signature;
+//! use rand::{Rng,OsRng};
+//! use schnorr_dalek::{Keypair,Signature};
 //!
 //! let mut csprng: OsRng = OsRng::new().unwrap();
 //! let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -235,7 +233,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use sha2::Sha512;
-//! # use schnorr_dalek::{Keypair, Signature, PublicKey};
+//! # use schnorr_dalek::{Keypair, Signature, PublicKey, signing_context};
 //! # use bincode::{serialize, Infinite};
 //! use bincode::{deserialize};
 //!
@@ -338,3 +336,6 @@ pub use keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
 pub use context::{signing_context}; // SigningContext,SigningTranscript
 pub use sign::{Signature,SIGNATURE_LENGTH,verify_batch};
 pub use errors::SignatureError;
+
+#[cfg(feature = "serde")]
+mod serdey;

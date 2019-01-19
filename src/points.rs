@@ -20,6 +20,15 @@
 
 use core::fmt::{Debug};
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde::{Serializer, Deserializer};
+#[cfg(feature = "serde")]
+use serde::de::Error as SerdeError;
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 // use curve25519_dalek::scalar::Scalar;
 
@@ -155,7 +164,8 @@ impl<'d> Deserialize<'d> for RistrettoBoth {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<RistrettoBoth, E> where E: SerdeError {
-                Ok(RistrettoBoth::from_bytes("RistrettoPoint",bytes) ?)
+                RistrettoBoth::from_bytes("RistrettoPoint",bytes)
+				    .map_err(::errors::serde_error_from_signature_error)
             }
         }
         deserializer.deserialize_bytes(RistrettoBothVisitor)

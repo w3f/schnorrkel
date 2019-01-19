@@ -123,16 +123,21 @@ impl Display for SignatureError {
 impl ::failure::Fail for SignatureError {}
 
 #[cfg(feature = "serde")]
-impl<E> From<SignatureError> for E where E: ::serde::de::Error {
-	fn from(err: SignatureError) -> E {
-		match err {
-            SignatureError::PointDecompressionError
-                => E::custom("Ristretto point decompression failed"),
-            SignatureError::ScalarFormatError
-                => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
-            SignatureError::BytesLengthError{ name: n, length: l}
-                => E::invalid_length(bytes.len(), &self),
-		}
-	}
+/// Convert `SignatureError` into `SerdeError`
+///
+/// We should do this with `From` but right now the orphan rules prohibit
+/// `impl From<SignatureError> for E where E: ::serde::de::Error`.
+pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
+where E: ::serde::de::Error
+{
+	match err {
+        SignatureError::PointDecompressionError
+            => E::custom("Ristretto point decompression failed"),
+        SignatureError::ScalarFormatError
+            => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
+        SignatureError::BytesLengthError{ name, length, }
+            => E::invalid_length(length, &name),
+        _ => panic!("Non-serialisation error encountered by serde!"),
+    }
 }
 

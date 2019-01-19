@@ -15,6 +15,15 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")]
+use serde::{Serializer, Deserializer};
+#[cfg(feature = "serde")]
+use serde::de::Error as SerdeError;
+#[cfg(feature = "serde")]
+use serde::de::Visitor;
+
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -114,7 +123,7 @@ impl<'d> Deserialize<'d> for Signature {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Signature, E> where E: SerdeError{
-                Ok(Signature::from_bytes(bytes) ?)
+                Signature::from_bytes(bytes).map_err(::errors::serde_error_from_signature_error)
                 // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
