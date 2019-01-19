@@ -31,9 +31,8 @@ use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
-use sign::SigningTranscript;
-
 use super::*;
+use context::SigningTranscript;
 use errors::MultiSignatureStage;
 
 

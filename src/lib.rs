@@ -327,6 +327,7 @@ pub mod points;
 pub mod keys;
 mod ed25519;
 
+pub mod context;
 pub mod sign;
 pub mod derive;
 pub mod cert;
@@ -334,5 +335,6 @@ pub mod multi;
 pub mod errors;
 
 pub use keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
-pub use sign::{Signature,SIGNATURE_LENGTH,signing_context,verify_batch}; // SigningContext
+pub use context::{signing_context}; // SigningContext,SigningTranscript
+pub use sign::{Signature,SIGNATURE_LENGTH,verify_batch};
 pub use errors::SignatureError;

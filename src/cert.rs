@@ -33,9 +33,8 @@ use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
 
-use sign::SigningTranscript;
-
 use super::*;
+use context::SigningTranscript;
 
 
 /// ECQV Implicit Certificate Secret
