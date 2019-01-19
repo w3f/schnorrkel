@@ -15,9 +15,9 @@
 #[cfg(test)]
 mod test {
     use std::vec::Vec;
-    // use std::mem::size_of;
+    use std::mem::size_of;
 
-    // use bincode::{serialize, serialized_size, deserialize, Infinite};
+    use bincode::{serialize, serialized_size, deserialize, Infinite};
 
 	use curve25519_dalek::ristretto::{CompressedRistretto};
 
@@ -95,7 +95,6 @@ mod test {
         }
     }
 
-	/*
     #[test]
     fn serialize_public_key_size() {
 		let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
@@ -122,8 +121,7 @@ mod test {
 		*/
         assert_eq!(
             serialized_size(&ED25519_SECRET_KEY) as usize,
-            32 // size_of::<MiniSecretKey>()
+            size_of::<MiniSecretKey>()
         );
     }
-	*/
 }
