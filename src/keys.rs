@@ -45,22 +45,22 @@ use points::RistrettoBoth;
 use errors::SignatureError;
 
 
-/// The length of a curve25519 EdDSA `MiniSecretKey`, in bytes.
+/// The length of a Ristretto Schnorr `MiniSecretKey`, in bytes.
 pub const MINI_SECRET_KEY_LENGTH: usize = 32;
 
-/// The length of an ed25519 EdDSA `PublicKey`, in bytes.
+/// The length of a Ristretto Schnorr `PublicKey`, in bytes.
 pub const PUBLIC_KEY_LENGTH: usize = 32;
 
-/// The length of the "key" portion of an "expanded" curve25519 EdDSA secret key, in bytes.
+/// The length of the "key" portion of a Ristretto Schnorr secret key, in bytes.
 const SECRET_KEY_KEY_LENGTH: usize = 32;
 
-/// The length of the "nonce" portion of an "expanded" curve25519 EdDSA secret key, in bytes.
+/// The length of the "nonce" portion of a Ristretto Schnorr secret key, in bytes.
 const SECRET_KEY_NONCE_LENGTH: usize = 32;
 
-/// The length of an "expanded" curve25519 EdDSA key, `SecretKey`, in bytes.
+/// The length of a Ristretto Schnorr key, `SecretKey`, in bytes.
 pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LENGTH;
 
-/// The length of an ed25519 EdDSA `Keypair`, in bytes.
+/// The length of an Ristretto Schnorr `Keypair`, in bytes.
 pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
 
