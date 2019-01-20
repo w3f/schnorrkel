@@ -20,7 +20,7 @@ mod test {
 
 	use curve25519_dalek::ristretto::{CompressedRistretto};
 
-    use super::super::*;
+    use crate::*;
 
     static COMPRESSED_PUBLIC_KEY : CompressedRistretto = CompressedRistretto([
         208, 120, 140, 129, 177, 179, 237, 159,

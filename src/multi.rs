@@ -32,8 +32,8 @@ use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
-use context::SigningTranscript;
-use errors::MultiSignatureStage;
+use crate::context::SigningTranscript;
+use crate::errors::MultiSignatureStage;
 
 
 // === Agagregate public keys for multi-signatures === //

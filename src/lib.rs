@@ -261,7 +261,11 @@
 //! ```
 
 #![no_std]
+#![warn(future_incompatible)]
+#![warn(rust_2018_compatibility)]
+#![warn(rust_2018_idioms)]
 #![deny(missing_docs)] // refuse to compile if documentation is missing
+
 
 extern crate curve25519_dalek;
 extern crate merlin;
@@ -271,30 +275,8 @@ extern crate rand;
 extern crate clear_on_drop;
 extern crate subtle;
 
-// We shall prefer Shake256 for several reasons: 
-//
-// First, we're nolonger tied to specific bit patterns like Ed25519,
-// so some scalars could be obtained by reducing 64 bytes mod l,
-// which sounds marginally better.  As a result, we often want like
-// 96 bytes of hash output, which makes XOFs useful.
-//
-// Second, Shake256 should be resistant to extension attacks without
-// using HMAC constructions.  And RustCrypto's HMAC machenery is too
-// ugly to foist on developers.
-//
-// Third, Shake256 is only marginally slower than Sha2_256.  We could
-// choose KangarooTwelve by the Keccek team if we wanted raw speed, but
-// this involved understanding if it retains the resistance to length
-// extension attacks.  https://keccak.team/2017/is_sha3_slow.html
-//
-// Fourth, the strobe-rs crate, and thus the merlin crate use only Keccek.
-// I do not yet understand the STROBE framework well enough, but using
-// Shake256 may make switching to STROBE easier.
-//
-// I still think the RustCrypto traits suck, but tiny_keccak's intereface
-// is not better, merely simpler.
+#[cfg(test)]
 extern crate sha3;
-// extern crate tiny_keccak;
 
 extern crate ed25519_dalek;
 
@@ -331,10 +313,10 @@ pub mod cert;
 pub mod multi;
 pub mod errors;
 
-pub use keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
-pub use context::{signing_context}; // SigningContext,SigningTranscript
-pub use sign::{Signature,SIGNATURE_LENGTH,verify_batch};
-pub use errors::SignatureError;
+pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
+pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
+pub use crate::sign::{Signature,SIGNATURE_LENGTH,verify_batch};
+pub use crate::errors::SignatureError;
 
 #[cfg(feature = "serde")]
 mod serdey;

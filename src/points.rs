@@ -32,7 +32,7 @@ use serde::de::Visitor;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 // use curve25519_dalek::scalar::Scalar;
 
-use errors::SignatureError;
+use crate::errors::SignatureError;
 
 
 /// Compressed Ristretto point length
@@ -50,7 +50,7 @@ pub struct RistrettoBoth {
 }
 
 impl Debug for RistrettoBoth {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "RistrettoPoint( {:?} )", self.compressed)
     }
 }
@@ -159,7 +159,7 @@ impl<'d> Deserialize<'d> for RistrettoBoth {
         impl<'d> Visitor<'d> for RistrettoBothVisitor {
             type Value = RistrettoBoth;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 formatter.write_str("A ristretto point represented as a 32-byte compressed point")
             }
 

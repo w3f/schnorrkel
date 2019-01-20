@@ -29,7 +29,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
-use context::{SigningTranscript,SigningContext};
+use crate::context::{SigningTranscript,SigningContext};
 
 
 // === Actual signature type === //
@@ -68,7 +68,7 @@ pub struct Signature {
 }
 
 impl Debug for Signature {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "Signature( R: {:?}, s: {:?} )", &self.R, &self.s)
     }
 }
@@ -117,7 +117,7 @@ impl<'d> Deserialize<'d> for Signature {
         impl<'d> Visitor<'d> for SignatureVisitor {
             type Value = Signature;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 formatter.write_str("An ed25519 signature as 64 bytes, as specified in RFC8032.")
             }
 

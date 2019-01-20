@@ -17,6 +17,7 @@
 use core::fmt;
 use core::fmt::Display;
 
+
 /// Three-round trip multi-signature stage identifies used in error reporting
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum MultiSignatureStage {
@@ -29,7 +30,7 @@ pub enum MultiSignatureStage {
 }
 
 impl Display for MultiSignatureStage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use self::MultiSignatureStage::*;
         match *self {
             Commitment => write!(f, "commitment"),
@@ -99,7 +100,7 @@ pub enum SignatureError {
 }
 
 impl Display for SignatureError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use self::SignatureError::*;
         match *self {
             PointDecompressionError => 

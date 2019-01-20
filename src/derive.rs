@@ -20,7 +20,7 @@ use curve25519_dalek::scalar::Scalar;
 // TODO use clear_on_drop::clear::Clear;
 
 use super::*;
-use context::{SigningTranscript,SigningContext};
+use crate::context::{SigningTranscript,SigningContext};
 
 /// Length in bytes of our chain codes.
 ///

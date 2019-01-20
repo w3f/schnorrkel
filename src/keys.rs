@@ -40,9 +40,9 @@ use curve25519_dalek::scalar::Scalar;
 
 use subtle::{Choice,ConstantTimeEq};
 
-use scalars;
-use points::RistrettoBoth;
-use errors::SignatureError;
+use crate::scalars;
+use crate::points::RistrettoBoth;
+use crate::errors::SignatureError;
 
 
 /// The length of a Ristretto Schnorr `MiniSecretKey`, in bytes.
@@ -75,7 +75,7 @@ pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
 impl Debug for MiniSecretKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "MiniSecretKey: {:?}", &self.0[..])
     }
 }
@@ -303,7 +303,7 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
         impl<'d> Visitor<'d> for MiniSecretKeyVisitor {
             type Value = MiniSecretKey;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 formatter.write_str("An ed25519 secret key as 32 bytes, as specified in RFC8032.")
             }
 
@@ -341,7 +341,7 @@ pub struct SecretKey {
 }
 
 impl Debug for SecretKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "SecretKey {{ key: {:?} nonce: {:?} }}", &self.key, &self.nonce)
     }
 }
@@ -552,7 +552,7 @@ impl<'d> Deserialize<'d> for SecretKey {
         impl<'d> Visitor<'d> for SecretKeyVisitor {
             type Value = SecretKey;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 formatter.write_str("An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.")
             }
 
@@ -578,7 +578,7 @@ impl<'d> Deserialize<'d> for SecretKey {
 pub struct PublicKey(pub (crate) RistrettoBoth);
 
 impl Debug for PublicKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "PublicKey( {:?} )", self.0)
     }
 }
@@ -801,7 +801,7 @@ impl<'d> Deserialize<'d> for Keypair {
         impl<'d> Visitor<'d> for KeypairVisitor {
             type Value = Keypair;
 
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                 formatter.write_str("An ristretto schnorr keypair, 96 bytes in total, where \
                                      the first 64 bytes gives the secret key represented as \
                                      an ed25519 expanded secret key, as specified in RFC8032, \
