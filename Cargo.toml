@@ -17,7 +17,7 @@ exclude = [ ".gitignore", "TESTVECTORS", "res/*" ]
 
 [dependencies.curve25519-dalek]
 git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "1.0.0-pre.1"
+version = "1.0"
 default-features = false
 
 [dependencies.ed25519-dalek]
