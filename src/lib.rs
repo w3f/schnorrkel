@@ -300,9 +300,11 @@ extern crate serde;
 extern crate bincode;
 
 
-mod scalars;
-pub mod points;
+#[macro_use]
+mod serdey;
 
+pub mod points;
+mod scalars;
 pub mod keys;
 mod ed25519;
 
@@ -318,5 +320,3 @@ pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature,SIGNATURE_LENGTH,verify_batch};
 pub use crate::errors::SignatureError;
 
-#[cfg(feature = "serde")]
-mod serdey;

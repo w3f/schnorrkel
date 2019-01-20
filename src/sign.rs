@@ -113,33 +113,7 @@ impl Signature {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for Signature {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for Signature {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        struct SignatureVisitor;
-
-        impl<'d> Visitor<'d> for SignatureVisitor {
-            type Value = Signature;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(Signature::DISCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Signature, E> where E: SerdeError{
-                Signature::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
-                // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
-            }
-        }
-        deserializer.deserialize_bytes(SignatureVisitor)
-    }
-}
+serde_boilerplate!(Signature);
 
 
 // === Implement signing and verification operations on key types === //

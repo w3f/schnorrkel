@@ -153,33 +153,7 @@ impl RistrettoBoth {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for RistrettoBoth {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for RistrettoBoth {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-
-        struct RistrettoBothVisitor;
-
-        impl<'d> Visitor<'d> for RistrettoBothVisitor {
-            type Value = RistrettoBoth;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(RistrettoBoth::DISCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<RistrettoBoth, E> where E: SerdeError {
-                RistrettoBoth::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
-            }
-        }
-        deserializer.deserialize_bytes(RistrettoBothVisitor)
-    }
-}
+serde_boilerplate!(RistrettoBoth);
 
 /// We hide fields largely so that only compairing the compressed forms works.
 impl PartialEq<Self> for RistrettoBoth {

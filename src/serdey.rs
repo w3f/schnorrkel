@@ -12,7 +12,38 @@
 //!
 //! Right now, these 
 
-#[cfg(test)]
+#[cfg(feature = "serde")]
+macro_rules! serde_boilerplate { ($t:ty) => {
+impl Serialize for $t {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        serializer.serialize_bytes(&self.to_bytes()[..])
+    }
+}
+
+impl<'d> Deserialize<'d> for $t {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
+        struct MyVisitor;
+
+        impl<'d> Visitor<'d> for MyVisitor {
+            type Value = $t;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                formatter.write_str(Self::Value::DISCRIPTION)
+            }
+
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<$t, E> where E: SerdeError{
+                Self::Value::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
+            }
+        }
+        deserializer.deserialize_bytes(MyVisitor)
+    }
+}
+} } // macro_rules! serde_boilerplate
+
+#[cfg(not(feature = "serde"))]
+macro_rules! serde_boilerplate { ($t:ty) => { } }
+
+#[cfg(all(test, feature = "serde"))]
 mod test {
     use std::vec::Vec;
 

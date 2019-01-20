@@ -169,7 +169,7 @@ impl Commitment {
         Commitment(commit)
     }
 }
-// TODO: Serializations
+// TODO: serde_boilerplate!(Commitment);
 
 
 #[allow(non_snake_case)]
@@ -373,7 +373,8 @@ pub struct RevealStage<'k> {
 /// Revealed `R_i` values shared between cosigners during signing
 #[derive(Debug,Clone,Copy,PartialEq,Eq)]
 pub struct Reveal(pub [u8; 32]);
-// TODO: Serializations
+// TODO: serde_boilerplate!(Reveal);
+
 
 impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
     /// Reveal our `R` contribution to send to all other cosigners

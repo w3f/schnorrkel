@@ -293,32 +293,7 @@ impl MiniSecretKey {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for MiniSecretKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for MiniSecretKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        struct MiniSecretKeyVisitor;
-
-        impl<'d> Visitor<'d> for MiniSecretKeyVisitor {
-            type Value = MiniSecretKey;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(MiniSecretKey::DISCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<MiniSecretKey, E> where E: SerdeError {
-                MiniSecretKey::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
-            }
-        }
-        deserializer.deserialize_bytes(MiniSecretKeyVisitor)
-    }
-}
+serde_boilerplate!(MiniSecretKey);
 
 
 /// A seceret key for use with Ristretto Schnorr signatures.
@@ -547,33 +522,7 @@ impl SecretKey {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for SecretKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for SecretKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        struct SecretKeyVisitor;
-
-        impl<'d> Visitor<'d> for SecretKeyVisitor {
-            type Value = SecretKey;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(SecretKey::DISCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<SecretKey, E> where E: SerdeError {
-                SecretKey::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
-                // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
-            }
-        }
-        deserializer.deserialize_bytes(SecretKeyVisitor)
-    }
-}
+serde_boilerplate!(SecretKey);
 
 
 /// A Ristretto Schnorr public key.
@@ -681,19 +630,7 @@ impl From<SecretKey> for PublicKey {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for PublicKey {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.as_compressed().as_bytes())
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for PublicKey {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-        Ok(PublicKey(RistrettoBoth::deserialize(deserializer) ?))
-    }
-}
+serde_boilerplate!(PublicKey);
 
 
 /// A Ristretto Schnorr keypair.
@@ -810,33 +747,8 @@ impl Keypair {
     }
 }
 
-#[cfg(feature = "serde")]
-impl Serialize for Keypair {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
-    }
-}
+serde_boilerplate!(Keypair);
 
-#[cfg(feature = "serde")]
-impl<'d> Deserialize<'d> for Keypair {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
-
-        struct KeypairVisitor;
-
-        impl<'d> Visitor<'d> for KeypairVisitor {
-            type Value = Keypair;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(Keypair::DISCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
-                Keypair::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
-            }
-        }
-        deserializer.deserialize_bytes(KeypairVisitor)
-    }
-}
 
 #[cfg(test)]
 mod test {
