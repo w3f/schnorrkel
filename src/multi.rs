@@ -204,7 +204,7 @@ impl CoR {
     */
 
     #[allow(non_snake_case)]
-    pub fn set_revealed(&mut self, R: CompressedRistretto) -> Result<(),SignatureError> {
+    fn set_revealed(&mut self, R: CompressedRistretto) -> Result<(),SignatureError> {
         let commitment = Commitment::for_R(&R);
         let R = R.decompress().ok_or(SignatureError::PointDecompressionError) ?;
         match self.clone() {  // TODO: Remove .clone() here with #![feature(nll)]
@@ -227,7 +227,7 @@ impl CoR {
     }
 
     #[allow(non_snake_case)]
-    pub fn set_cosigned(&mut self, s: Scalar) -> Result<(),SignatureError> {
+    fn set_cosigned(&mut self, s: Scalar) -> Result<(),SignatureError> {
         match self {
             CoR::Collect { .. } => panic!("Internal error, set_cosigned during collection phase."),
             CoR::Commit(_) => {
