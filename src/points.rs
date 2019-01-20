@@ -120,7 +120,7 @@ impl RistrettoBoth {
     ///    215,  90, 152,   1, 130, 177,  10, 183, 213,  75, 254, 211, 201, 100,   7,  58,
     ///     14, 225, 114, 243, 218, 166,  35,  37, 175,   2,  26, 104, 247,   7,   81, 26];
     ///
-    /// let public_key = RistrettoBoth::from_bytes("RistrettoPoint",&public_key_bytes)?;
+    /// let public_key = RistrettoBoth::from_bytes(&public_key_bytes)?;
     /// #
     /// # Ok(public_key)
     /// # }
@@ -135,12 +135,16 @@ impl RistrettoBoth {
     /// A `Result` whose okay value is an EdDSA `RistrettoBoth` or whose error value
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
-    pub fn from_bytes(name: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
+        RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DISCRIPTION,bytes)
+	}
+
+    /// Variant of `RistrettoBoth::from_bytes` that propogates more informative errors.
+    #[inline]
+    pub fn from_bytes_ser(name: &'static str, discription: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
             return Err(SignatureError::BytesLengthError{
-                name,
-				discription: RistrettoBoth::DISCRIPTION,
-				length: RISTRETTO_POINT_LENGTH,
+                name, discription, length: RISTRETTO_POINT_LENGTH,
 			});
         }
 		let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);
@@ -152,7 +156,7 @@ impl RistrettoBoth {
 #[cfg(feature = "serde")]
 impl Serialize for RistrettoBoth {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.as_compressed().as_bytes())
+        serializer.serialize_bytes(&self.to_bytes()[..])
     }
 }
 
@@ -170,8 +174,7 @@ impl<'d> Deserialize<'d> for RistrettoBoth {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<RistrettoBoth, E> where E: SerdeError {
-                RistrettoBoth::from_bytes("RistrettoPoint",bytes)
-				    .map_err(crate::errors::serde_error_from_signature_error)
+                RistrettoBoth::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
             }
         }
         deserializer.deserialize_bytes(RistrettoBothVisitor)

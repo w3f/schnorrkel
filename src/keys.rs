@@ -296,7 +296,7 @@ impl MiniSecretKey {
 #[cfg(feature = "serde")]
 impl Serialize for MiniSecretKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        serializer.serialize_bytes(self.as_bytes())
+        serializer.serialize_bytes(&self.to_bytes()[..])
     }
 }
 
@@ -601,6 +601,8 @@ impl AsRef<[u8]> for PublicKey {
 }
 
 impl PublicKey {
+    const DISCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
+
     /// Access the compressed Ristretto form
     pub fn as_compressed(&self) -> &CompressedRistretto { &self.0.as_compressed() }
 
@@ -669,7 +671,7 @@ impl PublicKey {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
-        Ok(PublicKey(RistrettoBoth::from_bytes("PublicKey",bytes) ?))
+        Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey",PublicKey::DISCRIPTION,bytes) ?))
     }
 }
 
@@ -765,8 +767,8 @@ impl Keypair {
 				length: KEYPAIR_LENGTH
 			});
         }
-        let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
-        let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
+        let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
+        let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
 
         Ok(Keypair{ secret: secret, public: public })
     }
@@ -829,11 +831,7 @@ impl<'d> Deserialize<'d> for Keypair {
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
-                let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])
-                    .map_err(crate::errors::serde_error_from_signature_error) ?;
-                let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])
-                    .map_err(crate::errors::serde_error_from_signature_error) ?;
-                Ok(Keypair{ secret, public })
+                Keypair::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
             }
         }
         deserializer.deserialize_bytes(KeypairVisitor)
