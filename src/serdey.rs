@@ -15,7 +15,6 @@
 #[cfg(test)]
 mod test {
     use std::vec::Vec;
-    use std::mem::size_of;
 
     use bincode::{serialize, serialized_size, deserialize, Infinite};
 
@@ -98,30 +97,19 @@ mod test {
     #[test]
     fn serialize_public_key_size() {
 		let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
-        assert_eq!(
-            serialized_size(&public_key) as usize,
-            size_of::<CompressedRistretto>()
-        );
+        assert_eq!(serialized_size(&public_key) as usize, 32+8);  // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_signature_size() {
         let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
-        assert_eq!(serialized_size(&signature) as usize, size_of::<Signature>());
+        assert_eq!(serialized_size(&signature) as usize, 64+8);  // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_secret_key_size() {
-        /*
-		TODO: Actually test serde on real secret key, not just mini one.
-        assert_eq!(
-            serialized_size(&SECRET_KEY) as usize,
-            size_of::<SecretKey>()
-        );
-		*/
-        assert_eq!(
-            serialized_size(&ED25519_SECRET_KEY) as usize,
-            size_of::<MiniSecretKey>()
-        );
+        assert_eq!(serialized_size(&ED25519_SECRET_KEY) as usize, 32+8);
+		let secret_key = ED25519_SECRET_KEY.expand::<::sha2::Sha512>();
+        assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
     }
 }
