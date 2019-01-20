@@ -112,7 +112,7 @@ impl MiniSecretKey {
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// #
-    /// use rand::{Rng, OsRng};
+    /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorr_dalek::{MiniSecretKey, SecretKey};
     ///
@@ -231,8 +231,7 @@ impl MiniSecretKey {
     /// # #[cfg(feature = "std")]
     /// # fn main() {
     /// #
-    /// use rand::Rng;
-    /// use rand::OsRng;
+    /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorr_dalek::PublicKey;
     /// use schnorr_dalek::MiniSecretKey;
@@ -381,7 +380,7 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// #
-    /// use rand::{Rng, OsRng};
+    /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorr_dalek::{MiniSecretKey, SecretKey};
     ///
@@ -418,7 +417,7 @@ impl SecretKey {
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn main() {
     /// #
-    /// use rand::{Rng, OsRng};
+    /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorr_dalek::{MiniSecretKey, SecretKey};
     ///
@@ -468,7 +467,7 @@ impl SecretKey {
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// #
-    /// use rand::{Rng, OsRng};
+    /// use rand::{Rng, rngs::OsRng};
     /// use schnorr_dalek::{MiniSecretKey, SecretKey};
     /// use schnorr_dalek::SignatureError;
     ///
@@ -759,8 +758,7 @@ impl Keypair {
     ///
     /// # fn main() {
     ///
-    /// use rand::Rng;
-    /// use rand::OsRng;
+    /// use rand::{Rng, rngs::OsRng};
     /// use schnorr_dalek::Keypair;
     /// use schnorr_dalek::Signature;
     ///

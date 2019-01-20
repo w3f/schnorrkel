@@ -25,7 +25,7 @@
 //!
 //! # #[cfg(all(feature = "std"))]
 //! # fn main() {
-//! use rand::{Rng,OsRng};
+//! use rand::{Rng, rngs::OsRng};
 //! use schnorr_dalek::{Keypair,Signature};
 //!
 //! let mut csprng: OsRng = OsRng::new().unwrap();
