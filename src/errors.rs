@@ -67,9 +67,11 @@ pub enum SignatureError {
     /// To use this, pass a string specifying the `name` of the type 
     /// which is returning the error, and the `length` in bytes which
     /// its constructor expects.
-    BytesLengthError{
+    BytesLengthError {
         /// Identifies the type returning the error
         name: &'static str,
+        /// Describes the type returning the error
+        discription: &'static str,
         /// Length expected by the constructor in bytes
         length: usize 
     },
@@ -107,7 +109,7 @@ impl Display for SignatureError {
                 write!(f, "Cannot decompress Edwards point"),
             ScalarFormatError => 
                 write!(f, "Cannot use scalar with high-bit set"),
-            BytesLengthError { name, length, } =>
+            BytesLengthError { name, length, .. } =>
                 write!(f, "{} must be {} bytes in length", name, length),
             MuSigAbsent { musig_stage, } =>
                 write!(f, "Absent {} violated multi-signature protocol", musig_stage),
@@ -136,8 +138,8 @@ where E: ::serde::de::Error
             => E::custom("Ristretto point decompression failed"),
         SignatureError::ScalarFormatError
             => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
-        SignatureError::BytesLengthError{ name, length, }
-            => E::invalid_length(length, &name),
+        SignatureError::BytesLengthError{ discription, length, .. }
+            => E::invalid_length(length, &discription),
         _ => panic!("Non-serialisation error encountered by serde!"),
     }
 }

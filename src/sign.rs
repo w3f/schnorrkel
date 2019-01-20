@@ -74,6 +74,14 @@ impl Debug for Signature {
 }
 
 impl Signature {
+    const DISCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
+    /*
+    const DISCRIPTION_LONG : &'static str = 
+	    "A 64 byte Ristretto Schnorr signature, similar to an ed25519 \
+		 signature as specified in RFC8032, except the Ristretto point \
+		 compression is used for the curve point in the first 32 bytes";
+	*/
+	
     /// Convert this `Signature` to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; SIGNATURE_LENGTH] {
@@ -88,8 +96,11 @@ impl Signature {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<Signature, SignatureError> {
         if bytes.len() != SIGNATURE_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name: "Signature", length: SIGNATURE_LENGTH });
+            return Err(SignatureError::BytesLengthError {
+                name: "Signature",
+				discription: Signature::DISCRIPTION,
+				length: SIGNATURE_LENGTH
+			});
         }
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
@@ -118,11 +129,11 @@ impl<'d> Deserialize<'d> for Signature {
             type Value = Signature;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str("An ed25519 signature as 64 bytes, as specified in RFC8032.")
+                formatter.write_str(Signature::DISCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Signature, E> where E: SerdeError{
-                Signature::from_bytes(bytes).map_err(::errors::serde_error_from_signature_error)
+                Signature::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
                 // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }

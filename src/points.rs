@@ -56,6 +56,8 @@ impl Debug for RistrettoBoth {
 }
 
 impl RistrettoBoth {
+    const DISCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
+
     // I dislike getter methods, and prefer direct field access, but doing
     // getters here permits the fields being private, and gives us faster
     // equality comparisons.
@@ -135,7 +137,11 @@ impl RistrettoBoth {
     #[inline]
     pub fn from_bytes(name: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
-            return Err(SignatureError::BytesLengthError{ name, length: RISTRETTO_POINT_LENGTH });
+            return Err(SignatureError::BytesLengthError{
+                name,
+				discription: RistrettoBoth::DISCRIPTION,
+				length: RISTRETTO_POINT_LENGTH,
+			});
         }
 		let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);
         compressed.0.copy_from_slice(&bytes[..32]);
@@ -160,12 +166,12 @@ impl<'d> Deserialize<'d> for RistrettoBoth {
             type Value = RistrettoBoth;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str("A ristretto point represented as a 32-byte compressed point")
+                formatter.write_str(RistrettoBoth::DISCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<RistrettoBoth, E> where E: SerdeError {
                 RistrettoBoth::from_bytes("RistrettoPoint",bytes)
-				    .map_err(::errors::serde_error_from_signature_error)
+				    .map_err(crate::errors::serde_error_from_signature_error)
             }
         }
         deserializer.deserialize_bytes(RistrettoBothVisitor)

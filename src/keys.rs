@@ -100,6 +100,8 @@ impl ConstantTimeEq for MiniSecretKey {
 }
 
 impl MiniSecretKey {
+    const DISCRIPTION : &'static str = "An ed25519 secret key as 32 bytes, as specified in RFC8032.";
+
     /// Expand this `MiniSecretKey` into a `SecretKey`.
     ///
     /// # Examples
@@ -211,8 +213,11 @@ impl MiniSecretKey {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<MiniSecretKey, SignatureError> {
         if bytes.len() != MINI_SECRET_KEY_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name: "MiniSecretKey", length: MINI_SECRET_KEY_LENGTH });
+            return Err(SignatureError::BytesLengthError {
+                name: "MiniSecretKey",
+				discription: MiniSecretKey::DISCRIPTION,
+				length: MINI_SECRET_KEY_LENGTH
+			});
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
@@ -304,11 +309,11 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
             type Value = MiniSecretKey;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str("An ed25519 secret key as 32 bytes, as specified in RFC8032.")
+                formatter.write_str(MiniSecretKey::DISCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<MiniSecretKey, E> where E: SerdeError {
-                MiniSecretKey::from_bytes(bytes).map_err(::errors::serde_error_from_signature_error)
+                MiniSecretKey::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
             }
         }
         deserializer.deserialize_bytes(MiniSecretKeyVisitor)
@@ -398,6 +403,8 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
 }
 
 impl SecretKey {
+    const DISCRIPTION : &'static str = "An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.";
+
     /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
     /// an Ed25519 expanded secreyt key.
     ///
@@ -493,7 +500,10 @@ impl SecretKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
         if bytes.len() != SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError{
-                name: "SecretKey", length: SECRET_KEY_LENGTH });
+                name: "SecretKey",
+				discription: SecretKey::DISCRIPTION,
+				length: SECRET_KEY_LENGTH,
+			});
         }
 
         let mut key: [u8; 32] = [0u8; 32];
@@ -553,11 +563,11 @@ impl<'d> Deserialize<'d> for SecretKey {
             type Value = SecretKey;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str("An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.")
+                formatter.write_str(SecretKey::DISCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<SecretKey, E> where E: SerdeError {
-                SecretKey::from_bytes(bytes).map_err(::errors::serde_error_from_signature_error)
+                SecretKey::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
                 // REMOVE .or(Err(SerdeError::invalid_length(bytes.len(), &self)))
             }
         }
@@ -701,6 +711,16 @@ impl From<SecretKey> for Keypair {
 }
 
 impl Keypair {
+    const DISCRIPTION : &'static str = "A 96 bytes Ristretto Schnorr keypair";
+    /*
+    const DISCRIPTION_LONG : &'static str = 
+        "An ristretto schnorr keypair, 96 bytes in total, where the \
+        first 64 bytes contains the secret key represented as an \
+        ed25519 expanded secret key, as specified in RFC8032, and \
+        the subsequent 32 bytes gives the public key as a compressed \
+        ristretto point.";
+	*/
+
     /// Convert this keypair to bytes.
     ///
     /// # Returns
@@ -739,8 +759,11 @@ impl Keypair {
     /// is an `SignatureError` describing the error that occurred.
     pub fn from_bytes<'a>(bytes: &'a [u8]) -> Result<Keypair, SignatureError> {
         if bytes.len() != KEYPAIR_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name: "Keypair", length: KEYPAIR_LENGTH});
+            return Err(SignatureError::BytesLengthError {
+                name: "Keypair",
+				discription: Keypair::DISCRIPTION,
+				length: KEYPAIR_LENGTH
+			});
         }
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])?;
@@ -802,18 +825,14 @@ impl<'d> Deserialize<'d> for Keypair {
             type Value = Keypair;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str("An ristretto schnorr keypair, 96 bytes in total, where \
-                                     the first 64 bytes gives the secret key represented as \
-                                     an ed25519 expanded secret key, as specified in RFC8032, \
-                                     and the subsequent 32 bytes gives the public key as a \
-                                     compressed ristretto point.")
+                formatter.write_str(Keypair::DISCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Keypair, E> where E: SerdeError {
                 let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH])
-                    .map_err(::errors::serde_error_from_signature_error) ?;
+                    .map_err(crate::errors::serde_error_from_signature_error) ?;
                 let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..])
-                    .map_err(::errors::serde_error_from_signature_error) ?;
+                    .map_err(crate::errors::serde_error_from_signature_error) ?;
                 Ok(Keypair{ secret, public })
             }
         }

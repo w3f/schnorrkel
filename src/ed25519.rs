@@ -134,8 +134,11 @@ impl PublicKey {
     /// convert to ed25519 keys as required.
     pub fn from_ed25519_public_key_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
         if bytes.len() != PUBLIC_KEY_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name: "PublicKey", length: PUBLIC_KEY_LENGTH });
+            return Err(SignatureError::BytesLengthError {
+                name: "PublicKey",
+		discription: "An ed25519 public key as a 32-byte compressed point, as specified in RFC8032",
+                length: PUBLIC_KEY_LENGTH
+            });
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
