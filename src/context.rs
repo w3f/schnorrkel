@@ -11,8 +11,6 @@
 //! to most Schnorr signature schemes.
 
 
-use core::borrow::{Borrow,BorrowMut};
-
 use rand::prelude::*;  // {RngCore,thread_rng};
 
 use merlin::{Transcript};
@@ -87,20 +85,51 @@ pub trait SigningTranscript {
     fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>);
 }
 
-impl<T> SigningTranscript for T
-where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcript
+/// We delegates any mutable reference to its base type, like `&mut Rng`
+/// or similar to `BorrowMut<..>` do, but doing so here simplifies 
+/// alternative implementations.
+impl<'a,T> SigningTranscript for &'a mut T
+where T: SigningTranscript + ?Sized
 {
+    #[inline(always)]
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
+        {  (**self).commit_bytes(label,bytes)  }
+    #[inline(always)]
+    fn proto_name(&mut self, label: &'static [u8])
+        {  (**self).proto_name(label)  }
+    #[inline(always)]
+    fn commit_point(&mut self, label: &'static [u8], compressed: &CompressedRistretto)
+        {  (**self).commit_point(label, compressed)  }
+    #[inline(always)]
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8])
+        {  (**self).challenge_bytes(label,dest)  }
+    #[inline(always)]
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar
+        {  (**self).challenge_scalar(label)  }
+    #[inline(always)]
+    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
+    	{  (**self).witness_scalar(nonce_seed,extra_nonce_seed)  }
+    #[inline(always)]
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
+    	{  (**self).witness_bytes(dest,nonce_seed,extra_nonce_seed)  }
+}
+
+/// We delegate `SigningTranscript` methods to the corresponding
+/// inherent methods of `merlin::Transcript` and implement two 
+/// witness methods to avoid abrtasting the `merlin::TranscriptRng`
+/// machenry.
+impl SigningTranscript for Transcript {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        Transcript::commit_bytes(self.borrow_mut(), label, bytes);
+        Transcript::commit_bytes(self, label, bytes)
     }
 
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        Transcript::challenge_bytes(self.borrow_mut(), label, dest);
+        Transcript::challenge_bytes(self, label, dest)
     }
 
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
 	{
-        let mut br = self.borrow().build_rng()
+        let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
 		if let Some(w) = extra_nonce_seed {
 			br = br.commit_witness_bytes(b"", w);
@@ -111,7 +140,7 @@ where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcrip
 
     fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
 	{
-        let mut br = self.borrow().build_rng()
+        let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
 		if let Some(w) = extra_nonce_seed {
 			br = br.commit_witness_bytes(b"", w);
@@ -130,6 +159,10 @@ where T: Borrow<Transcript>+BorrowMut<Transcript>  // Transcript, &mut Transcrip
 ///
 /// To sign a message, apply the appropriate inherent method to create
 /// a signature transcript.
+///
+/// You should use `merlin::Transcript`s directly if you must do
+/// anything more complex, like use signatures in larger zero-knoweldge
+/// protocols or sign several components but only reveal one later.
 #[derive(Clone)] // Debug
 pub struct SigningContext(Transcript);
 
