@@ -71,7 +71,6 @@ pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 /// homomorphic properties unavailable from these seeds, so we renamed
 /// these and reserve `SecretKey` for what EdDSA calls an extended
 /// secret key.
-#[repr(C)]
 #[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
@@ -331,7 +330,6 @@ impl<'d> Deserialize<'d> for MiniSecretKey {
 /// We do not however attempt to keep the scalar's high bit set, especially
 /// not during hierarchical deterministic key derivations, so some Ed25519
 /// libraries might compute the public key incorrectly from our secret key.
-#[repr(C)]
 #[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
 pub struct SecretKey {
     /// Actual public key represented as a scalar.
@@ -689,7 +687,6 @@ impl<'d> Deserialize<'d> for PublicKey {
 
 /// A Ristretto Schnorr keypair.
 #[derive(Debug, Default)] // we derive Default in order to use the clear() method in Drop
-#[repr(C)]
 pub struct Keypair {
     /// The secret half of this keypair.
     pub secret: SecretKey,

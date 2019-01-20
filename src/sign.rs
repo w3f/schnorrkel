@@ -43,7 +43,6 @@ pub const SIGNATURE_LENGTH: usize = 64;
 /// curve points in the Ristretto encoding.
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Eq, PartialEq)]
-#[repr(C)]
 pub struct Signature {
     /// `R` is an `EdwardsPoint`, formed by using an hash function with
     /// 512-bits output to produce the digest of:
