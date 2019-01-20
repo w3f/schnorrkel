@@ -1,7 +1,7 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorr-dalek.
-// Copyright (c) 2017-2018 Web 3 Foundation
+// Copyright (c) 2019 Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
