@@ -45,8 +45,8 @@ pub const RISTRETTO_POINT_LENGTH: usize = 32;
 /// points to derive scalars for use with uncompressed points.
 #[derive(Copy, Clone, Default, Eq)]  // PartialEq optimnized below
 pub struct RistrettoBoth {
-	compressed: CompressedRistretto,
-	point: RistrettoPoint,
+    compressed: CompressedRistretto,
+    point: RistrettoPoint,
 }
 
 impl Debug for RistrettoBoth {
@@ -137,7 +137,7 @@ impl RistrettoBoth {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
         RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DISCRIPTION,bytes)
-	}
+    }
 
     /// Variant of `RistrettoBoth::from_bytes` that propogates more informative errors.
     #[inline]
@@ -145,9 +145,9 @@ impl RistrettoBoth {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
             return Err(SignatureError::BytesLengthError{
                 name, discription, length: RISTRETTO_POINT_LENGTH,
-			});
+            });
         }
-		let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);
+        let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);
         compressed.0.copy_from_slice(&bytes[..32]);
         RistrettoBoth::from_compressed(compressed)
     }
@@ -159,8 +159,8 @@ serde_boilerplate!(RistrettoBoth);
 impl PartialEq<Self> for RistrettoBoth {
     fn eq(&self, other: &Self) -> bool {
         let r = self.compressed.eq(&other.compressed);
-		debug_assert_eq!(r, self.point.eq(&other.point));
-		r
+        debug_assert_eq!(r, self.point.eq(&other.point));
+        r
     }
 
     // fn ne(&self, other: &Rhs) -> bool {

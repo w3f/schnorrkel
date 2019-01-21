@@ -23,21 +23,21 @@ https://crypto.stackexchange.com/questions/60825/schnorr-pubkey-recovery
 https://www.deadalnix.me/2017/02/17/schnorr-signatures-for-not-so-dummies/
 
 impl Signature {
-	/// Extract the public signing key from a dangerously malleable Schnorr signatures
-	///
-	/// There is deprecated style of Schnorr signatures in which the 
-	/// public key does not make an apperance in the signature's onw
-	/// derivation of `k`, but may optionally influence k by appearing
-	/// in the message body.  We cnanot use these more malleable
-	/// signatures for standard blockchain applications, like accounts,
-	/// becuase they break many advanced features, like ["hierarchical
-	/// deterministic" key derivation.](https://www.deadalnix.me/2017/02/17/schnorr-signatures-for-not-so-dummies/)
-	///
-	/// There are however applications that never require such features
-	/// but benefint form smaller signatures, in which case this
-	/// function can extract the public signing key from a signature
-	/// We recommend strongly against doing this.
-	// https://crypto.stackexchange.com/questions/60825/schnorr-pubkey-recovery
+    /// Extract the public signing key from a dangerously malleable Schnorr signatures
+    ///
+    /// There is deprecated style of Schnorr signatures in which the 
+    /// public key does not make an apperance in the signature's onw
+    /// derivation of `k`, but may optionally influence k by appearing
+    /// in the message body.  We cnanot use these more malleable
+    /// signatures for standard blockchain applications, like accounts,
+    /// becuase they break many advanced features, like ["hierarchical
+    /// deterministic" key derivation.](https://www.deadalnix.me/2017/02/17/schnorr-signatures-for-not-so-dummies/)
+    ///
+    /// There are however applications that never require such features
+    /// but benefint form smaller signatures, in which case this
+    /// function can extract the public signing key from a signature
+    /// We recommend strongly against doing this.
+    // https://crypto.stackexchange.com/questions/60825/schnorr-pubkey-recovery
     pub signer_from_dangerously_malleable(&self) -> Result<PublicKey,SignatureError> {
         let k_inv = scalars::scalar_from_xof(
             context.context_digest()
@@ -57,19 +57,19 @@ impl Signature {
 
 impl SecretKey {
     /// Dangerously malleably sign a message with this `SecretKey`.
-	///
-	/// There is deprecated style of Schnorr signatures in which the 
-	/// public key does not make an apperance in the signature's onw
-	/// derivation of `k`, but may optionally influence k by appearing
-	/// in the message body.  We cnanot use these more malleable
-	/// signatures for standard blockchain applications, like accounts,
-	/// becuase they break many advanced features, like ["hierarchical
-	/// deterministic" key derivation.](https://www.deadalnix.me/2017/02/17/schnorr-signatures-for-not-so-dummies/)
-	///
-	/// There are however applications that never require such features
-	/// but benefint form smaller signatures, in which case this
-	/// function can extract the public signing key from a signature
-	/// We recommend strongly against doing this.
+    ///
+    /// There is deprecated style of Schnorr signatures in which the 
+    /// public key does not make an apperance in the signature's onw
+    /// derivation of `k`, but may optionally influence k by appearing
+    /// in the message body.  We cnanot use these more malleable
+    /// signatures for standard blockchain applications, like accounts,
+    /// becuase they break many advanced features, like ["hierarchical
+    /// deterministic" key derivation.](https://www.deadalnix.me/2017/02/17/schnorr-signatures-for-not-so-dummies/)
+    ///
+    /// There are however applications that never require such features
+    /// but benefint form smaller signatures, in which case this
+    /// function can extract the public signing key from a signature
+    /// We recommend strongly against doing this.
     #[allow(non_snake_case)]
     pub fn sign_dangerously_malleable<C>(&self, context: &C, message: &[u8]) -> Signature
     where C: SigningContext,
@@ -108,7 +108,7 @@ impl PublicKey {
     #[allow(non_snake_case)]
     pub fn verify_dangerously_malleable<C>(&self, context: &C, message: &[u8], signature: &Signature) -> bool
     where C: SigningContext,
-	      C::Digest: ExtendableOutput
+          C::Digest: ExtendableOutput
     {
         let A: RistrettoPoint = self.point;
         let R: RistrettoPoint;

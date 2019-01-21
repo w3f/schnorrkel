@@ -215,9 +215,9 @@ impl MiniSecretKey {
         if bytes.len() != MINI_SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "MiniSecretKey",
-				discription: MiniSecretKey::DISCRIPTION,
-				length: MINI_SECRET_KEY_LENGTH
-			});
+                discription: MiniSecretKey::DISCRIPTION,
+                length: MINI_SECRET_KEY_LENGTH
+            });
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
@@ -428,8 +428,8 @@ impl SecretKey {
 
     /// Convert this `SecretKey` into Ed25519 expanded secreyt key.
     pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
-		::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_bytes()[..])
-		.expect("Improper serialisation of Ed25519 secret key!")
+        ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_bytes()[..])
+        .expect("Improper serialisation of Ed25519 secret key!")
     }
 
     /// Construct an `SecretKey` from a slice of bytes.
@@ -476,9 +476,9 @@ impl SecretKey {
         if bytes.len() != SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError{
                 name: "SecretKey",
-				discription: SecretKey::DISCRIPTION,
-				length: SECRET_KEY_LENGTH,
-			});
+                discription: SecretKey::DISCRIPTION,
+                length: SECRET_KEY_LENGTH,
+            });
         }
 
         let mut key: [u8; 32] = [0u8; 32];
@@ -658,7 +658,7 @@ impl Keypair {
         ed25519 expanded secret key, as specified in RFC8032, and \
         the subsequent 32 bytes gives the public key as a compressed \
         ristretto point.";
-	*/
+    */
 
     /// Convert this keypair to bytes.
     ///
@@ -700,9 +700,9 @@ impl Keypair {
         if bytes.len() != KEYPAIR_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Keypair",
-				discription: Keypair::DISCRIPTION,
-				length: KEYPAIR_LENGTH
-			});
+                discription: Keypair::DISCRIPTION,
+                length: KEYPAIR_LENGTH
+            });
         }
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
@@ -769,7 +769,7 @@ mod test {
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
         let point = super::super::ed25519::edwards_to_ristretto(pk).unwrap();
-		let ristretto_public_key = PublicKey::from_point(point);
+        let ristretto_public_key = PublicKey::from_point(point);
 
         assert_eq!(
             ristretto_public_key.to_ed25519_public_key_bytes(),

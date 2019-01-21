@@ -52,19 +52,19 @@ pub trait SigningTranscript {
 
     /*
     fn commit_sorted_points<P,S>(&mut self, label: &'static [u8], set: &mut [P])
-	where P: Borrow<CompressedRistretto>,
+    where P: Borrow<CompressedRistretto>,
           // S: BorrowMut<[P]>,
-	{
-		// let set = set.borrow_mut();
-		set.sort_unstable_by(
-			|a,b| a.borrow().as_bytes()
-			 .cmp(b.borrow().as_bytes())
-		);
-		for p in set.iter() {
-	    	self.commit_point(label,p.borrow());
-		}
+    {
+        // let set = set.borrow_mut();
+        set.sort_unstable_by(
+            |a,b| a.borrow().as_bytes()
+             .cmp(b.borrow().as_bytes())
+        );
+        for p in set.iter() {
+            self.commit_point(label,p.borrow());
+        }
     }
-	*/
+    */
 
     /// Produce some challenge bytes, shadowed by `merlin::Transcript`.
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]);
@@ -77,11 +77,11 @@ pub trait SigningTranscript {
     }
 
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
-	/// transcript and any "nonce seeds" kept with the secret keys.
+    /// transcript and any "nonce seeds" kept with the secret keys.
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar;
 
     /// Produce secret witness bytes from the protocol transcript
-	/// and any "nonce seeds" kept with the secret keys.
+    /// and any "nonce seeds" kept with the secret keys.
     fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>);
 }
 
@@ -108,10 +108,10 @@ where T: SigningTranscript + ?Sized
         {  (**self).challenge_scalar(label)  }
     #[inline(always)]
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
-    	{  (**self).witness_scalar(nonce_seed,extra_nonce_seed)  }
+        {  (**self).witness_scalar(nonce_seed,extra_nonce_seed)  }
     #[inline(always)]
     fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
-    	{  (**self).witness_bytes(dest,nonce_seed,extra_nonce_seed)  }
+        {  (**self).witness_bytes(dest,nonce_seed,extra_nonce_seed)  }
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
@@ -128,25 +128,25 @@ impl SigningTranscript for Transcript {
     }
 
     fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
-	{
+    {
         let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
-		if let Some(w) = extra_nonce_seed {
-			br = br.commit_witness_bytes(b"", w);
-		}
-		let mut r = br.finalize(&mut thread_rng());
-		Scalar::random(&mut r)
+        if let Some(w) = extra_nonce_seed {
+            br = br.commit_witness_bytes(b"", w);
+        }
+        let mut r = br.finalize(&mut thread_rng());
+        Scalar::random(&mut r)
     }
 
     fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
-	{
+    {
         let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
-		if let Some(w) = extra_nonce_seed {
-			br = br.commit_witness_bytes(b"", w);
-		}
-		let mut r = br.finalize(&mut thread_rng());
-		r.fill_bytes(dest)
+        if let Some(w) = extra_nonce_seed {
+            br = br.commit_witness_bytes(b"", w);
+        }
+        let mut r = br.finalize(&mut thread_rng());
+        r.fill_bytes(dest)
     }
 }
 
@@ -173,36 +173,36 @@ pub fn signing_context(context : &'static [u8]) -> SigningContext {
 }
 
 impl SigningContext {
-	/// Initialize a signing context from a static byte string that
-	/// identifies the signature's role in the larger protocol.
-	pub fn new(context : &'static [u8]) -> SigningContext {
+    /// Initialize a signing context from a static byte string that
+    /// identifies the signature's role in the larger protocol.
+    pub fn new(context : &'static [u8]) -> SigningContext {
         SigningContext(Transcript::new(context))
-	}
+    }
 
     /// Initalize an owned signing transcript on a message provided as a byte array
-	pub fn bytes(&self, bytes: &[u8]) -> Transcript {
+    pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
         t.commit_bytes(b"sign-bytes", bytes);
         t
-	}
+    }
 
     /// Initalize an owned signing transcript on a message provided as a hash function with extensible output
-	pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
-	    let mut prehash = [0u8; 32];
-	    h.xof_result().read(&mut prehash);		
-		let mut t = self.0.clone();
-		t.commit_bytes(b"sign-XoF", &prehash);
-		t
-	}
+    pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
+        let mut prehash = [0u8; 32];
+        h.xof_result().read(&mut prehash);      
+        let mut t = self.0.clone();
+        t.commit_bytes(b"sign-XoF", &prehash);
+        t
+    }
 
     /// Initalize an owned signing transcript on a message provided as a hash function with 256 bit output
-	pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
-	    let mut prehash = [0u8; 32];
-		prehash.copy_from_slice(h.fixed_result().as_slice());
-		let mut t = self.0.clone();
-		t.commit_bytes(b"sign-256", &prehash);
-		t
-	}
+    pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
+        let mut prehash = [0u8; 32];
+        prehash.copy_from_slice(h.fixed_result().as_slice());
+        let mut t = self.0.clone();
+        t.commit_bytes(b"sign-256", &prehash);
+        t
+    }
 }
 
 
@@ -210,8 +210,8 @@ impl SigningContext {
 #[cfg(test)]
 mod test {
     use rand::prelude::*; // ThreadRng,thread_rng
-	use sha3::Shake128;
-	use curve25519_dalek::digest::{Input};
+    use sha3::Shake128;
+    use curve25519_dalek::digest::{Input};
 
 }
 */

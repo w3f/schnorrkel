@@ -31,7 +31,7 @@ pub enum MultiSignatureStage {
 
 impl Display for MultiSignatureStage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		use self::MultiSignatureStage::*;
+        use self::MultiSignatureStage::*;
         match *self {
             Commitment => write!(f, "commitment"),
             Reveal => write!(f, "reveal"),
@@ -76,7 +76,7 @@ pub enum SignatureError {
         length: usize 
     },
     /// There is no record of the preceeding multi-signautre protocol
-	/// stage for the specified public key.
+    /// stage for the specified public key.
     MuSigAbsent {
         /// Identifies the multi-signature protocol stage during which
         /// the error occured.
@@ -84,7 +84,7 @@ pub enum SignatureError {
     },
     /// For this public key, there are either conflicting records for
     /// the preceeding multi-signautre protocol stage or else duplicate
-	/// duplicate records for the current stage.
+    /// duplicate records for the current stage.
     MuSigInconsistent {
         /// Identifies the multi-signature protocol stage during which
         /// the error occured.
@@ -93,7 +93,7 @@ pub enum SignatureError {
         /// duplicate disagrees.
         duplicate: bool,
     },
-	
+    
     // /// Reveal did not match commitment
     // InvalidReveal,
 // other multisig errors
@@ -103,7 +103,7 @@ pub enum SignatureError {
 
 impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		use self::SignatureError::*;
+        use self::SignatureError::*;
         match *self {
             PointDecompressionError => 
                 write!(f, "Cannot decompress Edwards point"),
@@ -133,7 +133,7 @@ impl ::failure::Fail for SignatureError {}
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
 where E: ::serde::de::Error
 {
-	match err {
+    match err {
         SignatureError::PointDecompressionError
             => E::custom("Ristretto point decompression failed"),
         SignatureError::ScalarFormatError

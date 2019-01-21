@@ -47,18 +47,18 @@ pub struct ECQVCertSecret(pub [u8; 64]);
 
 /*
 impl<'a> From<&'a ECQVCertSecret> for &'a ECQVCertPublic {
-	from(secret: &ECQVCertSecret) -> &ECQVCertPublic {
+    from(secret: &ECQVCertSecret) -> &ECQVCertPublic {
         unsafe { ::std::mem::transmute(secret) }
     }
 }
 */
 
 impl From<ECQVCertSecret> for ECQVCertPublic {
-	fn from(secret: ECQVCertSecret) -> ECQVCertPublic {
-		let mut public = ECQVCertPublic([0u8; 32]);
-		public.0.copy_from_slice(&secret.0[0..32]);
-		public
-	}
+    fn from(secret: ECQVCertSecret) -> ECQVCertPublic {
+        let mut public = ECQVCertPublic([0u8; 32]);
+        public.0.copy_from_slice(&secret.0[0..32]);
+        public
+    }
 }
 
 /// ECQV Implicit Certificate Public Key Reconstruction Data
@@ -71,81 +71,81 @@ pub struct ECQVCertPublic(pub [u8; 32]);
 /// TODO: Serde serialization/deserialization
 
 impl ECQVCertPublic {
-	fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
-		t.challenge_scalar(b"e")
-	}
+    fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
+        t.challenge_scalar(b"e")
+    }
 }
 
 impl Keypair {
-	/// Issue an ECQV implicit certificate
-	///
-	/// Aside from the issuing `Keypair` supplied as `self`, you provide both
-	/// (1) a digest `h` that incorporates both the context and the
-	///     certificate requester's identity, and 
-	/// (2) the `seed_public_key` supplied by the certificate recipient
-	///     in their certificate request.
-	/// We return an `ECQVCertSecret` which the issuer sent to the
-	/// certificate requester, ans from which the certificate requester
-	/// derives their certified key pair.
-	pub fn issue_ecqv_cert<T>(&self, mut t: T, seed_public_key: &PublicKey) -> ECQVCertSecret
-	where T: SigningTranscript
-	{
-		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",self.public.as_compressed());
+    /// Issue an ECQV implicit certificate
+    ///
+    /// Aside from the issuing `Keypair` supplied as `self`, you provide both
+    /// (1) a digest `h` that incorporates both the context and the
+    ///     certificate requester's identity, and 
+    /// (2) the `seed_public_key` supplied by the certificate recipient
+    ///     in their certificate request.
+    /// We return an `ECQVCertSecret` which the issuer sent to the
+    /// certificate requester, ans from which the certificate requester
+    /// derives their certified key pair.
+    pub fn issue_ecqv_cert<T>(&self, mut t: T, seed_public_key: &PublicKey) -> ECQVCertSecret
+    where T: SigningTranscript
+    {
+        t.proto_name(b"ECQV");
+        t.commit_point(b"Issuer-pk",self.public.as_compressed());
 
         // We cannot commit the `seed_public_key` to the transcript
-		// because the whole point is to keep the transcript minimal.
-		// Instead we consume it as witness datathat influences only k.
+        // because the whole point is to keep the transcript minimal.
+        // Instead we consume it as witness datathat influences only k.
         let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.as_compressed().as_bytes()));
 
         // Compute the public key reconstruction data
-		let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
-		let gamma = gamma.compress();
-		t.commit_point(b"gamma",&gamma);
-		let cert_public = ECQVCertPublic(gamma.0);
+        let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
+        let gamma = gamma.compress();
+        t.commit_point(b"gamma",&gamma);
+        let cert_public = ECQVCertPublic(gamma.0);
 
         // Compute the secret key reconstruction data
-		let s = cert_public.derive_e(t) * k + self.secret.key;
+        let s = cert_public.derive_e(t) * k + self.secret.key;
 
-		let mut cert_secret = ECQVCertSecret([0u8; 64]);
-		cert_secret.0[0..32].copy_from_slice(&cert_public.0[..]);
-		cert_secret.0[32..64].copy_from_slice(s.as_bytes());
-		cert_secret
-	}
+        let mut cert_secret = ECQVCertSecret([0u8; 64]);
+        cert_secret.0[0..32].copy_from_slice(&cert_public.0[..]);
+        cert_secret.0[32..64].copy_from_slice(s.as_bytes());
+        cert_secret
+    }
 }
 
 impl PublicKey {
-	/// Accept an ECQV implicit certificate
-	///
-	/// We request an ECQV implicit certificate by first creating an
-	/// ephemeral `Keypair` and sending the public portion to the issuer
-	/// as `seed_public_key`.  An issuer issues the certificat by replying
-	/// with the `ECQVCertSecret` created by `issue_ecqv_cert`.
+    /// Accept an ECQV implicit certificate
+    ///
+    /// We request an ECQV implicit certificate by first creating an
+    /// ephemeral `Keypair` and sending the public portion to the issuer
+    /// as `seed_public_key`.  An issuer issues the certificat by replying
+    /// with the `ECQVCertSecret` created by `issue_ecqv_cert`.
     /// 
-	/// Aside from the issuer `PublicKey` supplied as `self`, you provide
-	/// (1) a digest `h` that incorporates both the context and the
-	///     certificate requester's identity, 
-	/// (2) the `seed_secret_key` corresponding to the `seed_public_key`
-	///     they sent to the issuer by the certificate recipient in their
-	///     certificate request, and
-	/// (3) the `ECQVCertSecret` send by the issuer to the certificate
-	///     requester.
-	/// We return both your certificate's new `SecretKey` as well as
-	/// an `ECQVCertPublic` from which third parties may derive
-	/// corresponding public key from `h` and the issuer's public key.
-	pub fn accept_ecqv_cert<T>(
-		&self,
-	    mut t: T,
-		seed_secret_key: &SecretKey,
-		cert_secret: ECQVCertSecret
-	) -> Result<(ECQVCertPublic, SecretKey),SignatureError>
-	where T: SigningTranscript
+    /// Aside from the issuer `PublicKey` supplied as `self`, you provide
+    /// (1) a digest `h` that incorporates both the context and the
+    ///     certificate requester's identity, 
+    /// (2) the `seed_secret_key` corresponding to the `seed_public_key`
+    ///     they sent to the issuer by the certificate recipient in their
+    ///     certificate request, and
+    /// (3) the `ECQVCertSecret` send by the issuer to the certificate
+    ///     requester.
+    /// We return both your certificate's new `SecretKey` as well as
+    /// an `ECQVCertPublic` from which third parties may derive
+    /// corresponding public key from `h` and the issuer's public key.
+    pub fn accept_ecqv_cert<T>(
+        &self,
+        mut t: T,
+        seed_secret_key: &SecretKey,
+        cert_secret: ECQVCertSecret
+    ) -> Result<(ECQVCertPublic, SecretKey),SignatureError>
+    where T: SigningTranscript
     {
-		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",self.as_compressed());
+        t.proto_name(b"ECQV");
+        t.commit_point(b"Issuer-pk",self.as_compressed());
 
         // Again we cannot commit much to the transcript, but we again 
-		// treat anything relevant as a witness when defining the 
+        // treat anything relevant as a witness when defining the 
         let mut nonce = [0u8; 32];
         t.witness_bytes(&mut nonce, &cert_secret.0[..],Some(&seed_secret_key.nonce));
 
@@ -153,9 +153,9 @@ impl PublicKey {
         s.copy_from_slice(&cert_secret.0[32..64]);
         let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : ECQVCertPublic = cert_secret.into();
-		let gamma = CompressedRistretto(cert_public.0.clone());
-		t.commit_point(b"gamma",&gamma);
-		
+        let gamma = CompressedRistretto(cert_public.0.clone());
+        t.commit_point(b"gamma",&gamma);
+        
         let key = s + cert_public.derive_e(t) * seed_secret_key.key;
         Ok(( cert_public, SecretKey { key, nonce } ))
     }
@@ -163,44 +163,44 @@ impl PublicKey {
 
 impl Keypair {
     /// Issue an ECQV Implicit Certificate for yourself
-	///
-	/// We can issue an implicit certificate to ourselves if we merely
-	/// want to certify an associated public key.  We should prefer
-	/// this option over "hierarchical deterministic" key derivation
-	/// because compromizing the resulting secret key does not 
-	/// compromize the issuer's secret key.
-	/// 
-	/// In this case, we avoid the entire interactive protocol described 
-	/// by `issue_ecqv_cert` and `accept_ecqv_cert` by hiding it an all
-	/// managment of the ephemeral `Keypair` inside this function.
-	///
-	/// Aside from the issuing secret key supplied as `self`, you provide
-	/// only a digest `h` that incorporates any context and metadata
-	/// pertaining to the issued key.  
-	pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
-	where T: SigningTranscript+Clone
-	{
-	    let seed = Keypair::generate(thread_rng());
-		let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
-		self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).unwrap()
-	}
+    ///
+    /// We can issue an implicit certificate to ourselves if we merely
+    /// want to certify an associated public key.  We should prefer
+    /// this option over "hierarchical deterministic" key derivation
+    /// because compromizing the resulting secret key does not 
+    /// compromize the issuer's secret key.
+    /// 
+    /// In this case, we avoid the entire interactive protocol described 
+    /// by `issue_ecqv_cert` and `accept_ecqv_cert` by hiding it an all
+    /// managment of the ephemeral `Keypair` inside this function.
+    ///
+    /// Aside from the issuing secret key supplied as `self`, you provide
+    /// only a digest `h` that incorporates any context and metadata
+    /// pertaining to the issued key.  
+    pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
+    where T: SigningTranscript+Clone
+    {
+        let seed = Keypair::generate(thread_rng());
+        let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
+        self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).unwrap()
+    }
 }
 
 impl PublicKey {
-	///
-	pub fn open_ecqv_cert<T>(&self, mut t: T, cert_public: &ECQVCertPublic) -> Result<PublicKey,SignatureError>
-	where T: SigningTranscript
-	{
-		t.proto_name(b"ECQV");
-		t.commit_point(b"Issuer-pk",self.as_compressed());
+    ///
+    pub fn open_ecqv_cert<T>(&self, mut t: T, cert_public: &ECQVCertPublic) -> Result<PublicKey,SignatureError>
+    where T: SigningTranscript
+    {
+        t.proto_name(b"ECQV");
+        t.commit_point(b"Issuer-pk",self.as_compressed());
 
-		let gamma = CompressedRistretto(cert_public.0.clone());
-		t.commit_point(b"gamma",&gamma);
-		let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
+        let gamma = CompressedRistretto(cert_public.0.clone());
+        t.commit_point(b"gamma",&gamma);
+        let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 
-		let point = self.as_point() + cert_public.derive_e(t) * gamma;
-		Ok(PublicKey::from_point(point))
-	}
+        let point = self.as_point() + cert_public.derive_e(t) * gamma;
+        Ok(PublicKey::from_point(point))
+    }
 }
 
 #[cfg(test)]
@@ -211,11 +211,11 @@ mod tests {
 
     #[test]
     fn ecqv_cert_public_vs_private_paths() {
-		let t = signing_context(b"").bytes(b"MrMeow!");
-	    let issuer = Keypair::generate(thread_rng());
-		let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
-		let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
-		assert_eq!(secret_key.to_public(), public_key);
-	}	
+        let t = signing_context(b"").bytes(b"MrMeow!");
+        let issuer = Keypair::generate(thread_rng());
+        let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
+        let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
+        assert_eq!(secret_key.to_public(), public_key);
+    }   
 }
 

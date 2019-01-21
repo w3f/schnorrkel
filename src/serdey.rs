@@ -49,7 +49,7 @@ mod test {
 
     use bincode::{serialize, serialized_size, deserialize, Infinite};
 
-	use curve25519_dalek::ristretto::{CompressedRistretto};
+    use curve25519_dalek::ristretto::{CompressedRistretto};
 
     use crate::*;
 
@@ -96,7 +96,7 @@ mod test {
 
     #[test]
     fn serialize_deserialize_public_key() {
-		let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
+        let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
         let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
         let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
 
@@ -104,7 +104,7 @@ mod test {
     }
 
     /*
-	TODO: Actually test serde on real secret key, not just mini one.
+    TODO: Actually test serde on real secret key, not just mini one.
     fn serialize_deserialize_secret_key() {
         let encoded_secret_key: Vec<u8> = serialize(&SECRET_KEY, Infinite).unwrap();
         let decoded_secret_key: MiniSecretKey = deserialize(&encoded_secret_key).unwrap();
@@ -113,7 +113,7 @@ mod test {
             assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
         }
     }
-	*/
+    */
 
     #[test]
     fn serialize_deserialize_mini_secret_key() {
@@ -127,7 +127,7 @@ mod test {
 
     #[test]
     fn serialize_public_key_size() {
-		let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
+        let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
         assert_eq!(serialized_size(&public_key) as usize, 32+8);  // Size specific to bincode==1.0.1
     }
 
@@ -140,7 +140,7 @@ mod test {
     #[test]
     fn serialize_secret_key_size() {
         assert_eq!(serialized_size(&ED25519_SECRET_KEY) as usize, 32+8);
-		let secret_key = ED25519_SECRET_KEY.expand::<::sha2::Sha512>();
+        let secret_key = ED25519_SECRET_KEY.expand::<::sha2::Sha512>();
         assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
     }
 }

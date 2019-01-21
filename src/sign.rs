@@ -77,11 +77,11 @@ impl Signature {
     const DISCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
     /*
     const DISCRIPTION_LONG : &'static str = 
-	    "A 64 byte Ristretto Schnorr signature, similar to an ed25519 \
-		 signature as specified in RFC8032, except the Ristretto point \
-		 compression is used for the curve point in the first 32 bytes";
-	*/
-	
+        "A 64 byte Ristretto Schnorr signature, similar to an ed25519 \
+         signature as specified in RFC8032, except the Ristretto point \
+         compression is used for the curve point in the first 32 bytes";
+    */
+    
     /// Convert this `Signature` to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; SIGNATURE_LENGTH] {
@@ -98,9 +98,9 @@ impl Signature {
         if bytes.len() != SIGNATURE_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Signature",
-				discription: Signature::DISCRIPTION,
-				length: SIGNATURE_LENGTH
-			});
+                discription: Signature::DISCRIPTION,
+                length: SIGNATURE_LENGTH
+            });
         }
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
@@ -120,31 +120,31 @@ serde_boilerplate!(Signature);
 
 impl SecretKey {
     /// Sign a transcript with this `SecretKey`.
-	///
-	/// Requires a `SigningTranscript`, normally created from a
-	/// `SigningContext` and a message, as well as the public key
-	/// correspodning to `self`.  Returns a Schnorr signature.
-	///
-	/// We employ a randomized nonce here, but also incorporate the
-	/// transcript like in a derandomized scheme, but only after first
-	/// extending the transcript by the public key.  As a result, there
-	/// should be no attacks even if both the random number generator
-	/// fails and the function gets called with the wrong public key.
+    ///
+    /// Requires a `SigningTranscript`, normally created from a
+    /// `SigningContext` and a message, as well as the public key
+    /// correspodning to `self`.  Returns a Schnorr signature.
+    ///
+    /// We employ a randomized nonce here, but also incorporate the
+    /// transcript like in a derandomized scheme, but only after first
+    /// extending the transcript by the public key.  As a result, there
+    /// should be no attacks even if both the random number generator
+    /// fails and the function gets called with the wrong public key.
     #[allow(non_snake_case)]
     pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
-	{
+    {
         let R: CompressedRistretto;
         let r: Scalar;
         let s: Scalar;
         let k: Scalar;
 
-		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",public_key.as_compressed());
+        t.proto_name(b"Schnorr-sig");
+        t.commit_point(b"A",public_key.as_compressed());
 
         r = t.witness_scalar(&self.nonce,None);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-		t.commit_point(b"R",&R);
+        t.commit_point(b"R",&R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         s = &(&k * &self.key) + &r;
@@ -155,7 +155,7 @@ impl SecretKey {
     /// Sign a message with this `SecretKey`.
     pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8], public_key: &PublicKey) -> Signature
     {
-		let t = SigningContext::new(ctx).bytes(msg);
+        let t = SigningContext::new(ctx).bytes(msg);
         self.sign(t,public_key)
     }
 }
@@ -163,10 +163,10 @@ impl SecretKey {
 
 impl PublicKey {
     /// Verify a signature by this public key on a transcript.
-	///
-	/// Requires a `SigningTranscript`, normally created from a
-	/// `SigningContext` and a message, as well as the signature
-	/// to be verified.
+    ///
+    /// Requires a `SigningTranscript`, normally created from a
+    /// `SigningContext` and a message, as well as the signature
+    /// to be verified.
     #[allow(non_snake_case)]
     pub fn verify<T: SigningTranscript>(&self, mut t: T, signature: &Signature) -> bool
     {
@@ -174,9 +174,9 @@ impl PublicKey {
         let R: RistrettoPoint;
         let k: Scalar;
 
-		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",self.as_compressed());
-		t.commit_point(b"R",&signature.R);
+        t.proto_name(b"Schnorr-sig");
+        t.commit_point(b"A",self.as_compressed());
+        t.commit_point(b"R",&signature.R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
@@ -187,7 +187,7 @@ impl PublicKey {
     /// Verify a signature by this public key on a message.
     pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> bool
     {
-		let t = SigningContext::new(ctx).bytes(msg);
+        let t = SigningContext::new(ctx).bytes(msg);
         self.verify(t,signature)
     }
 }
@@ -239,13 +239,13 @@ impl PublicKey {
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn verify_batch<T,I>(
-	transcripts: I,
-	signatures: &[Signature],
-	public_keys: &[PublicKey]
+    transcripts: I,
+    signatures: &[Signature],
+    public_keys: &[PublicKey]
 ) -> bool
 where
     T: SigningTranscript, 
-	I: IntoIterator<Item=T>,
+    I: IntoIterator<Item=T>,
 {
     const ASSERT_MESSAGE: &'static [u8] = b"The number of messages/transcripts, signatures, and public keys must be equal.";
     assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
@@ -261,7 +261,7 @@ where
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
     let mut rng = rand::prelude::thread_rng();
-	
+    
     // Select a random 128-bit scalar for each signature.
     let zs: Vec<Scalar> = signatures.iter()
         .map(|_| Scalar::from(rng.gen::<u128>()))
@@ -274,34 +274,34 @@ where
         .map(|(s, z)| z * s)
         .sum();
 
-	/*
+    /*
     let hrams = (0..signatures.len()).map(|i| {
-		let mut t = transcripts[i].borrow().clone();
-		t.proto_name(b"Schnorr-sig");
-		t.commit_point(b"A",public_keys[i].as_compressed());
-		t.commit_point(b"R",&signatures[i].R);
+        let mut t = transcripts[i].borrow().clone();
+        t.proto_name(b"Schnorr-sig");
+        t.commit_point(b"A",public_keys[i].as_compressed());
+        t.commit_point(b"R",&signatures[i].R);
         t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
     });
-	*/
-	// We might collect here anyways, but right now you cannot have
-	//   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
-	// Begin NLL hack
-	let mut transcripts = transcripts.into_iter();
+    */
+    // We might collect here anyways, but right now you cannot have
+    //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
+    // Begin NLL hack
+    let mut transcripts = transcripts.into_iter();
     let zhrams: Vec<Scalar> = {// NLL hack
     // Compute H(R || A || M) for each (signature, public_key, message) triplet
     let hrams = transcripts.by_ref()
         .zip(0..signatures.len())
-		.map( |(mut t,i)| {
+        .map( |(mut t,i)| {
             t.proto_name(b"Schnorr-sig");
             t.commit_point(b"A",public_keys[i].as_compressed());
             t.commit_point(b"R",&signatures[i].R);
             t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
-		} );
+        } );
 
     // Multiply each H(R || A || M) by the random value
     hrams.zip(zs.iter()).map(|(hram, z)| hram * z).collect()
     }; 
-	// End NLL hack
+    // End NLL hack
     assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
     assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
@@ -321,17 +321,17 @@ where
 
 impl Keypair {
     /// Sign a transcript with this keypair's secret key.
-	///
-	/// Requires a `SigningTranscript`, normally created from a
-	/// `SigningContext` and a message.  Returns a Schnorr signature.
-	///
+    ///
+    /// Requires a `SigningTranscript`, normally created from a
+    /// `SigningContext` and a message.  Returns a Schnorr signature.
+    ///
     /// # Examples
     ///
-	/// Internally, we manage signature transcripts using a 128 bit secure
-	/// STROBE construction based on Keccak, which itself is extremly fast
-	/// and secure.  You might however influence performance or security
-	/// by prehashing your message, like
-	///
+    /// Internally, we manage signature transcripts using a 128 bit secure
+    /// STROBE construction based on Keccak, which itself is extremly fast
+    /// and secure.  You might however influence performance or security
+    /// by prehashing your message, like
+    ///
     /// ```
     /// extern crate schnorr_dalek;
     /// extern crate rand;
@@ -339,8 +339,8 @@ impl Keypair {
     ///
     /// use schnorr_dalek::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
-	/// use sha3::Shake128;
-	/// use sha3::digest::{Input};
+    /// use sha3::Shake128;
+    /// use sha3::digest::{Input};
     ///
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -356,11 +356,11 @@ impl Keypair {
     /// # fn main() { }
     /// ```
     ///
-	/// We require a "context" string for all signatures, which should
-	/// be chosen judiciously for your project.  It should represent the 
-	/// role the signature plays in your application.  If you use the
-	/// context in two purposes, and the same key, then a signature for
-	/// one purpose can be substituted for the other.
+    /// We require a "context" string for all signatures, which should
+    /// be chosen judiciously for your project.  It should represent the 
+    /// role the signature plays in your application.  If you use the
+    /// context in two purposes, and the same key, then a signature for
+    /// one purpose can be substituted for the other.
     ///
     /// ```
     /// # extern crate schnorr_dalek;
@@ -369,7 +369,7 @@ impl Keypair {
     /// #
     /// # use schnorr_dalek::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
-	/// # use sha3::digest::Input;
+    /// # use sha3::digest::Input;
     /// #
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -400,11 +400,11 @@ impl Keypair {
     }
 
     /// Verify a signature by keypair's public key on a transcript.
-	///
-	/// Requires a `SigningTranscript`, normally created from a
-	/// `SigningContext` and a message, as well as the signature
-	/// to be verified.
-	///
+    ///
+    /// Requires a `SigningTranscript`, normally created from a
+    /// `SigningContext` and a message, as well as the signature
+    /// to be verified.
+    ///
     /// # Examples
     ///
     /// ```
@@ -444,8 +444,8 @@ mod test {
     use std::vec::Vec;
     use rand::prelude::*; // ThreadRng,thread_rng
     use rand_chacha::ChaChaRng;
-	use sha3::Shake128;
-	use curve25519_dalek::digest::{Input};
+    use sha3::Shake128;
+    use curve25519_dalek::digest::{Input};
 
     use super::super::*;
 
@@ -458,7 +458,7 @@ mod test {
         let bad_sig:  Signature;
 
         let ctx = signing_context(b"good");
-		
+        
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
@@ -530,7 +530,7 @@ mod test {
             keypairs.push(keypair);
         }
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
-		let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
 
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
     }

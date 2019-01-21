@@ -65,23 +65,23 @@ pub fn edwards_to_ristretto(p: EdwardsPoint) -> Result<RistrettoPoint,SignatureE
 
 impl SecretKey {
     /// Sign a message with this `SecretKey` using the old Ed25519
-	/// algorithm.
-	///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
+    /// algorithm.
+    ///
+    /// Incurs a public key comression cost which Ed25519 normally avoids,
+    /// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
     pub fn sign_ed25519(&self, message: &[u8], public_key: &PublicKey) -> Ed25519Signature {
-		let public_key = public_key.to_ed25519_public_key();
-		self.to_ed25519_expanded_secret_key()
-		.sign(message,&public_key).to_bytes()
-	}
+        let public_key = public_key.to_ed25519_public_key();
+        self.to_ed25519_expanded_secret_key()
+        .sign(message,&public_key).to_bytes()
+    }
 
     /// Sign a `prehashed_message` with this `SecretKey` using the
     /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
+    ///
+    /// Incurs a public key comression cost which Ed25519ph normally avoids,
+    /// making the `ed25519-dalek` crate faster.
+    ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
     pub fn sign_ed25519_prehashed<D>(
@@ -92,10 +92,10 @@ impl SecretKey {
     ) -> Ed25519Signature
     where D: digest::Digest<OutputSize = U64> + Default + Clone,
     {
-		let public_key = public_key.to_ed25519_public_key();
-		self.to_ed25519_expanded_secret_key()
-		.sign_prehashed::<D>(prehashed_message,&public_key,context).to_bytes()
-	}
+        let public_key = public_key.to_ed25519_public_key();
+        self.to_ed25519_expanded_secret_key()
+        .sign_prehashed::<D>(prehashed_message,&public_key,context).to_bytes()
+    }
 }
 
 impl PublicKey {
@@ -114,10 +114,10 @@ impl PublicKey {
     /// An Ed25519 public key compatable with our serialization of
     /// the corresponding `SecretKey`.  
     pub fn to_ed25519_public_key(&self) -> ::ed25519_dalek::PublicKey {
-		let pkb = self.to_ed25519_public_key_bytes();
-		::ed25519_dalek::PublicKey::from_bytes(&pkb[..])
-		.expect("Improper serialisation of Ed25519 public key!")
-	}	
+        let pkb = self.to_ed25519_public_key_bytes();
+        ::ed25519_dalek::PublicKey::from_bytes(&pkb[..])
+        .expect("Improper serialisation of Ed25519 public key!")
+    }   
 
     /// Deserialized an Ed25519 public key compatable with our
     /// serialization of the corresponding `SecretKey`. 
@@ -134,40 +134,40 @@ impl PublicKey {
         if bytes.len() != PUBLIC_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "PublicKey",
-		discription: "An ed25519 public key as a 32-byte compressed point, as specified in RFC8032",
+        discription: "An ed25519 public key as a 32-byte compressed point, as specified in RFC8032",
                 length: PUBLIC_KEY_LENGTH
             });
         }
         let mut bits: [u8; 32] = [0u8; 32];
         bits.copy_from_slice(&bytes[..32]);
 
-		let mut point = edwards_to_ristretto(
-	        CompressedEdwardsY(bits).decompress()
-			.ok_or(SignatureError::PointDecompressionError) ?
-		) ?;  // PointDecompressionError unless 2-torsion free
-		let eighth = Scalar::from(8u8).invert();
-		debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
-		point *= &eighth;
+        let mut point = edwards_to_ristretto(
+            CompressedEdwardsY(bits).decompress()
+            .ok_or(SignatureError::PointDecompressionError) ?
+        ) ?;  // PointDecompressionError unless 2-torsion free
+        let eighth = Scalar::from(8u8).invert();
+        debug_assert_eq!(Scalar::one(), eighth * Scalar::from(8u8));
+        point *= &eighth;
         Ok(PublicKey::from_point(point))
-		// debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
+        // debug_assert_eq!(bytes,p.to_ed25519_public_key_bytes());
     }
 
     /// Verify a signature on a message with this public key.
     ///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
+    /// Incurs a public key comression cost which Ed25519 normally avoids,
+    /// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
     pub fn verify_ed25519(&self, message: &[u8], signature: &Ed25519Signature) -> bool {
-		::ed25519_dalek::Signature::from_bytes(&signature[..])
-		.and_then(|s| self.to_ed25519_public_key().verify(message,&s)).is_ok()
-	}
+        ::ed25519_dalek::Signature::from_bytes(&signature[..])
+        .and_then(|s| self.to_ed25519_public_key().verify(message,&s)).is_ok()
+    }
 
     /// Verify a `signature` on a `prehashed_message` using the
     /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
+    ///
+    /// Incurs a public key comression cost which Ed25519ph normally avoids,
+    /// making the `ed25519-dalek` crate faster.
+    ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
     pub fn verify_ed25519_prehashed<D>(
@@ -178,17 +178,17 @@ impl PublicKey {
     ) -> bool
     where D: digest::Digest<OutputSize = U64> + Default
     {
-		::ed25519_dalek::Signature::from_bytes(&signature[..])
-		.and_then(|s| self.to_ed25519_public_key().verify_prehashed::<D>(prehashed_message,context,&s)).is_ok()
-	}
+        ::ed25519_dalek::Signature::from_bytes(&signature[..])
+        .and_then(|s| self.to_ed25519_public_key().verify_prehashed::<D>(prehashed_message,context,&s)).is_ok()
+    }
 }
 
 impl Keypair {
     /// Sign a message with this `SecretKey` using ed25519.
     #[allow(non_snake_case)]
     pub fn sign_ed25519(&self, message: &[u8]) -> Ed25519Signature {
-		self.secret.sign_ed25519(message, &self.public)
-	}
+        self.secret.sign_ed25519(message, &self.public)
+    }
 
     /// Sign a `prehashed_message` with this `SecretKey` using the
     /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
@@ -201,23 +201,23 @@ impl Keypair {
     where D: digest::Digest<OutputSize = U64> + Default + Clone,
     {
         self.secret.sign_ed25519_prehashed::<D>(prehashed_message, &self.public, context)
-	}
+    }
 
     /// Verify a signature on a message with this public key.
     ///
-	/// Incurs a public key comression cost which Ed25519 normally avoids,
-	/// making the `ed25519-dalek` crate faster.
+    /// Incurs a public key comression cost which Ed25519 normally avoids,
+    /// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
     pub fn verify_ed25519(&self, message: &[u8], signature: &Ed25519Signature) -> bool {
         self.public.verify_ed25519(message,signature)
-	}
+    }
 
     /// Verify a `signature` on a `prehashed_message` using the
     /// Ed25519ph algorithm defined in [RFC8032 §5.1][rfc8032].
-	///
-	/// Incurs a public key comression cost which Ed25519ph normally avoids,
-	/// making the `ed25519-dalek` crate faster.
-	///
+    ///
+    /// Incurs a public key comression cost which Ed25519ph normally avoids,
+    /// making the `ed25519-dalek` crate faster.
+    ///
     /// [rfc8032]: https://tools.ietf.org/html/rfc8032#section-5.1
     #[allow(non_snake_case)]
     #[allow(non_snake_case)]
@@ -229,8 +229,8 @@ impl Keypair {
     ) -> bool
     where D: digest::Digest<OutputSize = U64> + Default
     {
-		self.public.verify_ed25519_prehashed::<D>(prehashed_message,context,signature)
-	}
+        self.public.verify_ed25519_prehashed::<D>(prehashed_message,context,signature)
+    }
 }
 
 
