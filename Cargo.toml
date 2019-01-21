@@ -34,8 +34,11 @@ default-features = false
 version = "1.0.0"
 
 [dependencies.rand]
-version = "0.6"
+version = "0.6.4"
 features = ["i128_support"]
+
+[dependencies.rand_chacha]
+version = "0.1.0"
 
 [dependencies.serde]
 version = "^1.0"
@@ -59,8 +62,7 @@ version = "0.2"
 hex = "^0.3"
 sha2 = "^0.8"
 bincode = "^0.9"
-criterion = "0.2"
-rand_chacha = "0.1.0"
+# criterion = "0.2"
 
 [[bench]]
 name = "schnorr_benchmarks"

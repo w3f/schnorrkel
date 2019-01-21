@@ -269,11 +269,14 @@
 
 extern crate curve25519_dalek;
 extern crate merlin;
-
-extern crate failure;
-extern crate rand;
 extern crate clear_on_drop;
 extern crate subtle;
+
+extern crate rand;
+extern crate rand_chacha;
+
+extern crate failure;
+
 
 #[cfg(test)]
 extern crate sha3;
@@ -289,9 +292,6 @@ extern crate sha2;
 
 #[cfg(test)]
 extern crate hex;
-
-#[cfg(test)]
-extern crate rand_chacha;
 
 #[cfg(feature = "serde")]
 extern crate serde;

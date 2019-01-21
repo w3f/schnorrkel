@@ -70,12 +70,10 @@ impl SecretKey {
 	/// Incurs a public key comression cost which Ed25519 normally avoids,
 	/// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
-    pub fn sign_ed25519<D>(&self, message: &[u8], public_key: &PublicKey) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
+    pub fn sign_ed25519(&self, message: &[u8], public_key: &PublicKey) -> Ed25519Signature {
 		let public_key = public_key.to_ed25519_public_key();
 		self.to_ed25519_expanded_secret_key()
-		.sign::<D>(message,&public_key).to_bytes()
+		.sign(message,&public_key).to_bytes()
 	}
 
     /// Sign a `prehashed_message` with this `SecretKey` using the
@@ -159,11 +157,9 @@ impl PublicKey {
 	/// Incurs a public key comression cost which Ed25519 normally avoids,
 	/// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
-    pub fn verify_ed25519<D>(&self, message: &[u8], signature: &Ed25519Signature) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
+    pub fn verify_ed25519(&self, message: &[u8], signature: &Ed25519Signature) -> bool {
 		::ed25519_dalek::Signature::from_bytes(&signature[..])
-		.and_then(|s| self.to_ed25519_public_key().verify::<D>(message,&s)).is_ok()
+		.and_then(|s| self.to_ed25519_public_key().verify(message,&s)).is_ok()
 	}
 
     /// Verify a `signature` on a `prehashed_message` using the
@@ -190,10 +186,8 @@ impl PublicKey {
 impl Keypair {
     /// Sign a message with this `SecretKey` using ed25519.
     #[allow(non_snake_case)]
-    pub fn sign_ed25519<D>(&self, message: &[u8]) -> Ed25519Signature
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-		self.secret.sign_ed25519::<D>(message, &self.public)
+    pub fn sign_ed25519(&self, message: &[u8]) -> Ed25519Signature {
+		self.secret.sign_ed25519(message, &self.public)
 	}
 
     /// Sign a `prehashed_message` with this `SecretKey` using the
@@ -214,10 +208,8 @@ impl Keypair {
 	/// Incurs a public key comression cost which Ed25519 normally avoids,
 	/// making the `ed25519-dalek` crate faster.
     #[allow(non_snake_case)]
-    pub fn verify_ed25519<D>(&self, message: &[u8], signature: &Ed25519Signature) -> bool
-    where D: digest::Digest<OutputSize = U64> + Default
-	{
-        self.public.verify_ed25519::<D>(message,signature)
+    pub fn verify_ed25519(&self, message: &[u8], signature: &Ed25519Signature) -> bool {
+        self.public.verify_ed25519(message,signature)
 	}
 
     /// Verify a `signature` on a `prehashed_message` using the
