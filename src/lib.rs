@@ -310,6 +310,7 @@ mod ed25519;
 
 pub mod context;
 pub mod sign;
+pub mod dleq;
 pub mod derive;
 pub mod cert;
 pub mod multi;
