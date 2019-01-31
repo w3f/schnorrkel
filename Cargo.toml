@@ -1,5 +1,5 @@
 [package]
-name = "schnorr-dalek"
+name = "schnorrkel"
 version = "0.0.1"
 authors = ["Isis Lovecruft <isis@patternsinthevoid.net>", "Jeff Burdges <jeff@web3.foundation>"]
 readme = "README.md"

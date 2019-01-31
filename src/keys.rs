@@ -109,14 +109,14 @@ impl MiniSecretKey {
     /// ```
     /// # extern crate rand;
     /// # extern crate sha2;
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
-    /// use schnorr_dalek::{MiniSecretKey, SecretKey};
+    /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -182,11 +182,11 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
-    /// use schnorr_dalek::MiniSecretKey;
-    /// use schnorr_dalek::MINI_SECRET_KEY_LENGTH;
-    /// use schnorr_dalek::SignatureError;
+    /// use schnorrkel::MiniSecretKey;
+    /// use schnorrkel::MINI_SECRET_KEY_LENGTH;
+    /// use schnorrkel::SignatureError;
     ///
     /// # fn doctest() -> Result<MiniSecretKey, SignatureError> {
     /// let secret_key_bytes: [u8; MINI_SECRET_KEY_LENGTH] = [
@@ -231,16 +231,16 @@ impl MiniSecretKey {
     /// ```
     /// extern crate rand;
     /// extern crate sha2;
-    /// extern crate schnorr_dalek;
+    /// extern crate schnorrkel;
     ///
     /// # #[cfg(feature = "std")]
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
-    /// use schnorr_dalek::PublicKey;
-    /// use schnorr_dalek::MiniSecretKey;
-    /// use schnorr_dalek::Signature;
+    /// use schnorrkel::PublicKey;
+    /// use schnorrkel::MiniSecretKey;
+    /// use schnorrkel::Signature;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -258,7 +258,7 @@ impl MiniSecretKey {
     /// # extern crate rand;
     /// # extern crate rand_chacha;
     /// # extern crate sha2;
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
     /// # fn main() {
     /// #
@@ -266,9 +266,9 @@ impl MiniSecretKey {
     /// # use rand_chacha::ChaChaRng;
     /// # use rand::SeedableRng;
     /// # use sha2::Sha512;
-    /// # use schnorr_dalek::PublicKey;
-    /// # use schnorr_dalek::MiniSecretKey;
-    /// # use schnorr_dalek::Signature;
+    /// # use schnorrkel::PublicKey;
+    /// # use schnorrkel::MiniSecretKey;
+    /// # use schnorrkel::Signature;
     /// #
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -355,14 +355,14 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// ```
     /// # extern crate rand;
     /// # extern crate sha2;
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
     /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
-    /// use schnorr_dalek::{MiniSecretKey, SecretKey};
+    /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -394,14 +394,14 @@ impl SecretKey {
     /// ```
     /// # extern crate rand;
     /// # extern crate sha2;
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
-    /// use schnorr_dalek::{MiniSecretKey, SecretKey};
+    /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -444,14 +444,14 @@ impl SecretKey {
     /// ```
     /// # extern crate rand;
     /// # extern crate sha2;
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
     /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// #
     /// use rand::{Rng, rngs::OsRng};
-    /// use schnorr_dalek::{MiniSecretKey, SecretKey};
-    /// use schnorr_dalek::SignatureError;
+    /// use schnorrkel::{MiniSecretKey, SecretKey};
+    /// use schnorrkel::SignatureError;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
@@ -593,11 +593,11 @@ impl PublicKey {
     /// # Example
     ///
     /// ```
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// #
-    /// use schnorr_dalek::PublicKey;
-    /// use schnorr_dalek::PUBLIC_KEY_LENGTH;
-    /// use schnorr_dalek::SignatureError;
+    /// use schnorrkel::PublicKey;
+    /// use schnorrkel::PUBLIC_KEY_LENGTH;
+    /// use schnorrkel::SignatureError;
     ///
     /// # fn doctest() -> Result<PublicKey, SignatureError> {
     /// let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = [
@@ -716,13 +716,13 @@ impl Keypair {
     ///
     /// ```
     /// extern crate rand;
-    /// extern crate schnorr_dalek;
+    /// extern crate schnorrkel;
     ///
     /// # fn main() {
     ///
     /// use rand::{Rng, rngs::OsRng};
-    /// use schnorr_dalek::Keypair;
-    /// use schnorr_dalek::Signature;
+    /// use schnorrkel::Keypair;
+    /// use schnorrkel::Signature;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let keypair: Keypair = Keypair::generate(&mut csprng);

@@ -216,10 +216,10 @@ impl PublicKey {
 /// # Examples
 ///
 /// ```
-/// extern crate schnorr_dalek;
+/// extern crate schnorrkel;
 /// extern crate rand;
 ///
-/// use schnorr_dalek::{Keypair,PublicKey,Signature,verify_batch,signing_context};
+/// use schnorrkel::{Keypair,PublicKey,Signature,verify_batch,signing_context};
 /// use rand::thread_rng;
 /// use rand::rngs::ThreadRng;
 ///
@@ -333,11 +333,11 @@ impl Keypair {
     /// by prehashing your message, like
     ///
     /// ```
-    /// extern crate schnorr_dalek;
+    /// extern crate schnorrkel;
     /// extern crate rand;
     /// extern crate sha3;
     ///
-    /// use schnorr_dalek::{Signature,Keypair};
+    /// use schnorrkel::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     /// use sha3::Shake128;
     /// use sha3::digest::{Input};
@@ -363,11 +363,11 @@ impl Keypair {
     /// one purpose can be substituted for the other.
     ///
     /// ```
-    /// # extern crate schnorr_dalek;
+    /// # extern crate schnorrkel;
     /// # extern crate rand;
     /// # extern crate sha3;
     /// #
-    /// # use schnorr_dalek::{Keypair,Signature,signing_context};
+    /// # use schnorrkel::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
     /// # use sha3::digest::Input;
     /// #
@@ -408,10 +408,10 @@ impl Keypair {
     /// # Examples
     ///
     /// ```
-    /// extern crate schnorr_dalek;
+    /// extern crate schnorrkel;
     /// extern crate rand;
     ///
-    /// use schnorr_dalek::{Keypair,Signature,signing_context};
+    /// use schnorrkel::{Keypair,Signature,signing_context};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     ///
     /// # fn main() {

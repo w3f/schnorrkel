@@ -1,6 +1,6 @@
 // -*- mode: rust; -*-
 //
-// This file is part of ed25519-dalek.
+// This file is part of schnorrkel
 // Copyright (c) 2018 Isis Lovecruft
 // See LICENSE for licensing information.
 //
@@ -9,7 +9,7 @@
 
 #[macro_use]
 extern crate criterion;
-extern crate schnorr_dalek;
+extern crate schnorrkel;
 extern crate rand;
 // extern crate sha2;
 
@@ -17,7 +17,7 @@ use criterion::Criterion;
 
 mod schnorr_benches {
     use super::*;
-    use schnorr_dalek::{Keypair, PublicKey, Signature, verify_batch, signing_context}; // SecretKey
+    use schnorrkel::{Keypair, PublicKey, Signature, verify_batch, signing_context}; // SecretKey
     use rand::prelude::*; // ThreadRng,thread_rng
 
     // TODO: fn sign_mini(c: &mut Criterion)
