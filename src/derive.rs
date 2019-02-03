@@ -190,7 +190,7 @@ mod tests {
     use rand::prelude::*; // thread_rng
 
     use sha3::digest::{Input}; // ExtendableOutput,XofReader
-    use sha3::{Shake128,Sha3_512}; // Shake256
+    use sha3::{Shake128};
 
     use super::*;
 
@@ -200,7 +200,6 @@ mod tests {
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);
         let msg : &'static [u8] = b"Just some test message!";
         let mut h = Shake128::default().chain(msg);
-        let mut h_ed25519 = Sha3_512::default().chain(msg);
 
         let key = Keypair::generate(&mut rng);
         let mut extended_public_key = ExtendedKey {
@@ -226,7 +225,6 @@ mod tests {
             extended_public_key = extended_public_key1;
 
             h.input(b"Another");
-            h_ed25519.input(b"Another");
 
             if i % 5 == 0 {
                 let good_sig = extended_keypair.key.sign(ctx.xof(h.clone()));
@@ -243,31 +241,6 @@ mod tests {
                 );
                 assert!(
                     ! extended_public_key.key.verify(ctx.xof(h_bad), &good_sig),
-                    "Verification of a signature on a different message passed!"
-                );
-            }
-
-            if i % 7 == 0 {
-                let context = Some(b"testing testing 1 2 3" as &[u8]);
-                let good_sig = extended_keypair.key
-                    .sign_ed25519_prehashed::<Sha3_512>(h_ed25519.clone(), context);
-                let h_bad = h_ed25519.clone().chain(b"oops");
-                let bad_sig = extended_keypair.key
-                    .sign_ed25519_prehashed::<Sha3_512>(h_bad.clone(), context);
-
-                assert!(
-                    extended_public_key.key
-                        .verify_ed25519_prehashed(h_ed25519.clone(), context, &good_sig),
-                    "Verification of a valid signature failed!"
-                );
-                assert!(
-                    ! extended_public_key.key
-                        .verify_ed25519_prehashed::<Sha3_512>(h_ed25519.clone(), context, &bad_sig),
-                    "Verification of a signature on a different message passed!"
-                );
-                assert!(
-                    ! extended_public_key.key
-                        .verify_ed25519_prehashed::<Sha3_512>(h_bad, context, &good_sig),
                     "Verification of a signature on a different message passed!"
                 );
             }

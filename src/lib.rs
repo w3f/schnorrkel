@@ -290,8 +290,8 @@ extern crate std;
 #[cfg(any(test, feature = "sha2"))]
 extern crate sha2;
 
-#[cfg(test)]
-extern crate hex;
+// #[cfg(test)]
+// extern crate hex;
 
 #[cfg(feature = "serde")]
 extern crate serde;
@@ -306,7 +306,6 @@ mod serdey;
 pub mod points;
 mod scalars;
 pub mod keys;
-mod ed25519;
 
 pub mod context;
 pub mod sign;
