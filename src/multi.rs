@@ -1,6 +1,6 @@
 // -*- mode: rust; -*-
 //
-// This file is part of schnorr-dalek.
+// This file is part of schnorrkel.
 // Copyright (c) 2019 Web 3 Foundation
 // See LICENSE for licensing information.
 //
