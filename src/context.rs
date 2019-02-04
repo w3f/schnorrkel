@@ -16,7 +16,7 @@ use rand::prelude::*;  // {RngCore,thread_rng};
 use merlin::{Transcript};
 
 use curve25519_dalek::digest::{FixedOutput,ExtendableOutput,XofReader};
-use curve25519_dalek::digest::generic_array::typenum::U32;
+use curve25519_dalek::digest::generic_array::typenum::{U32,U64};
 
 use curve25519_dalek::ristretto::{CompressedRistretto}; // RistrettoPoint
 use curve25519_dalek::scalar::Scalar;
@@ -195,9 +195,20 @@ impl SigningContext {
         t
     }
 
-    /// Initalize an owned signing transcript on a message provided as a hash function with 256 bit output
+    /// Initalize an owned signing transcript on a message provided as
+    /// a hash function with 256 bit output.
     pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
+        prehash.copy_from_slice(h.fixed_result().as_slice());
+        let mut t = self.0.clone();
+        t.commit_bytes(b"sign-256", &prehash);
+        t
+    }
+
+    /// Initalize an owned signing transcript on a message provided as
+    /// a hash function with 512 bit output, usually a gross over kill.
+    pub fn hash512<D: FixedOutput<OutputSize=U64>>(&self, h: D) -> Transcript {
+        let mut prehash = [0u8; 64];
         prehash.copy_from_slice(h.fixed_result().as_slice());
         let mut t = self.0.clone();
         t.commit_bytes(b"sign-256", &prehash);
