@@ -5,7 +5,7 @@
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 //! Implementation of a Verifiable Random Function (VRF) using
 //! Ristretto points and Schnorr DLEQ proofs.

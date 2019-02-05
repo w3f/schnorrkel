@@ -5,7 +5,7 @@
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 //! Schnorr signature contexts and configuration, adaptable
 //! to most Schnorr signature schemes.

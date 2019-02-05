@@ -5,7 +5,7 @@
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 
 //! Elliptic curve Qu-Vanstone implicit certificate scheme (ECQV) for Ristretto

@@ -1,17 +1,18 @@
 // -*- mode: rust; -*-
 //
-// This file is part of ed25519-dalek.
+// This file is part of schnorrkel.
 // Copyright (c) 2017-2019 Isis Lovecruft
 // See LICENSE for licensing information.
 //
 // Authors:
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 //! ed25519 signatures and verification
 //!
 //! # Example
 //!
-//! Creating an ed25519 signature on a message is simple.
+//! Creating a signature on a message is simple.
 //!
 //! First, we need to generate a `Keypair`, which includes both public and
 //! secret halves of an asymmetric key.  To do so, we need a cryptographically
@@ -41,12 +42,10 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -62,12 +61,10 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
@@ -84,12 +81,10 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! use schnorrkel::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
@@ -113,12 +108,10 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
 //! use schnorrkel::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
@@ -140,11 +133,9 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{SecretKey, Keypair, Signature, PublicKey, SignatureError, signing_context};
 //! # use schnorrkel::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
@@ -174,7 +165,7 @@
 //!
 //! If you prefer the bytes to be wrapped in another serialisation format, all
 //! types additionally come with built-in [serde](https://serde.rs) support by
-//! building `ed25519-dalek` via:
+//! building `schnorrkell` via:
 //!
 //! ```bash
 //! $ cargo build --features="serde"
@@ -186,7 +177,6 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha3;
 //! # extern crate schnorrkel;
 //! # #[cfg(feature = "serde")]
 //! extern crate serde;
@@ -197,7 +187,6 @@
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
-//! # use sha3::Shake128;
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);

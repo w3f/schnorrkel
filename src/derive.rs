@@ -5,7 +5,7 @@
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 //! Implementation of "hierarchical deterministic" key derivation for
 //! Schnorr signatures compatable with the Ristretto representation of
