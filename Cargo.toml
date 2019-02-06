@@ -34,7 +34,7 @@ version = "1.0.0"
 # features = ["debug-transcript"]
 
 [dependencies.rand]
-version = "0.6.4"
+version = "0.6.0"  # was "0.6.4"
 features = ["i128_support"]
 
 [dependencies.rand_chacha]
