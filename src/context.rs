@@ -80,7 +80,11 @@ pub trait SigningTranscript {
 
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
     /// transcript and any "nonce seeds" kept with the secret keys.
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar;
+    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar {
+        let mut scalar_bytes = [0u8; 64];
+        self.witness_bytes(&mut scalar_bytes,nonce_seeds);
+        Scalar::from_bytes_mod_order_wide(&scalar_bytes)        
+    }
 
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
@@ -129,16 +133,6 @@ impl SigningTranscript for Transcript {
         Transcript::challenge_bytes(self, label, dest)
     }
 
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar
-    {
-        let mut br = self.build_rng();
-        for ns in nonce_seeds {
-            br = br.commit_witness_bytes(b"", ns);
-        }
-        let mut r = br.finalize(&mut thread_rng());
-        Scalar::random(&mut r)
-    }
-
     fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
     {
         let mut br = self.build_rng();
@@ -165,16 +159,6 @@ impl<R: Rng+CryptoRng> SigningTranscript for TranscriptWithRng<R> {
 
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
         Transcript::challenge_bytes(&mut self.t, label, dest)
-    }
-
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar
-    {
-        let mut br = self.t.build_rng();
-        for ns in nonce_seeds {
-            br = br.commit_witness_bytes(b"", ns);
-        }
-        let mut r = br.finalize(&mut *self.rng.borrow_mut());
-        Scalar::random(&mut r)
     }
 
     fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
@@ -295,17 +279,6 @@ where H: Input + ExtendableOutput + Clone
         let l = dest.len() as u64;
         self.0.input(l.to_le_bytes());
         self.0.clone().chain(b"xof").xof_result().read(dest);
-    }
-
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar
-    {
-        let mut h = self.0.clone().chain(b"ws");
-        for ns in nonce_seeds {
-            input_bytes(&mut h, ns);
-        }
-        let mut s = [0u8; 64];
-        h.xof_result().read(&mut s);      
-        Scalar::from_bytes_mod_order_wide(&s)
     }
 
     fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
