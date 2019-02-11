@@ -289,6 +289,10 @@ where H: Input + ExtendableOutput + Clone
         }
         let l = dest.len() as u64;
         h.input(l.to_le_bytes());
+
+        let mut r = [0u8; 32];
+        thread_rng().fill_bytes(&mut r);
+        h.input(&r);
         h.xof_result().read(dest);      
     }
 }
