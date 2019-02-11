@@ -159,10 +159,9 @@ impl Keypair {
     /// We mutate `points` by multipling every point by `self.secret`
     /// and produce a proof that this multiplication was done correctly.
     #[allow(non_snake_case)]
-    pub fn proove_dleqs<T,B,R>(&self, mut t: T, points: &mut [B], rng: R) -> VRFProofBatchable
+    pub fn proove_dleqs<T,B>(&self, mut t: T, points: &mut [B]) -> VRFProofBatchable
     where T: SigningTranscript+Clone,
           B: BorrowMut<VRFPut>,
-          R: Rng+CryptoRng,
     {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
@@ -173,7 +172,7 @@ impl Keypair {
         t.commit_point(b"pk",self.public.as_compressed());
 
         // We compute R after adding pk and all h.
-        let r = t.witness_scalar(&self.secret.nonce, None, rng);
+        let r = t.witness_scalar(&self.secret.nonce,None);
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"R=g^r",&R);
 
@@ -194,25 +193,22 @@ impl Keypair {
     }
 
     /// Run VRF on one single input transcript, producing the outpus and correspodning short proof.
-    pub fn vrf<T,R>(&self, t: T, rng: R) -> (VRFPut,VRFProofBatchable)
-    where T: SigningTranscript, R: Rng+CryptoRng
-    {
+    pub fn vrf<T: SigningTranscript>(&self, t: T) -> (VRFPut,VRFProofBatchable) {
         let mut h = vrf_hash(t);
         let t0 = Transcript::new(b"VRF");  // We have context in t and another hear breaks batching 
-        let proof = self.proove_dleqs(t0, &mut [&mut h], rng);
+        let proof = self.proove_dleqs(t0, &mut [&mut h]);
         (h, proof)
     }
 
     /// Run VRF on several input transcripts, producing their outputs and a common short proof.
     #[cfg(any(feature = "alloc", feature = "std"))]
-    pub fn vrfs<T,I,R>(&self, ts: I, rng: R) -> (Box<[VRFPut]>,VRFProofBatchable)
+    pub fn vrfs<T,I>(&self, ts: I) -> (Box<[VRFPut]>,VRFProofBatchable)
     where T: SigningTranscript,
           I: IntoIterator<Item=T>,
-          R: Rng+CryptoRng,
     {
         let mut hs = ts.into_iter().map(|t| vrf_hash(t)).collect::<Vec<VRFPut>>();
         let t0 = Transcript::new(b"VRF");
-        let proof = self.proove_dleqs(t0, hs.as_mut_slice(), rng);
+        let proof = self.proove_dleqs(t0, hs.as_mut_slice());
         (hs.into_boxed_slice(), proof)
     }
 }
@@ -308,25 +304,25 @@ mod tests {
 
         let ctx = signing_context(b"yo!");
 		let msg = b"meow";
-		let (out1,proof1) = keypair1.vrf(ctx.bytes(msg), thread_rng());
+		let (out1,proof1) = keypair1.vrf(ctx.bytes(msg));
 		let proof1too = keypair1.public.vrf_verify(ctx.bytes(msg), &out1, & proof1.clone().shorten())
             .expect("Correct VRF verification failed!");
         assert!( proof1 == proof1too, "VRF verification yielded incorrect batchable proof" );
-		assert_eq!( keypair1.vrf(ctx.bytes(msg), thread_rng()).0, out1, "Rerunning VRF gave different output");
+		assert_eq!( keypair1.vrf(ctx.bytes(msg)).0, out1, "Rerunning VRF gave different output");
 		assert!( keypair1.public.vrf_verify(ctx.bytes(b"not meow"), &out1, & proof1.clone().shorten()).is_none(), 
             "VRF verification with incorrect message passed!");
 
         let keypair2 = Keypair::generate(&mut thread_rng());
 		assert!( keypair2.public.vrf_verify(ctx.bytes(msg), &out1, & proof1.clone().shorten()).is_none(), 
             "VRF verification with incorrect signer passed!");
-        let (out2,_proof2) = keypair2.vrf(ctx.bytes(msg), thread_rng());
+        let (out2,_proof2) = keypair2.vrf(ctx.bytes(msg));
 
         // Verified key exchange, aaka sequential two party VRF.
         let t0 = Transcript::new(b"VRF");
 		let mut out21 = out1.clone();
-        let proof21 = keypair2.proove_dleqs(t0.clone(), &mut [&mut out21], thread_rng());
+        let proof21 = keypair2.proove_dleqs(t0.clone(), &mut [&mut out21]);
 		let mut out12 = out2.clone();
-        let proof12 = keypair1.proove_dleqs(t0.clone(), &mut [&mut out12], thread_rng());
+        let proof12 = keypair1.proove_dleqs(t0.clone(), &mut [&mut out12]);
         assert!( out12 == out21, "Sequential two-party VRF failed" );
         assert!( keypair1.public.verify_dleqs(t0.clone(), &[&out2], &[&out12], & proof12.shorten()).is_some() );
         assert!( keypair2.public.verify_dleqs(t0.clone(), &[&out1], &[&out21], & proof21.shorten()).is_some() );
@@ -341,7 +337,7 @@ mod tests {
         let ts = || messages.iter().map(|m| ctx.bytes(*m));
 
         let outs_n_proofs = keypairs.iter().map(|k| {
-            k.vrfs(ts(), thread_rng())
+            k.vrfs(ts())
         }).collect::<Vec<(Box<[VRFPut]>,VRFProofBatchable)>>();
 
         for (k,(os,p)) in keypairs.iter().zip(&outs_n_proofs) {

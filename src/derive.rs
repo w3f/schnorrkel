@@ -10,44 +10,6 @@
 //! Implementation of "hierarchical deterministic" key derivation for
 //! Schnorr signatures compatable with the Ristretto representation of
 //! ed25519.
-//!
-//!
-//! # Example
-//!
-//! Signing and verifying with derived keys.
-//!
-//! We begin with the `Keypair` used as a secrety key throughout this library.
-//!
-//! ```
-//! extern crate rand;
-//! extern crate schnorrkel;
-//!
-//! # fn main() {
-//! use rand::{Rng, rngs::OsRng};
-//! use schnorrkel::{Keypair,Signature};
-//!
-//! let mut csprng: OsRng = OsRng::new().unwrap();
-//! let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # }
-//! ```
-//!
-//! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
-//! # fn main() {
-//! # use rand::{SeedableRng}; // Rng
-//! # use rand_chacha::ChaChaRng;
-//! # use schnorrkel::{Keypair,Signature,signing_context};
-//! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
-//! # let context = signing_context(b"this signature does this thing");
-//! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
-//! assert!(keypair.verify(context.bytes(message), &signature));
-//! # }
-//! ```
-
 
 // use curve25519_dalek::digest::generic_array::typenum::U64;
 // use curve25519_dalek::digest::Digest;
@@ -265,9 +227,9 @@ mod tests {
             h.input(b"Another");
 
             if i % 5 == 0 {
-                let good_sig = extended_keypair.key.sign(ctx.xof(h.clone()), &mut rng);
+                let good_sig = extended_keypair.key.sign(ctx.xof(h.clone()));
                 let h_bad = h.clone().chain(b"oops");
-                let bad_sig = extended_keypair.key.sign(ctx.xof(h_bad.clone()), &mut rng);
+                let bad_sig = extended_keypair.key.sign(ctx.xof(h_bad.clone()));
 
                 assert!(
                     extended_public_key.key.verify(ctx.xof(h.clone()), &good_sig),

@@ -87,8 +87,8 @@ impl Keypair {
     /// We return an `ECQVCertSecret` which the issuer sent to the
     /// certificate requester, ans from which the certificate requester
     /// derives their certified key pair.
-    pub fn issue_ecqv_cert<T,R>(&self, mut t: T, seed_public_key: &PublicKey, rng: R) -> ECQVCertSecret
-    where T: SigningTranscript, R: Rng+CryptoRng
+    pub fn issue_ecqv_cert<T>(&self, mut t: T, seed_public_key: &PublicKey) -> ECQVCertSecret
+    where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
         t.commit_point(b"Issuer-pk",self.public.as_compressed());
@@ -96,7 +96,7 @@ impl Keypair {
         // We cannot commit the `seed_public_key` to the transcript
         // because the whole point is to keep the transcript minimal.
         // Instead we consume it as witness datathat influences only k.
-        let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.as_compressed().as_bytes()),rng);
+        let k = t.witness_scalar(&self.secret.nonce,Some(seed_public_key.as_compressed().as_bytes()));
 
         // Compute the public key reconstruction data
         let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
@@ -133,14 +133,13 @@ impl PublicKey {
     /// We return both your certificate's new `SecretKey` as well as
     /// an `ECQVCertPublic` from which third parties may derive
     /// corresponding public key from `h` and the issuer's public key.
-    pub fn accept_ecqv_cert<T,R>(
+    pub fn accept_ecqv_cert<T>(
         &self,
         mut t: T,
         seed_secret_key: &SecretKey,
-        cert_secret: ECQVCertSecret,
-        rng: R
+        cert_secret: ECQVCertSecret
     ) -> Result<(ECQVCertPublic, SecretKey),SignatureError>
-    where T: SigningTranscript, R: Rng+CryptoRng
+    where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
         t.commit_point(b"Issuer-pk",self.as_compressed());
@@ -148,7 +147,7 @@ impl PublicKey {
         // Again we cannot commit much to the transcript, but we again 
         // treat anything relevant as a witness when defining the 
         let mut nonce = [0u8; 32];
-        t.witness_bytes(&mut nonce, &cert_secret.0[..],Some(&seed_secret_key.nonce),rng);
+        t.witness_bytes(&mut nonce, &cert_secret.0[..],Some(&seed_secret_key.nonce));
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
@@ -178,12 +177,12 @@ impl Keypair {
     /// Aside from the issuing secret key supplied as `self`, you provide
     /// only a digest `h` that incorporates any context and metadata
     /// pertaining to the issued key.  
-    pub fn issue_self_ecqv_cert<T,R>(&self, t: T, mut rng: R) -> (ECQVCertPublic, SecretKey)
-    where T: SigningTranscript+Clone, R: Rng+CryptoRng
+    pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
+    where T: SigningTranscript+Clone
     {
-        let seed = Keypair::generate(&mut rng);
-        let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public, &mut rng);
-        self.public.accept_ecqv_cert(t, &seed.secret, cert_secret, &mut rng).unwrap()
+        let seed = Keypair::generate(thread_rng());
+        let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
+        self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).unwrap()
     }
 }
 
@@ -214,7 +213,7 @@ mod tests {
     fn ecqv_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
         let issuer = Keypair::generate(thread_rng());
-        let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone(),thread_rng());
+        let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
         let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
         assert_eq!(secret_key.to_public(), public_key);
     }   

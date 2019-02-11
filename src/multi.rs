@@ -25,8 +25,6 @@
 use core::borrow::{Borrow};  // BorrowMut
 use std::collections::BTreeMap;
 
-use rand::prelude::*;  // {RngCore,thread_rng};
-
 use merlin::Transcript;
 
 use curve25519_dalek::constants;
@@ -309,12 +307,11 @@ impl<T: SigningTranscript, S: TranscriptStages> MultiSig<T,S> {
 impl Keypair {
     /// Initialize a cosignature aka multi-signature protocol run.
     #[allow(non_snake_case)]
-    pub fn cosignature<'k,T,R>(&'k self, mut t: T, rng: R) -> MultiSig<T,CommitStage<'k>>
-    where T: SigningTranscript, R: Rng+CryptoRng
+    pub fn cosignature<'k,T: SigningTranscript>(&'k self, mut t: T) -> MultiSig<T,CommitStage<'k>>
     {
         t.proto_name(b"Schnorr-sig");
 
-        let r_me = t.witness_scalar(&self.secret.nonce,None, rng);
+        let r_me = t.witness_scalar(&self.secret.nonce,None);
           // context, message, nonce, but not &self.public.compressed
         let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
 
@@ -606,7 +603,7 @@ mod tests {
         let keypairs: Vec<Keypair> = (0..16).map(|_| Keypair::generate(&mut csprng)).collect();
 
         let t = signing_context(b"multi-sig").bytes(b"We are legion!");
-        let mut commits: Vec<_> = keypairs.iter().map( |k| k.cosignature(t.clone(), &mut csprng) ).collect();
+        let mut commits: Vec<_> = keypairs.iter().map( |k| k.cosignature(t.clone()) ).collect();
         for i in 0..commits.len() {
         let r = commits[i].our_commitment();
             for j in commits.iter_mut() {

@@ -51,7 +51,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! let context = signing_context(b"this signature does this thing");
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! let signature: Signature = keypair.sign(context.bytes(message));
 //! # }
 //! ```
 //!
@@ -70,7 +70,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! assert!(keypair.verify(context.bytes(message), &signature));
 //! # }
 //! ```
@@ -91,7 +91,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! let public_key: PublicKey = keypair.public;
 //! assert!(public_key.verify(context.bytes(message), &signature));
 //! # }
@@ -118,7 +118,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
 //!
 //! let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = public_key.to_bytes();
@@ -143,7 +143,7 @@
 //! # let keypair_orig: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature_orig: Signature = keypair_orig.sign(context.bytes(message), &mut csprng);
+//! # let signature_orig: Signature = keypair_orig.sign(context.bytes(message));
 //! # let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = keypair_orig.public.to_bytes();
 //! # let secret_key_bytes: [u8; SECRET_KEY_LENGTH] = keypair_orig.secret.to_bytes();
 //! # let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair_orig.to_bytes();
@@ -193,7 +193,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
 //! # let verified: bool = public_key.verify(context.bytes(message), &signature);
 //!
@@ -230,7 +230,7 @@
 //! # let keypair: Keypair = Keypair::generate(&mut csprng);
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let context = signing_context(b"this signature does this thing");
-//! # let signature: Signature = keypair.sign(context.bytes(message), &mut csprng);
+//! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
 //! # let verified: bool = public_key.verify(context.bytes(message), &signature);
 //! # let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
