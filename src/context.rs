@@ -10,8 +10,10 @@
 //! Schnorr signature contexts and configuration, adaptable
 //! to most Schnorr signature schemes.
 
+use std::cell::RefCell;
 
 use rand::prelude::*;  // {RngCore,thread_rng};
+use rand_chacha::ChaChaRng;
 
 use merlin::{Transcript};
 
@@ -148,6 +150,58 @@ impl SigningTranscript for Transcript {
         let mut r = br.finalize(&mut thread_rng());
         r.fill_bytes(dest)
     }
+}
+
+
+/// Schnorr signing transcript with `ThreadRng` replaced by an arbitrary `CryptoRng`.
+pub struct TranscriptWithRng<R: Rng+CryptoRng>
+{
+	t: Transcript,
+	rng: RefCell<R>,
+}
+
+impl<R: Rng+CryptoRng> SigningTranscript for TranscriptWithRng<R> {
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
+        Transcript::commit_bytes(&mut self.t, label, bytes)
+    }
+
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
+        Transcript::challenge_bytes(&mut self.t, label, dest)
+    }
+
+    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
+    {
+        let mut br = self.t.build_rng()
+            .commit_witness_bytes(b"", nonce_seed);
+        if let Some(w) = extra_nonce_seed {
+            br = br.commit_witness_bytes(b"", w);
+        }
+        let mut r = br.finalize(&mut *self.rng.borrow_mut());
+        Scalar::random(&mut r)
+    }
+
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
+    {
+        let mut br = self.t.build_rng()
+            .commit_witness_bytes(b"", nonce_seed);
+        if let Some(w) = extra_nonce_seed {
+            br = br.commit_witness_bytes(b"", w);
+        }
+        let mut r = br.finalize(&mut *self.rng.borrow_mut());
+        r.fill_bytes(dest)
+    }
+}
+
+/// Attach a `CryptoRng` to a `Transcript` to repalce the default `ThreadRng` 
+pub fn attach_rng<R: Rng+CryptoRng>(t: Transcript, rng: R) -> TranscriptWithRng<R> {
+    TranscriptWithRng {
+        t, rng: RefCell::new(rng)
+    }
+}
+
+/// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng` 
+pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> TranscriptWithRng<ChaChaRng> {
+    attach_rng(t,ChaChaRng::from_seed(seed))
 }
 
 
