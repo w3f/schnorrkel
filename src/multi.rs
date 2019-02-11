@@ -311,7 +311,7 @@ impl Keypair {
     {
         t.proto_name(b"Schnorr-sig");
 
-        let r_me = t.witness_scalar(&self.secret.nonce,None);
+        let r_me = t.witness_scalar(&[&self.secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
         let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
 

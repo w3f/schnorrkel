@@ -172,7 +172,7 @@ impl Keypair {
         t.commit_point(b"pk",self.public.as_compressed());
 
         // We compute R after adding pk and all h.
-        let r = t.witness_scalar(&self.secret.nonce,None);
+        let r = t.witness_scalar(&[&self.secret.nonce]);
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"R=g^r",&R);
 

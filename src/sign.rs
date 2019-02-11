@@ -141,7 +141,7 @@ impl SecretKey {
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"A",public_key.as_compressed());
 
-        r = t.witness_scalar(&self.nonce,None);  // context, message, A/public_key
+        r = t.witness_scalar(&[&self.nonce]);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"R",&R);
