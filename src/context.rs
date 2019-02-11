@@ -17,7 +17,7 @@ use rand_chacha::ChaChaRng;
 
 use merlin::{Transcript};
 
-use curve25519_dalek::digest::{FixedOutput,ExtendableOutput,XofReader};
+use curve25519_dalek::digest::{Input,FixedOutput,ExtendableOutput,XofReader};
 use curve25519_dalek::digest::generic_array::typenum::{U32,U64};
 
 use curve25519_dalek::ristretto::{CompressedRistretto}; // RistrettoPoint
@@ -269,6 +269,73 @@ impl SigningContext {
         t
     }
 }
+
+
+/// Very simple transcript construction from arbitrary hash fucntion.
+///
+/// We recommend using `merlin::Transcripts` instead but this transcript
+/// style may improve compartability, address endianness concerns, etc.
+pub struct SimpleTranscript<H>(pub H)
+where H: Input + ExtendableOutput + Clone;
+
+fn input_bytes<H: Input>(h: &mut H, bytes: &[u8]) {
+    let l = bytes.len() as u64;
+    h.input(l.to_le_bytes());
+    h.input(bytes);
+}
+
+impl<H> SigningTranscript for SimpleTranscript<H>
+where H: Input + ExtendableOutput + Clone
+{
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
+        self.0.input(b"co");
+        input_bytes(&mut self.0, label);
+        input_bytes(&mut self.0, bytes);
+    }
+
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
+        self.0.input(b"ch");
+        input_bytes(&mut self.0, label);
+        let l = dest.len() as u64;
+        self.0.input(l.to_le_bytes());
+        self.0.clone().chain(b"xof").xof_result().read(dest);
+    }
+
+    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
+    {
+        let mut h = self.0.clone().chain(b"ws");
+        input_bytes(&mut h, nonce_seed);
+        if let Some(w) = extra_nonce_seed {
+            input_bytes(&mut h, w);
+        }
+        let mut s = [0u8; 64];
+        h.xof_result().read(&mut s);      
+        Scalar::from_bytes_mod_order_wide(&s)
+    }
+
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
+    {
+        let mut h = self.0.clone().chain(b"wb");
+        input_bytes(&mut h, nonce_seed);
+        if let Some(w) = extra_nonce_seed {
+            input_bytes(&mut h, w);
+        }
+        let l = dest.len() as u64;
+        h.input(l.to_le_bytes());
+        h.xof_result().read(dest);      
+    }
+}
+
+/*
+impl<H> SimpleTranscript<H>
+where H: Input + ExtendableOutput + Clone
+{
+    fn new(context: &'static [u8]) -> SimpleTranscript<H> {
+        SimpleTranscript(h)
+    }
+}
+*/
+
 
 
 /*
