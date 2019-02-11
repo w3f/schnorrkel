@@ -131,7 +131,8 @@ impl SecretKey {
     /// should be no attacks even if both the random number generator
     /// fails and the function gets called with the wrong public key.
     #[allow(non_snake_case)]
-    pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
+    pub fn sign<T,R>(&self, mut t: T, public_key: &PublicKey, rng: R) -> Signature 
+    where T: SigningTranscript, R: Rng+CryptoRng
     {
         let R: CompressedRistretto;
         let r: Scalar;
@@ -141,7 +142,7 @@ impl SecretKey {
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"A",public_key.as_compressed());
 
-        r = t.witness_scalar(&self.nonce,None);  // context, message, A/public_key
+        r = t.witness_scalar(&self.nonce,None,rng);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"R",&R);
@@ -156,7 +157,7 @@ impl SecretKey {
     pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8], public_key: &PublicKey) -> Signature
     {
         let t = SigningContext::new(ctx).bytes(msg);
-        self.sign(t,public_key)
+        self.sign(t,public_key,thread_rng())
     }
 }
 
@@ -228,7 +229,7 @@ impl PublicKey {
 /// let mut csprng: ThreadRng = thread_rng();
 /// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate(&mut csprng)).collect();
 /// let msg: &[u8] = b"They're good dogs Brant";
-/// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg))).collect();
+/// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg),&mut csprng)).collect();
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 ///
 /// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
@@ -380,7 +381,7 @@ impl Keypair {
     /// #
     /// let ctx = signing_context(b"My Signing Context");
     ///
-    /// let sig: Signature = keypair.sign(ctx.xof(prehashed));
+    /// let sig: Signature = keypair.sign(ctx.xof(prehashed), &mut csprng);
     /// # }
     /// #
     /// # #[cfg(any(not(feature = "std")))]
@@ -388,9 +389,10 @@ impl Keypair {
     /// ```
     ///
     // lol  [terrible_idea]: https://github.com/isislovecruft/scripts/blob/master/gpgkey2bc.py
-    pub fn sign<T: SigningTranscript>(&self, t: T) -> Signature
+    pub fn sign<T,R>(&self, t: T, rng: R) -> Signature
+    where T: SigningTranscript, R: Rng+CryptoRng
     {
-        self.secret.sign(t, &self.public)
+        self.secret.sign(t, &self.public, rng)
     }
 
     /// Sign a message with this keypair's secret key.
@@ -421,7 +423,7 @@ impl Keypair {
     ///
     /// let ctx = signing_context(b"Some context string");
     ///
-    /// let sig: Signature = keypair.sign(ctx.bytes(message));
+    /// let sig: Signature = keypair.sign(ctx.bytes(message), &mut csprng);
     ///
     /// assert!( keypair.public.verify(ctx.bytes(message), &sig) );
     /// # }
@@ -464,8 +466,8 @@ mod test {
 
         csprng  = ChaChaRng::from_seed([0u8; 32]);
         keypair  = Keypair::generate(&mut csprng);
-        good_sig = keypair.sign(ctx.bytes(&good));
-        bad_sig  = keypair.sign(ctx.bytes(&bad));
+        good_sig = keypair.sign(ctx.bytes(&good), &mut csprng);
+        bad_sig  = keypair.sign(ctx.bytes(&bad), &mut csprng);
 
         assert!(keypair.verify(ctx.bytes(&good), &good_sig),
                 "Verification of a valid signature failed!");
@@ -495,8 +497,8 @@ mod test {
 
         csprng   = ChaChaRng::from_seed([0u8; 32]);
         keypair  = Keypair::generate(&mut csprng);
-        good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
-        bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
+        good_sig = keypair.sign(ctx.xof(prehashed_good.clone()), &mut csprng);
+        bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()), &mut csprng);
 
         assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig),
                 "Verification of a valid signature failed!");
@@ -526,7 +528,7 @@ mod test {
 
         for i in 0..messages.len() {
             let keypair: Keypair = Keypair::generate(&mut csprng);
-            signatures.push(keypair.sign(ctx.bytes(messages[i])));
+            signatures.push(keypair.sign(ctx.bytes(messages[i]), &mut csprng));
             keypairs.push(keypair);
         }
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();

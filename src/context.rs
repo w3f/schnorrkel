@@ -78,11 +78,11 @@ pub trait SigningTranscript {
 
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
     /// transcript and any "nonce seeds" kept with the secret keys.
-    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar;
+    fn witness_scalar<R: Rng+CryptoRng>(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, rng: R) -> Scalar;
 
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>);
+    fn witness_bytes<R: Rng+CryptoRng>(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, rng: R);
 }
 
 /// We delegates any mutable reference to its base type, like `&mut Rng`
@@ -107,11 +107,11 @@ where T: SigningTranscript + ?Sized
     fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar
         {  (**self).challenge_scalar(label)  }
     #[inline(always)]
-    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
-        {  (**self).witness_scalar(nonce_seed,extra_nonce_seed)  }
+    fn witness_scalar<R: Rng+CryptoRng>(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, rng: R) -> Scalar
+        {  (**self).witness_scalar(nonce_seed,extra_nonce_seed,rng)  }
     #[inline(always)]
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
-        {  (**self).witness_bytes(dest,nonce_seed,extra_nonce_seed)  }
+    fn witness_bytes<R: Rng+CryptoRng>(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, rng: R)
+        {  (**self).witness_bytes(dest,nonce_seed,extra_nonce_seed,rng)  }
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
@@ -127,25 +127,25 @@ impl SigningTranscript for Transcript {
         Transcript::challenge_bytes(self, label, dest)
     }
 
-    fn witness_scalar(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>) -> Scalar
+    fn witness_scalar<R: Rng+CryptoRng>(&self, nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, mut rng: R) -> Scalar
     {
         let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
         if let Some(w) = extra_nonce_seed {
             br = br.commit_witness_bytes(b"", w);
         }
-        let mut r = br.finalize(&mut thread_rng());
+        let mut r = br.finalize(&mut rng);
         Scalar::random(&mut r)
     }
 
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>)
+    fn witness_bytes<R: Rng+CryptoRng>(&self, dest: &mut [u8], nonce_seed: &[u8], extra_nonce_seed: Option<&[u8]>, mut rng: R)
     {
         let mut br = self.build_rng()
             .commit_witness_bytes(b"", nonce_seed);
         if let Some(w) = extra_nonce_seed {
             br = br.commit_witness_bytes(b"", w);
         }
-        let mut r = br.finalize(&mut thread_rng());
+        let mut r = br.finalize(&mut rng);
         r.fill_bytes(dest)
     }
 }
