@@ -210,10 +210,11 @@ impl SigningContext {
 }
 
 
-/// Very simple transcript construction from arbitrary hash fucntion.
+/// Very simple transcript construction from an arbitrary hash fucntion.
 ///
-/// We recommend using `merlin::Transcripts` instead but this transcript
-/// style may improve compatibility, address endianness concerns, etc.
+/// We provide this transcript type for expository purposes, but
+/// recommend using `merlin::Transcripts` instead.
+supports WASM which simplifies our testing. 
 pub struct SimpleTranscript<H>(pub H)
 where H: Input + ExtendableOutput + Clone;
 
