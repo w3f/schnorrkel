@@ -18,6 +18,7 @@
 //! "On the Provable Security of Two-Round Multi-Signatures" by 
 //! Manu Drijvers, Kasra Edalatnejad, Bryan Ford, and Gregory Neven
 //! https://eprint.iacr.org/2018/417
+//! ([slides](https://rwc.iacr.org/2019/slides/neven.pdf))
 //! so we implement only the
 //! [3-round version](https://eprint.iacr.org/2018/068/20180520:191909)
 //https://github.com/lovesh/signature-schemes/issues/2
@@ -257,10 +258,12 @@ pub struct MultiSig<T: SigningTranscript,S> {
 }
 
 impl<T: SigningTranscript,S> MultiSig<T,S> {
-    /// Iterates over public keys that revealed their `R` values
-    pub fn public_keys(&self) -> impl Iterator<Item=&PublicKey> {
+    /// Iterates over public keys.
+    ///
+    /// If `require_reveal=true` then we count only public key that revealed their `R` values.
+    pub fn public_keys(&self, require_reveal: bool) -> impl Iterator<Item=&PublicKey> {
         self.Rs.iter().filter_map( |(pk,cor)| match cor {
-            CoR::Commit(_) => None,
+            CoR::Commit(_) => if require_reveal { None } else { Some(pk) },
             CoR::Reveal { .. } => Some(pk),
             CoR::Cosigned { .. } => Some(pk),
             CoR::Collect { .. } => Some(pk),
@@ -268,14 +271,15 @@ impl<T: SigningTranscript,S> MultiSig<T,S> {
     }
 
     /// Aggregate public key given currently revealed `R` values
-    fn public_key(&self) -> PublicKey {
-        let t0 = commit_public_keys(self.public_keys());
-        let point = self.public_keys().map( |pk|
+    ///
+    /// If `require_reveal=true` then we count only public key that revealed their `R` values.
+    fn public_key(&self, require_reveal: bool) -> PublicKey {
+        let t0 = commit_public_keys(self.public_keys(require_reveal));
+        let point = self.public_keys(require_reveal).map( |pk|
             compute_weighting(t0.clone(), pk) * pk.as_point()
         ).sum();
         PublicKey::from_point(point)
     }
-
     /// Sums revealed `R` values.
     #[allow(non_snake_case)]
     fn compute_R(&self) -> CompressedRistretto {
