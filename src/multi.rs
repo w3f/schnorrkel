@@ -262,7 +262,7 @@ impl<T: SigningTranscript,S> MultiSig<T,S> {
     ///
     /// If `require_reveal=true` then we count only public key that revealed their `R` values.
     pub fn public_keys(&self, require_reveal: bool) -> impl Iterator<Item=&PublicKey> {
-        self.Rs.iter().filter_map( |(pk,cor)| match cor {
+        self.Rs.iter().filter_map( move |(pk,cor)| match cor {
             CoR::Commit(_) => if require_reveal { None } else { Some(pk) },
             CoR::Reveal { .. } => Some(pk),
             CoR::Cosigned { .. } => Some(pk),
@@ -270,16 +270,25 @@ impl<T: SigningTranscript,S> MultiSig<T,S> {
         } )
     }
 
-    /// Aggregate public key given currently revealed `R` values
+    /// Aggregate public key
     ///
     /// If `require_reveal=true` then we count only public key that revealed their `R` values.
-    fn public_key(&self, require_reveal: bool) -> PublicKey {
+    fn compute_public_key(&self, require_reveal: bool) -> PublicKey {
         let t0 = commit_public_keys(self.public_keys(require_reveal));
         let point = self.public_keys(require_reveal).map( |pk|
             compute_weighting(t0.clone(), pk) * pk.as_point()
         ).sum();
         PublicKey::from_point(point)
     }
+
+    /// Aggregate public key given currently revealed `R` values
+    pub fn public_key(&self) -> PublicKey
+        {  self.compute_public_key(true)  }
+
+	/// Aggregate public key expected if all currently committed nodes fully participate 
+    pub fn expected_public_key(&self) -> PublicKey
+        {  self.compute_public_key(false)  }
+
     /// Sums revealed `R` values.
     #[allow(non_snake_case)]
     fn compute_R(&self) -> CompressedRistretto {
@@ -450,7 +459,7 @@ impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
         let R = self.compute_R();
         self.t.commit_point(b"R",&R);
 
-        let t0 = commit_public_keys(self.public_keys());
+        let t0 = commit_public_keys(self.public_keys(true));
         let a_me = compute_weighting(t0, &self.stage.keypair.public);
         let c = self.t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.secret.key) + &self.stage.r_me;
