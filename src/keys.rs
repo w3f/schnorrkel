@@ -520,6 +520,14 @@ impl SecretKey {
         // No clamping in a Schnorr group
         PublicKey::from_point(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
     }
+
+    /// Derive the `PublicKey` corresponding to this `SecretKey`.
+    pub fn to_keypair(&self) -> Keypair {
+        Keypair {
+            secret: self.clone(),
+            public: self.to_public(),
+        }
+    }
 }
 
 serde_boilerplate!(SecretKey);
