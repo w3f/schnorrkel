@@ -636,7 +636,7 @@ mod tests {
         }
         let pk = reveals[0].public_key();
 
-        let mut cosign_msgs: Vec<Cosignature> = Vec::with_capacity(commits.len());
+        let mut cosign_msgs: Vec<Cosignature> = Vec::with_capacity(reveals.len());
         let mut cosigns: Vec<_> = reveals.drain(..).map( |c| { assert_eq!(pk, c.public_key()); c.cosign_stage() } ).collect();
         for i in 0..cosigns.len() {
             assert_eq!(pk, cosigns[i].public_key());
