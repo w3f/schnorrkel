@@ -26,13 +26,12 @@ use serde::de::Error as SerdeError;
 #[cfg(feature = "serde")]
 use serde::de::Visitor;
 
-#[cfg(feature = "sha2")]
 use sha2::Sha512;
 
 use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
-use curve25519_dalek::digest::generic_array::typenum::U64;
+// use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
@@ -111,25 +110,18 @@ impl MiniSecretKey {
     /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
-    /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    /// let secret_key: SecretKey = mini_secret_key.expand::<Sha512>();
+    /// let secret_key: SecretKey = mini_secret_key.expand();
     /// # }
-    /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
-    /// # fn main() { }
     /// ```
-    pub fn expand<D>(&self) -> SecretKey
-    where D: Input + FixedOutput<OutputSize = U64> + Default + Clone
-    {
-        let mut h: D = D::default();
+    pub fn expand(&self) -> SecretKey {
+        let mut h: Sha512 = Sha512::default();
         h.input(self.as_bytes());
         let r = h.fixed_result();
 
@@ -152,17 +144,13 @@ impl MiniSecretKey {
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_keypair<D>(&self) -> Keypair
-    where D: Input + FixedOutput<OutputSize = U64> + Default + Clone
-    {
-        self.expand::<D>().into()
+    pub fn expand_to_keypair(&self) -> Keypair {
+        self.expand().into()
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_public<D>(&self) -> PublicKey
-    where D: Input + FixedOutput<OutputSize = U64> + Default + Clone
-    {
-        self.expand::<D>().to_public()
+    pub fn expand_to_public(&self) -> PublicKey {
+        self.expand().to_public()
     }
 
     /// Convert this secret key to a byte array.
@@ -273,7 +261,7 @@ impl MiniSecretKey {
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     ///
-    /// let public_key: PublicKey = secret_key.expand_to_public::<Sha512>();
+    /// let public_key: PublicKey = secret_key.expand_to_public();
     /// # }
     /// ```
     ///
@@ -346,7 +334,6 @@ impl ConstantTimeEq for SecretKey {
     }
 }
 
-#[cfg(feature = "sha2")]
 impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
@@ -357,9 +344,7 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
-    /// # #[cfg(all(feature = "std", feature = "sha2"))]
     /// # fn main() {
-    /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -368,12 +353,9 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// # }
-    /// #
-    /// # #[cfg(any(not(feature = "std"), not(feature = "sha2")))]
-    /// # fn main() {}
     /// ```
     fn from(msk: &'a MiniSecretKey) -> SecretKey {
-        msk.expand::<Sha512>()
+        msk.expand()
     }
 }
 
@@ -396,9 +378,7 @@ impl SecretKey {
     /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
-    /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn main() {
-    /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -410,9 +390,6 @@ impl SecretKey {
     ///
     /// assert!(&secret_key_bytes[..] != &[0u8; 64][..]);
     /// # }
-    /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
-    /// # fn main() { }
     /// ```
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
@@ -446,30 +423,22 @@ impl SecretKey {
     /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
-    /// # #[cfg(all(feature = "sha2", feature = "std"))]
-    /// # fn do_test() -> Result<SecretKey, SignatureError> {
-    /// #
+    /// use schnorrkel::{MiniSecretKey, SecretKey, SignatureError};
     /// use rand::{Rng, rngs::OsRng};
-    /// use schnorrkel::{MiniSecretKey, SecretKey};
-    /// use schnorrkel::SignatureError;
-    ///
+    /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
-    /// let secret_key_again = SecretKey::from_bytes(&bytes)?;
+    /// let secret_key_again = SecretKey::from_bytes(&bytes) ?;
     /// #
     /// # Ok(secret_key_again)
     /// # }
     /// #
-    /// # #[cfg(all(feature = "sha2", feature = "std"))]
     /// # fn main() {
     /// #     let result = do_test();
     /// #     assert!(result.is_ok());
     /// # }
-    /// #
-    /// # #[cfg(any(not(feature = "sha2"), not(feature = "std")))]
-    /// # fn main() { }
     /// ```
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
@@ -837,8 +806,8 @@ mod test {
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mut csprng = thread_rng();
         let mini_secret: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-        let secret: SecretKey = mini_secret.expand::<Sha512>();
-        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public::<Sha512>();
+        let secret: SecretKey = mini_secret.expand();
+        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public();
         let public_from_secret: PublicKey = secret.to_public();
 
         assert!(public_from_mini_secret == public_from_secret);

@@ -140,7 +140,7 @@ mod test {
     #[test]
     fn serialize_secret_key_size() {
         assert_eq!(serialized_size(&ED25519_SECRET_KEY) as usize, 32+8);
-        let secret_key = ED25519_SECRET_KEY.expand::<::sha2::Sha512>();
+        let secret_key = ED25519_SECRET_KEY.expand();
         assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
     }
 }

@@ -49,7 +49,6 @@ version = "^0.8"
 
 [dependencies.sha2]
 version = "^0.8"
-optional = true
 
 [dependencies.failure]
 version = "^0.1.1"

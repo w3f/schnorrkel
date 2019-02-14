@@ -210,7 +210,6 @@
 //! ```
 //! # extern crate rand;
 //! # extern crate rand_chacha;
-//! # extern crate sha2;
 //! # extern crate schnorrkel;
 //! # #[cfg(feature = "serde")]
 //! # extern crate serde;
@@ -221,7 +220,6 @@
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
-//! # use sha2::Sha512;
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
 //! # use bincode::{serialize, Infinite};
 //! use bincode::{deserialize};
@@ -276,7 +274,6 @@ extern crate ed25519_dalek;
 #[macro_use]
 extern crate std;
 
-#[cfg(any(test, feature = "sha2"))]
 extern crate sha2;
 
 // #[cfg(test)]
