@@ -81,13 +81,20 @@ pub trait SigningTranscript {
     /// transcript and any "nonce seeds" kept with the secret keys.
     fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar {
         let mut scalar_bytes = [0u8; 64];
-        self.witness_bytes(&mut scalar_bytes,nonce_seeds);
+        self.witness_bytes(&mut scalar_bytes, nonce_seeds);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)        
     }
 
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]]);
+    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]]) {
+    	self.witness_bytes_rng(dest, nonce_seeds, thread_rng())
+    }
+
+    /// Produce secret witness bytes from the protocol transcript
+    /// and any "nonce seeds" kept with the secret keys.
+    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
+    where R: Rng+CryptoRng;
 }
 
 /// We delegates any mutable reference to its base type, like `&mut Rng`
@@ -117,6 +124,10 @@ where T: SigningTranscript + ?Sized
     #[inline(always)]
     fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
         {  (**self).witness_bytes(dest,nonce_seeds)  }
+    #[inline(always)]
+    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
+    where R: Rng+CryptoRng
+        {  (**self).witness_bytes_rng(dest,nonce_seeds,rng)  }
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
@@ -132,13 +143,14 @@ impl SigningTranscript for Transcript {
         Transcript::challenge_bytes(self, label, dest)
     }
 
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
+    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
+    where R: Rng+CryptoRng
     {
         let mut br = self.build_rng();
         for ns in nonce_seeds {
             br = br.commit_witness_bytes(b"", ns);
         }
-        let mut r = br.finalize(&mut thread_rng());
+        let mut r = br.finalize(&mut rng);
         r.fill_bytes(dest)
     }
 }
@@ -241,7 +253,8 @@ where H: Input + ExtendableOutput + Clone
         self.0.clone().chain(b"xof").xof_result().read(dest);
     }
 
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
+    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
+    where R: Rng+CryptoRng
     {
         let mut h = self.0.clone().chain(b"wb");
         for ns in nonce_seeds {
@@ -251,7 +264,7 @@ where H: Input + ExtendableOutput + Clone
         h.input(l.to_le_bytes());
 
         let mut r = [0u8; 32];
-        thread_rng().fill_bytes(&mut r);
+        rng.fill_bytes(&mut r);
         h.input(&r);
         h.xof_result().read(dest);      
     }
@@ -268,48 +281,57 @@ where H: Input + ExtendableOutput + Clone
 */
 
 
-/// Schnorr signing transcript with `ThreadRng` replaced by an arbitrary `CryptoRng`.
+/// Schnorr signing transcript with the default `ThreadRng` replaced
+/// by an arbitrary `CryptoRng`.
 ///
-/// We hide this for release builds because using some deterministic
-/// `Rng` likely breaks multi-signatures.
-#[cfg(debug_assertions)]
-pub struct TranscriptWithRng<R: Rng+CryptoRng>
+/// If `ThreadRng` breaks on your platform, or merely if your paranoid,
+/// then you might "upgrade" from `ThreadRng` to `OsRng` by using calls 
+/// like `keypair.sign( attach_rng(t,OSRng::new()) )`.
+/// We recommend instead simply fixing `ThreadRng` for your platform
+/// however.
+///
+/// There are also derandomization tricks like
+/// `attach_rng(t,ChaChaRng::from_seed([0u8; 32]))`
+/// for deterministic signing in tests too.  Although derandomization
+/// produces secure signatures, we recommend against doing this in
+/// production because we implement protocols like multi-signatures
+/// which likely become vulnerabile when derandomized. 
+pub struct SigningTranscriptWithRng<T,R>
+where T: SigningTranscript, R: Rng+CryptoRng
 {
-	t: Transcript,
+	t: T,
 	rng: RefCell<R>,
 }
 
-#[cfg(debug_assertions)]
-impl<R: Rng+CryptoRng> SigningTranscript for TranscriptWithRng<R> {
-    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        Transcript::commit_bytes(&mut self.t, label, bytes)
-    }
+impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>
+where T: SigningTranscript, R: Rng+CryptoRng
+{
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
+        {  self.t.commit_bytes(label, bytes)  }
 
-    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        Transcript::challenge_bytes(&mut self.t, label, dest)
-    }
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8])
+        {  self.t.challenge_bytes(label, dest)  }
 
     fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
-    {
-        let mut br = self.t.build_rng();
-        for ns in nonce_seeds {
-            br = br.commit_witness_bytes(b"", ns);
-        }
-        let mut r = br.finalize(&mut *self.rng.borrow_mut());
-        r.fill_bytes(dest)
-    }
+       {  self.witness_bytes_rng(dest, nonce_seeds, &mut *self.rng.borrow_mut())  }
+
+    fn witness_bytes_rng<RR>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: RR)
+    where RR: Rng+CryptoRng
+       {  self.t.witness_bytes_rng(dest,nonce_seeds,rng)  }
+
 }
 
-/// Attach a `CryptoRng` to a `Transcript` to repalce the default `ThreadRng`
+/// Attach a `CryptoRng` to a `SigningTranscript` to repalce the default `ThreadRng`
 ///
 /// There are tricks like `attach_rng(t,ChaChaRng::from_seed([0u8; 32]))`
 /// for deterministic tests.  We warn against doing this in production
 /// however because, although such derandomization produces secure Schnorr
 /// signatures, we do implement protocols here like multi-signatures which
 /// likely become vulnerabile when derandomized. 
-#[cfg(debug_assertions)]
-pub fn attach_rng<R: Rng+CryptoRng>(t: Transcript, rng: R) -> TranscriptWithRng<R> {
-    TranscriptWithRng {
+pub fn attach_rng<T,R>(t: T, rng: R) -> SigningTranscriptWithRng<T,R>
+where T: SigningTranscript, R: Rng+CryptoRng
+{
+    SigningTranscriptWithRng {
         t, rng: RefCell::new(rng)
     }
 }
@@ -319,7 +341,8 @@ pub fn attach_rng<R: Rng+CryptoRng>(t: Transcript, rng: R) -> TranscriptWithRng<
 use rand_chacha::ChaChaRng;
 
 /// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng` 
-pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> TranscriptWithRng<ChaChaRng> {
+#[cfg(debug_assertions)]
+pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> SigningTranscriptWithRng<ChaChaRng> {
     attach_rng(t,ChaChaRng::from_seed(seed))
 }
 */
