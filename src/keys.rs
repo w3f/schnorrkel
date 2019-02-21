@@ -732,7 +732,6 @@ mod test {
     // use std::vec::Vec;
     // use hex::FromHex;
     use rand::prelude::*; // ThreadRng,thread_rng
-    use sha2::Sha512;
     use super::*;
 
     /*

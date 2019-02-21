@@ -249,7 +249,7 @@ impl CoR {
 }
 
 
-/// 
+/// Multi-signature container generic over its session types
 #[allow(non_snake_case)]
 pub struct MultiSig<T: SigningTranscript,S> {
     t: T,
@@ -320,10 +320,8 @@ impl<T: SigningTranscript, S: TranscriptStages> MultiSig<T,S> {
 impl Keypair {
     /// Initialize a cosignature aka multi-signature protocol run.
     #[allow(non_snake_case)]
-    pub fn cosignature<'k,T: SigningTranscript>(&'k self, mut t: T) -> MultiSig<T,CommitStage<'k>>
+    pub fn cosignature<'k,T: SigningTranscript>(&'k self, t: T) -> MultiSig<T,CommitStage<'k>>
     {
-        t.proto_name(b"Schnorr-sig");
-
         let r_me = t.witness_scalar(&[&self.secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
         let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
@@ -453,6 +451,8 @@ impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
     /// Reveal to cosign phase transition.
     #[allow(non_snake_case)]
     pub fn cosign_stage(mut self) -> MultiSig<T,CosignStage> {
+        self.t.proto_name(b"Schnorr-sig");
+
         let pk = self.public_key().as_compressed().clone();
         self.t.commit_point(b"A",&pk);
 
