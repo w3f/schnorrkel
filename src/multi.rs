@@ -302,25 +302,24 @@ impl<T: SigningTranscript,S> MultiSig<T,S> {
     }
 }
 
-/// initial cosigning stages during which transcript modification
-/// causes minimal damage.
+/// Initial cosigning stages during which transcript modification
+/// remains possible but not advisable.
 pub trait TranscriptStages {}
 impl<'k> TranscriptStages for CommitStage<'k> {}
 impl<'k> TranscriptStages for RevealStage<'k> {}
 impl<T: SigningTranscript, S: TranscriptStages> MultiSig<T,S> {
     /// We permit extending the transcript whenever you like, so
-    /// that say the message may be agreed to after the commitments
-    /// We strongly advise against doing so however, as this requires
-    /// absolute faith in `rand::thread_rng()`.  We do not facilitate
-    /// such wreckless behavior by not explaining how these calls
-    /// can also break the commitment process.
+    /// that say the message may be agreed upon in parallel to the
+	/// commitments.  We advise against doing so however, as this
+    /// requires absolute faith in your random number generator,
+	/// usually `rand::thread_rng()`. 
     pub fn transcript(&mut self) -> &mut T { &mut self.t }
 }
 
 impl Keypair {
-    /// Initialize a cosignature aka multi-signature protocol run.
+    /// Initialize a multi-signature aka cosignature protocol run.
     #[allow(non_snake_case)]
-    pub fn cosignature<'k,T: SigningTranscript>(&'k self, t: T) -> MultiSig<T,CommitStage<'k>>
+    pub fn musig<'k,T: SigningTranscript>(&'k self, t: T) -> MultiSig<T,CommitStage<'k>>
     {
         let r_me = t.witness_scalar(&[&self.secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
@@ -616,7 +615,7 @@ mod tests {
         let keypairs: Vec<Keypair> = (0..16).map(|_| Keypair::generate(&mut csprng)).collect();
 
         let t = signing_context(b"multi-sig").bytes(b"We are legion!");
-        let mut commits: Vec<_> = keypairs.iter().map( |k| k.cosignature(t.clone()) ).collect();
+        let mut commits: Vec<_> = keypairs.iter().map( |k| k.musig(t.clone()) ).collect();
         for i in 0..commits.len() {
         let r = commits[i].our_commitment();
             for j in commits.iter_mut() {
