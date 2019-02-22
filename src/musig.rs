@@ -20,7 +20,7 @@
 //! https://eprint.iacr.org/2018/417
 //! ([slides](https://rwc.iacr.org/2019/slides/neven.pdf))
 //! so we implement only the
-//! [3-round version](https://eprint.iacr.org/2018/068/20180520:191909)
+//! [3-round version](https://eprint.iacr.org/2018/068/20180520:191909).
 //https://github.com/lovesh/signature-schemes/issues/2
 
 use core::borrow::{Borrow};  // BorrowMut
@@ -249,15 +249,15 @@ impl CoR {
 }
 
 
-/// Multi-signature container generic over its session types
+/// Schnorr multi-signature (MuSig) container generic over its session types
 #[allow(non_snake_case)]
-pub struct MultiSig<T: SigningTranscript,S> {
+pub struct MuSig<T: SigningTranscript,S> {
     t: T,
     Rs: BTreeMap<PublicKey,CoR>,
     stage: S
 }
 
-impl<T: SigningTranscript,S> MultiSig<T,S> {
+impl<T: SigningTranscript,S> MuSig<T,S> {
     /// Iterates over public keys.
     ///
     /// If `require_reveal=true` then we count only public key that revealed their `R` values.
@@ -307,7 +307,7 @@ impl<T: SigningTranscript,S> MultiSig<T,S> {
 pub trait TranscriptStages {}
 impl<'k> TranscriptStages for CommitStage<'k> {}
 impl<'k> TranscriptStages for RevealStage<'k> {}
-impl<T: SigningTranscript, S: TranscriptStages> MultiSig<T,S> {
+impl<T: SigningTranscript, S: TranscriptStages> MuSig<T,S> {
     /// We permit extending the transcript whenever you like, so
     /// that say the message may be agreed upon in parallel to the
 	/// commitments.  We advise against doing so however, as this
@@ -319,7 +319,7 @@ impl<T: SigningTranscript, S: TranscriptStages> MultiSig<T,S> {
 impl Keypair {
     /// Initialize a multi-signature aka cosignature protocol run.
     #[allow(non_snake_case)]
-    pub fn musig<'k,T: SigningTranscript>(&'k self, t: T) -> MultiSig<T,CommitStage<'k>>
+    pub fn musig<'k,T: SigningTranscript>(&'k self, t: T) -> MuSig<T,CommitStage<'k>>
     {
         let r_me = t.witness_scalar(&[&self.secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
@@ -329,7 +329,7 @@ impl Keypair {
         Rs.insert(self.public, CoR::Reveal { R: R_me.clone() });
 
         let stage = CommitStage { keypair: self, r_me, R_me: R_me.compress() };
-        MultiSig { t, Rs, stage, }
+        MuSig { t, Rs, stage, }
     }
 }
 
@@ -341,7 +341,7 @@ pub struct CommitStage<'k> {
     R_me: CompressedRistretto,
 }
 
-impl<'k,T: SigningTranscript> MultiSig<T,CommitStage<'k>> {
+impl<'k,T: SigningTranscript> MuSig<T,CommitStage<'k>> {
     /// Our commitment to our `R` to send to all other cosigners
     pub fn our_commitment(&self) -> Commitment {
         Commitment::for_R(&self.stage.R_me)
@@ -366,9 +366,9 @@ impl<'k,T: SigningTranscript> MultiSig<T,CommitStage<'k>> {
 
     /// Commit to reveal phase transition.
     #[allow(non_snake_case)]
-    pub fn reveal_stage(self) -> MultiSig<T,RevealStage<'k>> {
-        let MultiSig { t, Rs, stage: CommitStage { keypair, r_me, R_me, }, } = self;
-        MultiSig { t, Rs, stage: RevealStage { keypair, r_me, R_me, }, }
+    pub fn reveal_stage(self) -> MuSig<T,RevealStage<'k>> {
+        let MuSig { t, Rs, stage: CommitStage { keypair, r_me, R_me, }, } = self;
+        MuSig { t, Rs, stage: RevealStage { keypair, r_me, R_me, }, }
     }
 }
 
@@ -386,7 +386,7 @@ pub struct Reveal(pub [u8; 32]);
 // TODO: serde_boilerplate!(Reveal);
 
 
-impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
+impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
     /// Reveal our `R` contribution to send to all other cosigners
     pub fn our_reveal(&self) -> Reveal {
         Reveal(self.stage.R_me.to_bytes())
@@ -449,7 +449,7 @@ impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
 
     /// Reveal to cosign phase transition.
     #[allow(non_snake_case)]
-    pub fn cosign_stage(mut self) -> MultiSig<T,CosignStage> {
+    pub fn cosign_stage(mut self) -> MuSig<T,CosignStage> {
         self.t.proto_name(b"Schnorr-sig");
 
         let pk = self.public_key().as_compressed().clone();
@@ -463,9 +463,9 @@ impl<'k,T: SigningTranscript> MultiSig<T,RevealStage<'k>> {
         let c = self.t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.secret.key) + &self.stage.r_me;
 
-        let MultiSig { t, mut Rs, stage: RevealStage { .. }, } = self;
+        let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
         *(Rs.get_mut(&self.stage.keypair.public).unwrap()) = CoR::Cosigned { s: s_me.clone() };
-        MultiSig { t, Rs, stage: CosignStage { R, s_me }, }
+        MuSig { t, Rs, stage: CosignStage { R, s_me }, }
     }
 }
 
@@ -482,7 +482,7 @@ pub struct CosignStage {
 #[derive(Debug,Clone,Copy,PartialEq,Eq)]
 pub struct Cosignature(pub [u8; 32]);
 
-impl<T: SigningTranscript> MultiSig<T,CosignStage> {
+impl<T: SigningTranscript> MuSig<T,CosignStage> {
     /// Reveals our signature contribution
     pub fn our_cosignature(&self) -> Cosignature {
         Cosignature(self.stage.s_me.to_bytes())
@@ -534,7 +534,7 @@ impl<T: SigningTranscript> MultiSig<T,CosignStage> {
         let s: Scalar = self.Rs.iter()
             .filter_map( |(_pk,cor)| match cor {
                 CoR::Commit(_) => None,
-                CoR::Reveal { .. } => panic!("Internal error, MultiSig<T,CosignStage>::uncosigned broken."), 
+                CoR::Reveal { .. } => panic!("Internal error, MuSig<T,CosignStage>::uncosigned broken."), 
                 CoR::Cosigned { s, .. } => Some(s),
                 CoR::Collect { .. } => panic!("Collect found in Cosign phase."),
             } ).sum();
@@ -545,15 +545,15 @@ impl<T: SigningTranscript> MultiSig<T,CosignStage> {
 
 /// Initialize a collector of cosignatures who does not themselves cosign.
 #[allow(non_snake_case)]
-pub fn collect_cosignatures<T: SigningTranscript>(mut t: T) -> MultiSig<T,CollectStage> {
+pub fn collect_cosignatures<T: SigningTranscript>(mut t: T) -> MuSig<T,CollectStage> {
     t.proto_name(b"Schnorr-sig");
-    MultiSig { t, Rs: BTreeMap::new(), stage: CollectStage, }
+    MuSig { t, Rs: BTreeMap::new(), stage: CollectStage, }
 }
 
 /// Initial stage for cosignature collectors who do not themselves cosign.
 pub struct CollectStage;
 
-impl<T: SigningTranscript> MultiSig<T,CollectStage> {
+impl<T: SigningTranscript> MuSig<T,CollectStage> {
     /// Adds revealed `R` and cosignature into a cosignature collector
     #[allow(non_snake_case)]
     pub fn add(&mut self, them: PublicKey, their_reveal: Reveal, their_cosignature: Cosignature)
