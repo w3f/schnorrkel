@@ -38,7 +38,7 @@ pub const CHAIN_CODE_LENGTH: usize = 32;
 pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 
 /// Key types that support "hierarchical deterministic" key derivation
-pub trait Derrivation : Sized {
+pub trait Derivation : Sized {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
     ///
@@ -89,7 +89,7 @@ impl PublicKey {
 impl Keypair {
     /// Derive a secret key and new chain code from a key pair and chain code.
     ///
-    /// We expect the trait methods of `Keypair as Derrivation` to be
+    /// We expect the trait methods of `Keypair as Derivation` to be
     /// more useful since signing anything requires the public key too.
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where T: SigningTranscript+Clone
@@ -120,7 +120,7 @@ impl Keypair {
     }
 }
 
-impl Derrivation for Keypair {
+impl Derivation for Keypair {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Keypair, ChainCode)
     where T: SigningTranscript+Clone
     {
@@ -130,7 +130,7 @@ impl Derrivation for Keypair {
     }
 }
 
-impl Derrivation for SecretKey {
+impl Derivation for SecretKey {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where T: SigningTranscript+Clone
     {
@@ -141,7 +141,7 @@ impl Derrivation for SecretKey {
     }
 }
 
-impl Derrivation for PublicKey {
+impl Derivation for PublicKey {
     fn derived_key<T>(&self, mut t: T, cc: ChainCode) -> (PublicKey, ChainCode)
     where T: SigningTranscript+Clone
     {
@@ -166,7 +166,7 @@ pub struct ExtendedKey<K> {
 }
 // TODO: Serialization
 
-impl<K: Derrivation> ExtendedKey<K> {
+impl<K: Derivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
     pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
