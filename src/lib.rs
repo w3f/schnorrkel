@@ -298,7 +298,7 @@ pub mod sign;
 pub mod dleq;
 pub mod derive;
 pub mod cert;
-pub mod multi;
+pub mod musig;
 pub mod errors;
 
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
