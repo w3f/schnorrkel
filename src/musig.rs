@@ -453,7 +453,7 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
         self.t.proto_name(b"Schnorr-sig");
 
         let pk = self.public_key().as_compressed().clone();
-        self.t.commit_point(b"A",&pk);
+        self.t.commit_point(b"pk",&pk);
 
         let R = self.compute_R();
         self.t.commit_point(b"R",&R);
