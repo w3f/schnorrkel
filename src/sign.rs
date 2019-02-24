@@ -144,7 +144,7 @@ impl SecretKey {
         r = t.witness_scalar(&[&self.nonce]);  // context, message, A/public_key
         R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        t.commit_point(b"R",&R);
+        t.commit_point(b"no",&R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         s = &(&k * &self.key) + &r;
@@ -176,7 +176,7 @@ impl PublicKey {
 
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"pk",self.as_compressed());
-        t.commit_point(b"R",&signature.R);
+        t.commit_point(b"no",&signature.R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
@@ -279,7 +279,7 @@ where
         let mut t = transcripts[i].borrow().clone();
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"pk",public_keys[i].as_compressed());
-        t.commit_point(b"R",&signatures[i].R);
+        t.commit_point(b"no",&signatures[i].R);
         t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
     });
     */
@@ -294,7 +294,7 @@ where
         .map( |(mut t,i)| {
             t.proto_name(b"Schnorr-sig");
             t.commit_point(b"pk",public_keys[i].as_compressed());
-            t.commit_point(b"R",&signatures[i].R);
+            t.commit_point(b"no",&signatures[i].R);
             t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
         } );
 

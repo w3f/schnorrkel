@@ -164,7 +164,7 @@ impl Commitment {
     #[allow(non_snake_case)]
     fn for_R(R: &CompressedRistretto) -> Commitment {
         let mut t = Transcript::new(b"MuSig-commitment");
-        t.commit_point(b"R",R);
+        t.commit_point(b"no",R);
         let mut commit = [0u8; COMMITMENT_SIZE];
         t.challenge_bytes(b"",&mut commit[..]);
         Commitment(commit)
@@ -456,7 +456,7 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
         self.t.commit_point(b"pk",&pk);
 
         let R = self.compute_R();
-        self.t.commit_point(b"R",&R);
+        self.t.commit_point(b"no",&R);
 
         let t0 = commit_public_keys(self.public_keys(true));
         let a_me = compute_weighting(t0, &self.stage.keypair.public);
