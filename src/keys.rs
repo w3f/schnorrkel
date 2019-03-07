@@ -99,7 +99,7 @@ impl ConstantTimeEq for MiniSecretKey {
 }
 
 impl MiniSecretKey {
-    const DISCRIPTION : &'static str = "An ed25519 secret key as 32 bytes, as specified in RFC8032.";
+    const DESCRIPTION : &'static str = "An ed25519 secret key as 32 bytes, as specified in RFC8032.";
 
     /// Expand this `MiniSecretKey` into a `SecretKey`.
     ///
@@ -203,7 +203,7 @@ impl MiniSecretKey {
         if bytes.len() != MINI_SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "MiniSecretKey",
-                discription: MiniSecretKey::DISCRIPTION,
+                description: MiniSecretKey::DESCRIPTION,
                 length: MINI_SECRET_KEY_LENGTH
             });
         }
@@ -360,7 +360,7 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
 }
 
 impl SecretKey {
-    const DISCRIPTION : &'static str = "An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.";
+    const DESCRIPTION : &'static str = "An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.";
 
     /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
     /// an Ed25519 expanded secreyt key.
@@ -445,7 +445,7 @@ impl SecretKey {
         if bytes.len() != SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError{
                 name: "SecretKey",
-                discription: SecretKey::DISCRIPTION,
+                description: SecretKey::DESCRIPTION,
                 length: SECRET_KEY_LENGTH,
             });
         }
@@ -527,7 +527,7 @@ impl AsRef<[u8]> for PublicKey {
 }
 
 impl PublicKey {
-    const DISCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
+    const DESCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
 
     /// Access the compressed Ristretto form
     pub fn as_compressed(&self) -> &CompressedRistretto { &self.0.as_compressed() }
@@ -597,7 +597,7 @@ impl PublicKey {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
-        Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey",PublicKey::DISCRIPTION,bytes) ?))
+        Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey",PublicKey::DESCRIPTION,bytes) ?))
     }
 }
 
@@ -627,9 +627,9 @@ impl From<SecretKey> for Keypair {
 }
 
 impl Keypair {
-    const DISCRIPTION : &'static str = "A 96 bytes Ristretto Schnorr keypair";
+    const DESCRIPTION : &'static str = "A 96 bytes Ristretto Schnorr keypair";
     /*
-    const DISCRIPTION_LONG : &'static str = 
+    const DESCRIPTION_LONG : &'static str = 
         "An ristretto schnorr keypair, 96 bytes in total, where the \
         first 64 bytes contains the secret key represented as an \
         ed25519 expanded secret key, as specified in RFC8032, and \
@@ -677,7 +677,7 @@ impl Keypair {
         if bytes.len() != KEYPAIR_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Keypair",
-                discription: Keypair::DISCRIPTION,
+                description: Keypair::DESCRIPTION,
                 length: KEYPAIR_LENGTH
             });
         }

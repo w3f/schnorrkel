@@ -71,7 +71,7 @@ pub enum SignatureError {
         /// Identifies the type returning the error
         name: &'static str,
         /// Describes the type returning the error
-        discription: &'static str,
+        description: &'static str,
         /// Length expected by the constructor in bytes
         length: usize 
     },
@@ -138,8 +138,8 @@ where E: ::serde::de::Error
             => E::custom("Ristretto point decompression failed"),
         SignatureError::ScalarFormatError
             => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
-        SignatureError::BytesLengthError{ discription, length, .. }
-            => E::invalid_length(length, &discription),
+        SignatureError::BytesLengthError{ description, length, .. }
+            => E::invalid_length(length, &description),
         _ => panic!("Non-serialisation error encountered by serde!"),
     }
 }

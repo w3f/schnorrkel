@@ -74,9 +74,9 @@ impl Debug for Signature {
 }
 
 impl Signature {
-    const DISCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
+    const DESCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
     /*
-    const DISCRIPTION_LONG : &'static str = 
+    const DESCRIPTION_LONG : &'static str = 
         "A 64 byte Ristretto Schnorr signature, similar to an ed25519 \
          signature as specified in RFC8032, except the Ristretto point \
          compression is used for the curve point in the first 32 bytes";
@@ -98,7 +98,7 @@ impl Signature {
         if bytes.len() != SIGNATURE_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Signature",
-                discription: Signature::DISCRIPTION,
+                description: Signature::DESCRIPTION,
                 length: SIGNATURE_LENGTH
             });
         }

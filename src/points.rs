@@ -56,7 +56,7 @@ impl Debug for RistrettoBoth {
 }
 
 impl RistrettoBoth {
-    const DISCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
+    const DESCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
 
     // I dislike getter methods, and prefer direct field access, but doing
     // getters here permits the fields being private, and gives us faster
@@ -136,15 +136,15 @@ impl RistrettoBoth {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
-        RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DISCRIPTION,bytes)
+        RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DESCRIPTION,bytes)
     }
 
     /// Variant of `RistrettoBoth::from_bytes` that propogates more informative errors.
     #[inline]
-    pub fn from_bytes_ser(name: &'static str, discription: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
+    pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
             return Err(SignatureError::BytesLengthError{
-                name, discription, length: RISTRETTO_POINT_LENGTH,
+                name, description, length: RISTRETTO_POINT_LENGTH,
             });
         }
         let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);
