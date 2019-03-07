@@ -642,8 +642,8 @@ impl Keypair {
     /// # Returns
     ///
     /// An array of bytes, `[u8; KEYPAIR_LENGTH]`.  The first
-    /// `SECRET_KEY_LENGTH` of bytes is the `MiniSecretKey`, and the next
-    /// `PUBLIC_KEY_LENGTH` bytes is the `PublicKey` (the same as other
+    /// `SECRET_KEY_LENGTH` of bytes is the serialized `SecretKey`, and the
+    /// next `PUBLIC_KEY_LENGTH` bytes is the `PublicKey` (the same as other
     /// libraries, such as [Adam Langley's ed25519 Golang
     /// implementation](https://github.com/agl/ed25519/)).
     pub fn to_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
