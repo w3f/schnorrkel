@@ -98,7 +98,7 @@ impl SecretKey {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn secretly_derive_mini_secret_key<T: SigningTranscript>(&self, mut t: T) -> MiniSecretKey {
+    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, mut t: T) -> MiniSecretKey {
         let mut msk = [0u8; MINI_SECRET_KEY_LENGTH]; 
         t.commit_bytes(b"secret-key",& self.key.to_bytes() as &[u8]);
         t.challenge_bytes(b"HDKD-hard",&mut msk);
