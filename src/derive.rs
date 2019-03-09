@@ -118,7 +118,7 @@ impl MiniSecretKey {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn secretly_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
+    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
         self.expand().hard_derive_mini_secret_key(t)
     }
 }
@@ -135,7 +135,7 @@ impl Keypair {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn secretly_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
+    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
         self.secret.hard_derive_mini_secret_key(t)
     }
 
