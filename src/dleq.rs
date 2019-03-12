@@ -19,12 +19,45 @@
 //! is equivalent to the NSEC5 construction.
 //!
 //! We support individual signers batch numerous VRF outputs as
-//! described in "Privacy Pass - The Math" by Alex Davidson.
-//! https://blog.cloudflare.com/privacy-pass-the-math/#hen14
+//! described in the DLEQ Proofs and Batching the proofs sections of
+//! "Privacy Pass - The Math" by Alex Davidson.
+//! https://blog.cloudflare.com/privacy-pass-the-math/#dleqproofs
+//! and "Privacy Pass: Bypassing Internet Challenges Anonymously"
+//! by Alex Davidson, Ian Goldberg, Nick Sullivan, George Tankersley,
+//! and Filippo Valsorda.
+//! https://www.petsymposium.org/2018/files/papers/issue3/popets-2018-0026.pdf
+//!
+//! As noted there, our batching technique's soundness appeals to
+//! Theorem 3.17 on page 74 of Ryqan Henry's PhD thesis 
+//! "Efficient Zero-KnowledgeProofs and Applications"
+//! https://uwspace.uwaterloo.ca/bitstream/handle/10012/8621/Henry_Ryan.pdf
+//! See also the attack on Peng and Bao’s batch proof protocol in 
+//! "Batch Proofs of Partial Knowledge" by Ryan Henry and Ian Goldberg
+//! https://www.cypherpunks.ca/~iang/pubs/batchzkp-acns.pdf
+//!
+//! We might reasonably ask if the VRF signer's public key should
+//! really be hashed when creating the scalars in `merge_vrf`. 
+//! After all, there is no similar requirement when the values being
+//! hashed are BLS public keys in 
+//! https://crypto.stanford.edu/~dabo/pubs/papers/BLSmultisig.html
+//! In fact, we expect the public key could be dropped both in
+//! Privacy Pass' case, due to using randomness in the messages,
+//! and in the VRF case, provided the message depends upon shared
+//! randomness created after the public key.  Yet, there are VRF
+//! applications outside these two cases, and DLEQ proof applications
+//! where the points are not even hashes.  At minimum, we expect
+//! hashing the public key prevents malicious signers from choosing
+//! their key to cancel out the blionding of a particular point,
+//! which might become important in a verifiable shuffle or other
+//! anonymity applications.  In any case, there is no cost to
+//! hashing the public key for VRF applications.
+//! TODO: Explain better!
+//!
 //! We do not currently implement verifier side batching analogous
 //! to batched verification of Schnorr signatures because doing so
 //! requires including an extra curve point, which enlarges the
 //! VRF proofs.
+
 
 use core::borrow::{Borrow,BorrowMut};
 
@@ -39,6 +72,7 @@ use rand_chacha::ChaChaRng;
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::traits::VartimeMultiscalarMul;
 
 use merlin::Transcript;
 
@@ -114,6 +148,106 @@ impl VRFPut {
 }
 
 // TODO: serde_boilerplate!(VRFPut);
+
+
+/// VRF inout and output pair
+pub struct VRFInOut {
+    /// VRF input point
+	pub input: VRFPut,
+    /// VRF output point
+	pub output: VRFPut,
+}
+
+impl VRFInOut {
+    fn commit<T: SigningTranscript>(&self, mut t: T) {
+        t.commit_point(b"input", self.input.0.as_compressed());
+        t.commit_point(b"output", self.output.0.as_compressed());
+    }
+}
+
+fn challenge_scalar_128<T: SigningTranscript>(mut t: T) -> Scalar {
+    let mut s = [0u8; 16];
+    t.challenge_bytes(b"",&mut s);
+    Scalar::from(u128::from_le_bytes(s))
+}
+
+impl PublicKey {
+    /// Merge VRF input and output pairs from the same signer,
+    /// using constant time arithmatic.
+    ///
+    /// There is sadly no constant time 128 bit multiplication in dalek,
+    /// making this variant somewhat slower than necessary.  It should 
+    /// only impact signers in niche senarios however, so this slower
+    /// variant should normally be unecessary.  
+    ///
+	/// TODO: Add constant time 128 bit batched multiplication to dalek.
+    /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
+    /// prefer it over merlin for the output?  
+    pub fn merge_vrfs<I,B>(&self, ps: &[B]) -> VRFInOut
+    where B: Borrow<VRFInOut>,
+    {
+        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
+        t.commit_point(b"pk", self.as_compressed());
+        for p in ps.iter() {
+            p.borrow().commit(&mut t);
+        }
+
+        let mut input = ps[0].borrow().input.0.as_point().clone();
+        let mut output = ps[0].borrow().output.0.as_point().clone();
+        for p in ps.iter().skip(1).map(|p| p.borrow()) {
+            let mut t0 = t.clone();
+            p.commit(&mut t0);
+            let z = challenge_scalar_128(t0);
+            input += &z * p.input.0.as_point();
+            output += &z * p.output.0.as_point();
+        }
+
+        VRFInOut {
+            input: VRFPut(RistrettoBoth::from_point(input)),
+            output: VRFPut(RistrettoBoth::from_point(output)),
+        }
+    }
+
+    /// Merge VRF input and output pairs from the same signer,
+    /// using variable time arithmatic
+    ///
+    /// You should use this variant when verifying VRF proofs batched
+    /// by the singer.  You could usually use this variant even when
+    /// producing proofs, provided the set being signed is not secret.
+    pub fn merge_vrfs_vartime<I,B>(&self, ps: &[B]) -> VRFInOut
+    where B: Borrow<VRFInOut>,
+    {
+        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
+        t.commit_point(b"pk", self.as_compressed());
+        for p in ps.iter() {
+            p.borrow().commit(&mut t);
+        }
+
+        let zs: Vec<Scalar> = ps.iter().skip(1).map(|p| {
+            let mut t0 = t.clone();
+            p.borrow().commit(&mut t0);
+            challenge_scalar_128(t0)
+        }).collect();
+		let one = Scalar::one();
+		let zf = || ::core::iter::once(&one).chain(zs.iter());
+
+        VRFInOut {
+            input: VRFPut(RistrettoBoth::from_point(
+                RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().input.0.as_point()))
+            )),
+            output: VRFPut(RistrettoBoth::from_point(
+                RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().output.0.as_point()))
+            )),
+        }
+    }
+}
+
+
+
+
+
+
+
 
 
 /// Short proof of correctness for associated VRF output,
@@ -212,6 +346,11 @@ impl Keypair {
         (hs.into_boxed_slice(), proof)
     }
 }
+
+
+
+
+
 
 impl PublicKey {
     /// Verify DLEQ proof that `points_out` consists of all points in

@@ -263,6 +263,8 @@ where
     let mut rng = rand::prelude::thread_rng();
     
     // Select a random 128-bit scalar for each signature.
+    // We may represent these as scalars because we use
+    // variable time 256 bit multiplication below. 
     let zs: Vec<Scalar> = signatures.iter()
         .map(|_| Scalar::from(rng.gen::<u128>()))
         .collect();
