@@ -171,72 +171,74 @@ fn challenge_scalar_128<T: SigningTranscript>(mut t: T) -> Scalar {
     Scalar::from(u128::from_le_bytes(s))
 }
 
-/// Merge VRF input and output pairs from the same signer,
-/// using constant time arithmatic.
-///
-/// There is sadly no constant time 128 bit multiplication in dalek,
-/// making this variant somewhat slower than necessary.  It should 
-/// only impact signers in niche senarios however, so this slower
-/// variant should normally be unecessary.  
-///
-/// TODO: Add constant time 128 bit batched multiplication to dalek.
-/// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
-/// prefer it over merlin for the output?  
-pub fn merge_vrfs<I,B>(pk: &PublicKey, ps: &[B]) -> VRFInOut
-where B: Borrow<VRFInOut>,
-{
-    let mut t = ::merlin::Transcript::new(b"MergeVRFs");
-    t.commit_point(b"pk", pk.as_compressed());
-    for p in ps.iter() {
-        p.borrow().commit(&mut t);
+impl PublicKey {
+    /// Merge VRF input and output pairs from the same signer,
+    /// using constant time arithmatic.
+    ///
+    /// There is sadly no constant time 128 bit multiplication in dalek,
+    /// making this variant somewhat slower than necessary.  It should 
+    /// only impact signers in niche senarios however, so this slower
+    /// variant should normally be unecessary.  
+    ///
+	/// TODO: Add constant time 128 bit batched multiplication to dalek.
+    /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
+    /// prefer it over merlin for the output?  
+    pub fn merge_vrfs<I,B>(&self, ps: &[B]) -> VRFInOut
+    where B: Borrow<VRFInOut>,
+    {
+        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
+        t.commit_point(b"pk", self.as_compressed());
+        for p in ps.iter() {
+            p.borrow().commit(&mut t);
+        }
+
+        let mut input = ps[0].borrow().input.0.as_point().clone();
+        let mut output = ps[0].borrow().output.0.as_point().clone();
+        for p in ps.iter().skip(1).map(|p| p.borrow()) {
+            let mut t0 = t.clone();
+            p.commit(&mut t0);
+            let z = challenge_scalar_128(t0);
+            input += &z * p.input.0.as_point();
+            output += &z * p.output.0.as_point();
+        }
+
+        VRFInOut {
+            input: VRFPut(RistrettoBoth::from_point(input)),
+            output: VRFPut(RistrettoBoth::from_point(output)),
+        }
     }
 
-    let mut input = ps[0].borrow().input.0.as_point().clone();
-    let mut output = ps[0].borrow().output.0.as_point().clone();
-    for p in ps.iter().skip(1).map(|p| p.borrow()) {
-        let mut t0 = t.clone();
-        p.commit(&mut t0);
-        let z = challenge_scalar_128(t0);
-        input += &z * p.input.0.as_point();
-        output += &z * p.output.0.as_point();
-    }
+    /// Merge VRF input and output pairs from the same signer,
+    /// using variable time arithmatic
+    ///
+    /// You should use this variant when verifying VRF proofs batched
+    /// by the singer.  You could usually use this variant even when
+    /// producing proofs, provided the set being signed is not secret.
+    pub fn merge_vrfs_vartime<I,B>(&self, ps: &[B]) -> VRFInOut
+    where B: Borrow<VRFInOut>,
+    {
+        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
+        t.commit_point(b"pk", self.as_compressed());
+        for p in ps.iter() {
+            p.borrow().commit(&mut t);
+        }
 
-    VRFInOut {
-        input: VRFPut(RistrettoBoth::from_point(input)),
-        output: VRFPut(RistrettoBoth::from_point(output)),
-    }
-}
+        let zs: Vec<Scalar> = ps.iter().skip(1).map(|p| {
+            let mut t0 = t.clone();
+            p.borrow().commit(&mut t0);
+            challenge_scalar_128(t0)
+        }).collect();
+		let one = Scalar::one();
+		let zf = || ::core::iter::once(&one).chain(zs.iter());
 
-/// Merge VRF input and output pairs from the same signer,
-/// using variable time arithmatic
-///
-/// You should use this variant when verifying VRF proofs batched
-/// by the singer.  You could usually use this variant even when
-/// producing proofs, provided the set being signed is not secret.
-pub fn merge_vrfs_vartime<I,B>(pk: &PublicKey, ps: &[B]) -> VRFInOut
-where B: Borrow<VRFInOut>,
-{
-    let mut t = ::merlin::Transcript::new(b"MergeVRFs");
-    t.commit_point(b"pk", pk.as_compressed());
-    for p in ps.iter() {
-        p.borrow().commit(&mut t);
-    }
-
-    let zs: Vec<Scalar> = ps.iter().skip(1).map(|p| {
-        let mut t0 = t.clone();
-        p.borrow().commit(&mut t0);
-        challenge_scalar_128(t0)
-    }).collect();
-	let one = Scalar::one();
-	let zf = || ::core::iter::once(&one).chain(zs.iter());
-
-    VRFInOut {
-        input: VRFPut(RistrettoBoth::from_point(
-            RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().input.0.as_point()))
-        )),
-        output: VRFPut(RistrettoBoth::from_point(
-            RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().output.0.as_point()))
-        )),
+        VRFInOut {
+            input: VRFPut(RistrettoBoth::from_point(
+                RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().input.0.as_point()))
+            )),
+            output: VRFPut(RistrettoBoth::from_point(
+                RistrettoPoint::vartime_multiscalar_mul(zf(), ps.iter().map(|p| p.borrow().output.0.as_point()))
+            )),
+        }
     }
 }
 
