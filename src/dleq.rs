@@ -183,7 +183,7 @@ impl PublicKey {
 	/// TODO: Add constant time 128 bit batched multiplication to dalek.
     /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
     /// prefer it over merlin for the output?  
-    pub fn merge_vrfs<I,B>(&self, ps: &[B]) -> VRFInOut
+    pub fn vrfs_merge<I,B>(&self, ps: &[B]) -> VRFInOut
     where B: Borrow<VRFInOut>,
     {
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
@@ -214,7 +214,7 @@ impl PublicKey {
     /// You should use this variant when verifying VRF proofs batched
     /// by the singer.  You could usually use this variant even when
     /// producing proofs, provided the set being signed is not secret.
-    pub fn merge_vrfs_vartime<I,B>(&self, ps: &[B]) -> VRFInOut
+    pub fn vrfs_merge_vartime<I,B>(&self, ps: &[B]) -> VRFInOut
     where B: Borrow<VRFInOut>,
     {
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
