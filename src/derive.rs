@@ -90,18 +90,16 @@ impl SecretKey {
     /// Vaguely BIP32-like "hard" derivation of a `MiniSecretKey` from a `SecretKey`
     ///
     /// We do not envision any "good reasons" why these "hard"
-    /// derivations might ever be used after the soft `Derivation`
-    /// trait or `ExtendedKey` type.  Yet, some existing BIP32 workflows
-    /// might do so, due to BIP32's unfortunate construction 
+    /// derivations should ever be used after the soft `Derivation`
+    /// trait.  We similarly do not believe hard derivations
+    /// make any sense for `ChainCode`s or `ExtendedKey`s types.
+    /// Yet, some existing BIP32 workflows might do these things,
+    /// due to BIP32's de facto stnadardization and poor design.
     /// In consequence, we provide this method to do "hard" derivations
     /// in a way that should work with all BIP32 workflows and any
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    ///
-    /// There should never be any reason to use chain codes with hard 
-    /// derivations, but again we provide them to support existing BIP32
-    /// workflows.
     pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
      -> (MiniSecretKey,ChainCode)
     {
@@ -124,18 +122,16 @@ impl MiniSecretKey {
     /// Vaguely BIP32-like "hard" derivation of a `MiniSecretKey` from a `SecretKey`
     ///
     /// We do not envision any "good reasons" why these "hard"
-    /// derivations might ever be used after the soft `Derivation`
-    /// trait or `ExtendedKey` type.  Yet, some existing BIP32 workflows
-    /// might do so, due to BIP32's unfortunate construction 
+    /// derivations should ever be used after the soft `Derivation`
+    /// trait.  We similarly do not believe hard derivations
+    /// make any sense for `ChainCode`s or `ExtendedKey`s types.
+    /// Yet, some existing BIP32 workflows might do these things,
+    /// due to BIP32's de facto stnadardization and poor design.
     /// In consequence, we provide this method to do "hard" derivations
     /// in a way that should work with all BIP32 workflows and any
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    ///
-    /// There should never be any reason to use chain codes with hard 
-    /// derivations, but again we provide them to support existing BIP32
-    /// workflows.
     pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
      -> (MiniSecretKey,ChainCode)
     {
