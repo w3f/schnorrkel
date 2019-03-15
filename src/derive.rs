@@ -98,11 +98,25 @@ impl SecretKey {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, mut t: T) -> MiniSecretKey {
-        let mut msk = [0u8; MINI_SECRET_KEY_LENGTH]; 
+    ///
+    /// There should never be any reason to use chain codes with hard 
+    /// derivations, but again we provide them to support existing BIP32
+    /// workflows.
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
+     -> (MiniSecretKey,ChainCode)
+    {
+        let mut t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
+
+		if let Some(c) = cc { t.commit_bytes(b"chain-code", &c.0); }
         t.commit_bytes(b"secret-key",& self.key.to_bytes() as &[u8]);
+
+        let mut msk = [0u8; MINI_SECRET_KEY_LENGTH]; 
         t.challenge_bytes(b"HDKD-hard",&mut msk);
-        MiniSecretKey(msk)
+
+        let mut chaincode = [0u8; 32];
+        t.challenge_bytes(b"HDKD-chaincode", &mut chaincode);
+
+        (MiniSecretKey(msk), ChainCode(chaincode)
     }
 }
 
@@ -118,8 +132,14 @@ impl MiniSecretKey {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
-        self.expand().hard_derive_mini_secret_key(t)
+    ///
+    /// There should never be any reason to use chain codes with hard 
+    /// derivations, but again we provide them to support existing BIP32
+    /// workflows.
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
+     -> (MiniSecretKey,ChainCode)
+    {
+        self.expand().hard_derive_mini_secret_key(cc,i)
     }
 }
 
@@ -127,16 +147,19 @@ impl Keypair {
     /// Vaguely BIP32-like "hard" derivation of a `MiniSecretKey` from a `SecretKey`
     ///
     /// We do not envision any "good reasons" why these "hard"
-    /// derivations might ever be used after the soft `Derivation`
-    /// trait or `ExtendedKey` type.  Yet, some existing BIP32 workflows
-    /// might do so, due to BIP32's unfortunate construction 
+    /// derivations should ever be used after the soft `Derivation`
+    /// trait.  We similarly do not believe hard derivations
+    /// make any sense for `ChainCode`s or `ExtendedKey`s types.
+    /// Yet, some existing BIP32 workflows might do these things,
+    /// due to BIP32's de facto stnadardization and poor design.
     /// In consequence, we provide this method to do "hard" derivations
     /// in a way that should work with all BIP32 workflows and any
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn hard_derive_mini_secret_key<T: SigningTranscript>(&self, t: T) -> MiniSecretKey {
-        self.secret.hard_derive_mini_secret_key(t)
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
+     -> (MiniSecretKey,ChainCode) {
+        self.secret.hard_derive_mini_secret_key(cc,i)
     }
 
     /// Derive a secret key and new chain code from a key pair and chain code.
@@ -233,6 +256,27 @@ impl<K: Derivation> ExtendedKey<K> {
     pub fn derived_key_simple<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
     {
         let (key, chaincode) = self.key.derived_key_simple(self.chaincode.clone(), i);
+        ExtendedKey { key, chaincode }
+    }
+}
+
+impl ExtendedKey<SecretKey> {
+    /// Vaguely BIP32-like "hard" derivation of a `MiniSecretKey` from a `SecretKey`
+    ///
+    /// We do not envision any "good reasons" why these "hard"
+    /// derivations should ever be used after the soft `Derivation`
+    /// trait.  We similarly do not believe hard derivations
+    /// make any sense for `ChainCode`s or `ExtendedKey`s types.
+    /// Yet, some existing BIP32 workflows might do these things,
+    /// due to BIP32's de facto stnadardization and poor design.
+    /// In consequence, we provide this method to do "hard" derivations
+    /// in a way that should work with all BIP32 workflows and any
+    /// permissible mutations of `SecretKey`.  This means only that
+    /// we hash the `SecretKey`'s scalar, but not its nonce becuase
+    /// the secret key remains valid if the nonce is changed.
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<SecretKey> {
+        let (key,chaincode) = self.key.hard_derive_mini_secret_key(Some(self.chaincode), i);
+		let key = key.expand();
         ExtendedKey { key, chaincode }
     }
 }
