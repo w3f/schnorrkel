@@ -295,7 +295,7 @@ pub mod keys;
 
 pub mod context;
 pub mod sign;
-pub mod dleq;
+pub mod vrf;
 pub mod derive;
 pub mod cert;
 pub mod musig;
