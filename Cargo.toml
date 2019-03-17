@@ -8,7 +8,7 @@ repository = "https://github.com/w3f/schnorrkel"
 documentation = "https://docs.rs/schnorrkel"
 keywords = ["cryptography", "ed25519", "curve25519", "signature", "ECC"]
 categories = ["cryptography", "no-std"]
-description = "Fast and efficient ed25519 EdDSA key generations, signing, and verification in pure Rust."
+description = "Schnorr VRF, signatures, etc. using the Ristretto group"
 exclude = [ ".gitignore", "TESTVECTORS", "res/*" ]
 
 # [badges]
@@ -61,7 +61,7 @@ version = "0.2"
 hex = "^0.3"
 sha2 = "^0.8"
 bincode = "^0.9"
-# criterion = "0.2"
+criterion = "0.2"
 
 [[bench]]
 name = "schnorr_benchmarks"
