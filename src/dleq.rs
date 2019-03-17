@@ -124,7 +124,7 @@ impl VRFOutput {
     }
 }
 
-// TODO: serde_boilerplate!(VRFPut);
+serde_boilerplate!(VRFPut);
 
 
 /// VRF input and output paired together, possibly unverified.
@@ -350,7 +350,7 @@ impl VRFProof {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr VRF proof without batch verification support, which consists of two scalars, making it 64 bytes.";
 }
 
-// TODO: serde_boilerplate!(VRFProof);
+serde_boilerplate!(VRFProof);
 
 
 /// Longer proof of correctness for associated VRF output,
@@ -408,7 +408,7 @@ impl VRFProofBatchable {
     }
 }
 
-// TODO: serde_boilerplate!(VRFProofBatchable);
+serde_boilerplate!(VRFProofBatchable);
 
 
 impl Keypair {
@@ -545,8 +545,6 @@ impl PublicKey {
         let proof_batchable = self.dleq_verify(t0, &p, proof) ?;
         Ok((ps.into_boxed_slice(), proof_batchable))
     }
-
-    // TODO: VRFProofBatchable 
 }
 
 
@@ -570,7 +568,7 @@ pub fn dleq_verify_batch(
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
-    let mut zz: Vec<Scalar> = proofs.iter()
+    let zz: Vec<Scalar> = proofs.iter()
         .map(|_| Scalar::from(rng.gen::<u128>()))
         .collect();
 
@@ -587,7 +585,7 @@ pub fn dleq_verify_batch(
         .collect();
 
     // Compute (∑ z[i] s[i] (mod l)) B + ∑ (z[i] c[i] (mod l)) A[i] - ∑ z[i] R[i] = 0
-    let mut b = RistrettoPoint::optional_multiscalar_mul(
+    let b = RistrettoPoint::optional_multiscalar_mul(
         zz.iter().map(|z| -z)
     	.chain( z_c.iter().cloned() )
         .chain( once(B_coefficient) ),
@@ -623,7 +621,7 @@ where
     I: IntoIterator<Item=T>,
 {
     let mut ts = transcripts.into_iter();
-    let mut ps = ts.by_ref().zip(outs)
+    let ps = ts.by_ref().zip(outs)
         .map(|(t,out)| out.attach_input_hash(t))
         .collect::<Result<Vec<VRFInOut>, SignatureError>>() ?;
     assert!(ts.next().is_none(), "Too few VRF outputs for VRF inputs.");
@@ -652,6 +650,7 @@ mod tests {
         assert!( proof1 == proof1batchable.shorten_vrf(&keypair1.public,ctx.bytes(msg),&out1).unwrap(), "Oops `shorten_vrf` failed");
         let (io1too,proof1too) = keypair1.public.vrf_verify(ctx.bytes(msg), &out1, &proof1)
             .expect("Correct VRF verification failed!");
+        assert_eq!(io1too, io1, "Output differs between signing and verification!");
         assert!( proof1batchable == proof1too, "VRF verification yielded incorrect batchable proof" );
         assert_eq!( keypair1.vrf_sign(ctx.bytes(msg)).0, io1, "Rerunning VRF gave different output");
         assert!( keypair1.public.vrf_verify(ctx.bytes(b"not meow"), &out1, &proof1).is_err(), 
@@ -695,12 +694,12 @@ mod tests {
             assert_eq!(ios_too, *ios, "Output differs between signing and verification!");
             assert_eq!(proof_too, *proof_batchable, "Returning batchable proof failed!");
         }
-        for (k,(ios,proof,proof_batchable)) in keypairs.iter().zip(&ios_n_proofs) {
+        for (k,(ios,proof,_proof_batchable)) in keypairs.iter().zip(&ios_n_proofs) {
             let outs = ios.iter().rev().map( |io| io.to_output() ).collect::<Vec<VRFOutput>>();
             assert!(k.public.vrfs_verify(ts(), &outs, &proof).is_err(),
                 "Incorrect VRF output verification passed!");
         }
-        for (k,(ios,proof,proof_batchable)) in keypairs.iter().rev().zip(&ios_n_proofs) {
+        for (k,(ios,proof,_proof_batchable)) in keypairs.iter().rev().zip(&ios_n_proofs) {
             let outs = ios.iter().map( |io| io.to_output() ).collect::<Vec<VRFOutput>>();
             assert!(k.public.vrfs_verify(ts(), &outs, &proof).is_err(),
                 "VRF output verification by a different signer passed!");
