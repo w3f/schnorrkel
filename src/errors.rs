@@ -42,6 +42,11 @@ impl Display for MultiSignatureStage {
 
 /// Errors which may occur while processing signatures and keypairs.
 ///
+/// All these errors represent a failed signature when they occur in
+/// the context of verifying a sitgnature, including in deserializaing
+/// for verification.  We expose the distinction among them primarily
+/// for debugging purposes.
+///
 /// This error may arise due to:
 ///
 /// * Being given bytes with a length different to what was expected.
@@ -58,6 +63,11 @@ impl Display for MultiSignatureStage {
 // * Failure of a signature to satisfy the verification equation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum SignatureError {
+    /// A signature verification equation failed.  
+    ///
+    /// We emphasise that all variants represent a failed signature,
+    /// not only this one.
+    EquationFalse,
     /// Invalid point provided, usually to `verify` methods.
     PointDecompressionError,
     /// Invalid scalar provided, usually to `Signature::from_bytes`.
@@ -105,8 +115,10 @@ impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::SignatureError::*;
         match *self {
+            EquationFalse =>
+                write!(f, "Verification equation failed"),
             PointDecompressionError => 
-                write!(f, "Cannot decompress Edwards point"),
+                write!(f, "Cannot decompress Ristretto point"),
             ScalarFormatError => 
                 write!(f, "Cannot use scalar with high-bit set"),
             BytesLengthError { name, length, .. } =>
