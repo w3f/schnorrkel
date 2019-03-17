@@ -114,7 +114,7 @@ impl SecretKey {
         let mut chaincode = [0u8; 32];
         t.challenge_bytes(b"HDKD-chaincode", &mut chaincode);
 
-        (MiniSecretKey(msk), ChainCode(chaincode)
+        (MiniSecretKey(msk), ChainCode(chaincode))
     }
 }
 
