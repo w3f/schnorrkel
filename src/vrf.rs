@@ -548,7 +548,17 @@ impl PublicKey {
 }
 
 
-/// Batch verify DLEQ proofs where the public keys were held by different parties.
+/// Batch verify DLEQ proofs where the public keys were held by
+/// different parties.
+///
+/// We first reconstruct the `c`s present in the `VRFProof`s but absent
+/// in the `VRFProofBatchable`s, using `shorten_dleq`.  We then verify
+/// the `R` and `Hr` components of the `VRFProofBatchable`s using the
+/// two equations a normal verification uses to discover them.
+/// We do this by delinearizing both verificaation equations with
+/// random numbers.
+///
+/// TODO: Combine the two verification equations.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn dleq_verify_batch(
