@@ -12,7 +12,7 @@
 //!
 //! We model the VRF on "Making NSEC5 Practical for DNSSEC" by
 //! Dimitrios Papadopoulos, Duane Wessels, Shumon Huque, Moni Naor,
-//! Jan Včelák, Leonid Rezyin, andd Sharon Goldberg
+//! Jan Včelák, Leonid Rezyin, andd Sharon Goldberg.
 //! https://eprint.iacr.org/2017/099.pdf
 //! We note the V(X)EdDSA signature scheme by Trevor Perrin at
 //! https://www.signal.org/docs/specifications/xeddsa/#vxeddsa
