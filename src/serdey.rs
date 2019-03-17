@@ -28,7 +28,7 @@ impl<'d> Deserialize<'d> for $t {
             type Value = $t;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(Self::Value::DESCRIPTION)
+                formatter.write_str($t::DESCRIPTION)
             }
 
             fn visit_bytes<E>(self, bytes: &[u8]) -> Result<$t, E> where E: SerdeError{
