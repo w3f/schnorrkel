@@ -2,7 +2,6 @@ language: rust
 
 rust:
   - stable
-  - beta
   - nightly
 
 env:
@@ -12,8 +11,9 @@ matrix:
   include:
     # We use the 64-bit optimised curve backend by default, so also test with
     # the 32-bit backend (this also exercises testing with `no_std`):
-    - rust: nightly
-      env: TEST_COMMAND=build FEATURES='--no-default-features --features=u32_backend'
+    # TODO: re-enable u32_backend
+    #- rust: nightly
+    #  env: TEST_COMMAND=build FEATURES='--no-default-features --features=u32_backend'
     # Test any nightly gated features on nightly:
     - rust: nightly
       env: TEST_COMMAND=test FEATURES='--features=nightly'
@@ -22,6 +22,14 @@ matrix:
       env: TEST_COMMAND=test FEATURE='--features=serde'
 
 script:
-  - cargo $TEST_COMMAND $FEATURES
+  # lint
+  - cargo fmt --version
+  - cargo fmt --all -- --check
+  - cargo clippy --version
+  - cargo clippy --all
 
-notifications:
+  - # build
+  - cargo build --all
+
+  # test
+  - cargo $TEST_COMMAND $FEATURES
