@@ -152,7 +152,7 @@ impl MiniSecretKey {
 
     /// View this secret key as a byte array.
     #[inline]
-    pub fn as_bytes<'a>(&'a self) -> &'a [u8; MINI_SECRET_KEY_LENGTH] {
+    pub fn as_bytes(&self) -> &[u8; MINI_SECRET_KEY_LENGTH] {
         &self.0
     }
 
