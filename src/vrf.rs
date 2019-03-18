@@ -124,7 +124,7 @@ impl VRFOutput {
     }
 }
 
-serde_boilerplate!(VRFPut);
+// serde_boilerplate!(VRFOutput);
 
 /// VRF input and output paired together, possibly unverified.
 ///
@@ -354,7 +354,7 @@ impl VRFProof {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr VRF proof without batch verification support, which consists of two scalars, making it 64 bytes.";
 }
 
-serde_boilerplate!(VRFProof);
+// serde_boilerplate!(VRFProof);
 
 /// Longer proof of correctness for associated VRF output,
 /// which supports batching.
@@ -410,7 +410,7 @@ impl VRFProofBatchable {
     }
 }
 
-serde_boilerplate!(VRFProofBatchable);
+// serde_boilerplate!(VRFProofBatchable);
 
 impl Keypair {
     /// Produce DLEQ proof.

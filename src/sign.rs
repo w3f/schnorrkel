@@ -15,15 +15,6 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
-#[cfg(feature = "serde")]
-use serde::{Serializer, Deserializer};
-#[cfg(feature = "serde")]
-use serde::de::Error as SerdeError;
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;

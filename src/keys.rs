@@ -17,15 +17,6 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
-#[cfg(feature = "serde")]
-use serde::{Serializer, Deserializer};
-#[cfg(feature = "serde")]
-use serde::de::Error as SerdeError;
-#[cfg(feature = "serde")]
-use serde::de::Visitor;
-
 use sha2::Sha512;
 
 use clear_on_drop::clear::Clear;

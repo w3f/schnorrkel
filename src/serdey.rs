@@ -12,26 +12,36 @@
 //!
 //! Right now, these
 
+// #[cfg(feature = "serde")]
+// use serde::{Serialize, Deserialize};
+// #[cfg(feature = "serde")]
+// use serde::{Serializer, Deserializer};
+// #[cfg(feature = "serde")]
+// use serde::de::Error as SerdeError;
+// #[cfg(feature = "serde")]
+// use serde::de::Visitor;
+
+
 #[cfg(feature = "serde")]
 macro_rules! serde_boilerplate { ($t:ty) => {
-impl Serialize for $t {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+impl ::serde::Serialize for $t {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
         serializer.serialize_bytes(&self.to_bytes()[..])
     }
 }
 
-impl<'d> Deserialize<'d> for $t {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'d> {
+impl<'d> ::serde::Deserialize<'d> for $t {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde::Deserializer<'d> {
         struct MyVisitor;
 
-        impl<'d> Visitor<'d> for MyVisitor {
+        impl<'d> ::serde::de::Visitor<'d> for MyVisitor {
             type Value = $t;
 
             fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str($t::DESCRIPTION)
+                formatter.write_str(Self::Value::DESCRIPTION)
             }
 
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<$t, E> where E: SerdeError{
+            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<$t, E> where E: ::serde::de::Error {
                 Self::Value::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
             }
         }

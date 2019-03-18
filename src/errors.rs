@@ -141,7 +141,7 @@ impl Display for SignatureError {
 impl ::failure::Fail for SignatureError {}
 
 #[cfg(feature = "serde")]
-/// Convert `SignatureError` into `SerdeError`
+/// Convert `SignatureError` into `::serde::de::Error` aka `SerdeError`
 ///
 /// We should do this with `From` but right now the orphan rules prohibit
 /// `impl From<SignatureError> for E where E: ::serde::de::Error`.
