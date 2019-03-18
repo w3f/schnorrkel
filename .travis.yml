@@ -21,6 +21,10 @@ matrix:
     - rust: stable
       env: TEST_COMMAND=test FEATURE='--features=serde'
 
+install:
+  - rustup component add rustfmt
+  - rustup component add clippy
+
 script:
   # lint
   - cargo fmt --version
@@ -28,7 +32,7 @@ script:
   - cargo clippy --version
   - cargo clippy --all
 
-  - # build
+  # build
   - cargo build --all
 
   # test
