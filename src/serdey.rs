@@ -1,6 +1,6 @@
 // -*- mode: rust; -*-
 //
-// This file is part of ed25519-dalek.
+// This file is part of schnorrkel.
 // Copyright (c) 2019 Isis Lovecruft and Web 3 Foundation
 // See LICENSE for licensing information.
 //
@@ -10,7 +10,7 @@
 
 //! Various test tooling related to serde
 //!
-//! Right now, these 
+//! Right now, these
 
 #[cfg(feature = "serde")]
 macro_rules! serde_boilerplate { ($t:ty) => {
@@ -55,7 +55,7 @@ mod test {
 
     static COMPRESSED_PUBLIC_KEY : CompressedRistretto = CompressedRistretto([
         208, 120, 140, 129, 177, 179, 237, 159,
-        252, 160, 028, 013, 206, 005, 211, 241, 
+        252, 160, 028, 013, 206, 005, 211, 241,
         192, 218, 001, 097, 130, 241, 020, 169,
         119, 046, 246, 029, 079, 080, 077, 084]);
 
