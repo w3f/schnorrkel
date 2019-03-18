@@ -89,6 +89,16 @@ use crate::points::RistrettoBoth;
 // use crate::errors::SignatureError;
 
 
+/// Length of VRF output.
+pub const VRF_OUTPUT_LENGTH : usize = 32;
+
+/// Length of the short VRF proof which lacks support for batch verification.
+pub const VRF_PROOF_LENGTH : usize = 64;
+
+/// Length of the longer VRF proof which supports batch verification.
+pub const VRF_PROOF_BATCHABLE_LENGTH : usize = 96;
+
+
 /// Create a VRF input point by hashing a transcript to a point.
 pub fn vrf_hash<T: SigningTranscript>(mut t: T) -> RistrettoBoth {
     let mut b = [0u8; 64];
@@ -117,24 +127,24 @@ impl VRFOutput {
 
     /// Convert this VRF output to a byte array.
     #[inline]
-    pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
+    pub fn to_bytes(&self) -> [u8; VRF_OUTPUT_LENGTH] {
         self.0
     }
 
     /// View this secret key as a byte array.
     #[inline]
-    pub fn as_bytes(&self) -> &[u8; PUBLIC_KEY_LENGTH] {
+    pub fn as_bytes(&self) -> &[u8; VRF_OUTPUT_LENGTH] {
         &self.0
     }
 
     /// Construct a `VRFOutput` from a slice of bytes.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFOutput> {
-        if bytes.len() != PUBLIC_KEY_LENGTH {
+        if bytes.len() != VRF_OUTPUT_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "VRFOutput",
                 description: VRFOutput::DESCRIPTION,
-                length: PUBLIC_KEY_LENGTH
+                length: VRF_OUTPUT_LENGTH
             });
         }
         let mut bits: [u8; 32] = [0u8; 32];
@@ -379,9 +389,40 @@ pub struct VRFProof {
 
 impl VRFProof {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr VRF proof without batch verification support, which consists of two scalars, making it 64 bytes.";
+
+    /// Convert this `VRFProof` to a byte array.
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; VRF_PROOF_LENGTH] {
+        let mut bytes = [0u8; VRF_PROOF_LENGTH];
+
+        bytes[..32].copy_from_slice(&self.c.as_bytes()[..]);
+        bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
+        bytes
+    }
+
+    /// Construct a `VRFProof` from a slice of bytes.
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFProof> {
+        if bytes.len() != VRF_PROOF_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "VRFProof",
+                description: VRFProof::DESCRIPTION,
+                length: VRF_PROOF_LENGTH
+            });
+        }
+        let mut c: [u8; 32] = [0u8; 32];
+        let mut s: [u8; 32] = [0u8; 32];
+
+        c.copy_from_slice(&bytes[..32]);
+        s.copy_from_slice(&bytes[32..]);
+
+        let c = Scalar::from_canonical_bytes(c).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        Ok(VRFProof { c, s })
+    }
 }
 
-// serde_boilerplate!(VRFProof);
+serde_boilerplate!(VRFProof);
 
 /// Longer proof of correctness for associated VRF output,
 /// which supports batching.
@@ -400,6 +441,41 @@ pub struct VRFProofBatchable {
 
 impl VRFProofBatchable {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr VRF proof that supports batch verification, which consists of two Ristretto compressed points and one scalar, making it 96 bytes.";
+
+    /// Convert this `VRFProofBatchable` to a byte array.
+	#[allow(non_snake_case)]
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; VRF_PROOF_BATCHABLE_LENGTH] {
+        let mut bytes = [0u8; VRF_PROOF_BATCHABLE_LENGTH];
+
+        bytes[0..32].copy_from_slice(&self.R.as_bytes()[..]);
+        bytes[32..64].copy_from_slice(&self.Hr.as_bytes()[..]);
+        bytes[64..96].copy_from_slice(&self.s.as_bytes()[..]);
+        bytes
+    }
+
+    /// Construct a `VRFProofBatchable` from a slice of bytes.
+	#[allow(non_snake_case)]
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFProofBatchable> {
+        if bytes.len() != SIGNATURE_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "VRFProofBatchable",
+                description: VRFProofBatchable::DESCRIPTION,
+                length: SIGNATURE_LENGTH
+            });
+        }
+        let mut R: [u8; 32] = [0u8; 32];
+        let mut Hr: [u8; 32] = [0u8; 32];
+        let mut s: [u8; 32] = [0u8; 32];
+
+        R.copy_from_slice(&bytes[0..32]);
+        Hr.copy_from_slice(&bytes[32..64]);
+        s.copy_from_slice(&bytes[64..96]);
+
+        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        Ok(VRFProofBatchable { R: CompressedRistretto(R), Hr: CompressedRistretto(Hr), s })
+    }
 
     /// Return the shortened `VRFProof` for retransmitting in not batched situations
     #[allow(non_snake_case)]
@@ -437,7 +513,7 @@ impl VRFProofBatchable {
     }
 }
 
-// serde_boilerplate!(VRFProofBatchable);
+serde_boilerplate!(VRFProofBatchable);
 
 impl Keypair {
     /// Produce DLEQ proof.

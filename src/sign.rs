@@ -72,7 +72,7 @@ impl Signature {
          signature as specified in RFC8032, except the Ristretto point \
          compression is used for the curve point in the first 32 bytes";
     */
-    
+
     /// Convert this `Signature` to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; SIGNATURE_LENGTH] {
