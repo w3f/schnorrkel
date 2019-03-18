@@ -458,11 +458,11 @@ impl VRFProofBatchable {
 	#[allow(non_snake_case)]
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFProofBatchable> {
-        if bytes.len() != SIGNATURE_LENGTH {
+        if bytes.len() != VRF_PROOF_BATCHABLE_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "VRFProofBatchable",
                 description: VRFProofBatchable::DESCRIPTION,
-                length: SIGNATURE_LENGTH
+                length: VRF_PROOF_BATCHABLE_LENGTH,
             });
         }
         let mut R: [u8; 32] = [0u8; 32];
