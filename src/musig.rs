@@ -205,7 +205,7 @@ impl CoR {
     */
 
     #[allow(non_snake_case)]
-    fn set_revealed(&mut self, R: CompressedRistretto) -> Result<(),SignatureError> {
+    fn set_revealed(&mut self, R: CompressedRistretto) -> SignatureResult<()> {
         let commitment = Commitment::for_R(&R);
         let R = R.decompress().ok_or(SignatureError::PointDecompressionError) ?;
         match self.clone() {  // TODO: Remove .clone() here with #![feature(nll)]
@@ -228,7 +228,7 @@ impl CoR {
     }
 
     #[allow(non_snake_case)]
-    fn set_cosigned(&mut self, s: Scalar) -> Result<(),SignatureError> {
+    fn set_cosigned(&mut self, s: Scalar) -> SignatureResult<()> {
         match self {
             CoR::Collect { .. } => panic!("Internal error, set_cosigned during collection phase."),
             CoR::Commit(_) => {
@@ -349,7 +349,7 @@ impl<'k,T: SigningTranscript> MuSig<T,CommitStage<'k>> {
 
     /// Add a new cosigner's public key and associated `R` bypassing our commitmewnt phase.
     pub fn add_their_commitment(&mut self, them: PublicKey, theirs: Commitment)
-     -> Result<(),SignatureError>
+     -> SignatureResult<()>
     {
         let theirs = CoR::Commit(theirs);
         use std::collections::btree_map::Entry::*;
@@ -398,7 +398,7 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
 
     /// Include a revealed `R` value from a previously committed cosigner
     pub fn add_their_reveal(&mut self, them: PublicKey, theirs: Reveal)
-     -> Result<(),SignatureError>
+     -> SignatureResult<()>
     {
         use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
@@ -430,7 +430,7 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
     /// fail (c) too, making this only useful for individuals.
     #[allow(non_snake_case)]
     pub fn add_trusted(&mut self, them: PublicKey, theirs: Reveal)
-     -> Result<(),SignatureError>
+     -> SignatureResult<()>
     {
         let R = CompressedRistretto(theirs.0).decompress()
             .ok_or(SignatureError::PointDecompressionError) ?;
@@ -490,7 +490,7 @@ impl<T: SigningTranscript> MuSig<T,CosignStage> {
 
     /// Include a cosignature from another cosigner
     pub fn add_their_cosignature(&mut self, them: PublicKey, theirs: Cosignature)
-     -> Result<(),SignatureError>
+     -> SignatureResult<()>
     {
         let theirs = Scalar::from_canonical_bytes(theirs.0)
             .ok_or(SignatureError::ScalarFormatError) ?;
@@ -557,7 +557,7 @@ impl<T: SigningTranscript> MuSig<T,CollectStage> {
     /// Adds revealed `R` and cosignature into a cosignature collector
     #[allow(non_snake_case)]
     pub fn add(&mut self, them: PublicKey, their_reveal: Reveal, their_cosignature: Cosignature)
-     -> Result<(),SignatureError>
+     -> SignatureResult<()>
     {
         let R = CompressedRistretto(their_reveal.0).decompress()
             .ok_or(SignatureError::PointDecompressionError) ?;

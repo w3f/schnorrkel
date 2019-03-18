@@ -41,7 +41,7 @@ use subtle::{Choice,ConstantTimeEq};
 
 use crate::scalars;
 use crate::points::RistrettoBoth;
-use crate::errors::SignatureError;
+use crate::errors::{SignatureError,SignatureResult};
 
 
 /// The length of a Ristretto Schnorr `MiniSecretKey`, in bytes.
@@ -199,7 +199,7 @@ impl MiniSecretKey {
     /// A `Result` whose okay value is an EdDSA `MiniSecretKey` or whose error value
     /// is an `SignatureError` wrapping the internal error that occurred.
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<MiniSecretKey, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<MiniSecretKey> {
         if bytes.len() != MINI_SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "MiniSecretKey",
@@ -441,7 +441,7 @@ impl SecretKey {
     /// # }
     /// ```
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<SecretKey, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<SecretKey> {
         if bytes.len() != SECRET_KEY_LENGTH {
             return Err(SignatureError::BytesLengthError{
                 name: "SecretKey",
@@ -543,7 +543,7 @@ impl PublicKey {
 
     /// Decompress into the `PublicKey` format that also retains the
     /// compressed form.
-    pub fn from_compressed(compressed: CompressedRistretto) -> Result<PublicKey,SignatureError> {
+    pub fn from_compressed(compressed: CompressedRistretto) -> SignatureResult<PublicKey> {
         Ok(PublicKey(RistrettoBoth::from_compressed(compressed) ?))
     }
 
@@ -596,7 +596,7 @@ impl PublicKey {
     /// A `Result` whose okay value is an EdDSA `PublicKey` or whose error value
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<PublicKey, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<PublicKey> {
         Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey",PublicKey::DESCRIPTION,bytes) ?))
     }
 }
@@ -673,7 +673,7 @@ impl Keypair {
     ///
     /// A `Result` whose okay value is an EdDSA `Keypair` or whose error value
     /// is an `SignatureError` describing the error that occurred.
-    pub fn from_bytes<'a>(bytes: &'a [u8]) -> Result<Keypair, SignatureError> {
+    pub fn from_bytes<'a>(bytes: &'a [u8]) -> SignatureResult<Keypair> {
         if bytes.len() != KEYPAIR_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Keypair",

@@ -138,7 +138,7 @@ impl PublicKey {
         mut t: T,
         seed_secret_key: &SecretKey,
         cert_secret: ECQVCertSecret
-    ) -> Result<(ECQVCertPublic, SecretKey),SignatureError>
+    ) -> SignatureResult<(ECQVCertPublic, SecretKey)>
     where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
@@ -188,7 +188,7 @@ impl Keypair {
 
 impl PublicKey {
     ///
-    pub fn open_ecqv_cert<T>(&self, mut t: T, cert_public: &ECQVCertPublic) -> Result<PublicKey,SignatureError>
+    pub fn open_ecqv_cert<T>(&self, mut t: T, cert_public: &ECQVCertPublic) -> SignatureResult<PublicKey>
     where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
