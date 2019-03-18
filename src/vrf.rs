@@ -109,11 +109,38 @@ pub fn vrf_hash<T: SigningTranscript>(mut t: T) -> RistrettoBoth {
 /// `Copy`, as a reminder that VRF outputs should only be used once
 /// and should be checked before usage.
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VRFOutput(pub [u8; 32]);
+pub struct VRFOutput(pub [u8; PUBLIC_KEY_LENGTH]);
 
 impl VRFOutput {
     const DESCRIPTION: &'static str =
         "A Ristretto Schnorr VRF output represented as a 32-byte Ristretto compressed point";
+
+    /// Convert this VRF output to a byte array.
+    #[inline]
+    pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
+        self.0
+    }
+
+    /// View this secret key as a byte array.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8; PUBLIC_KEY_LENGTH] {
+        &self.0
+    }
+
+    /// Construct a `VRFOutput` from a slice of bytes.
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFOutput> {
+        if bytes.len() != PUBLIC_KEY_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "VRFOutput",
+                description: VRFOutput::DESCRIPTION,
+                length: PUBLIC_KEY_LENGTH
+            });
+        }
+        let mut bits: [u8; 32] = [0u8; 32];
+        bits.copy_from_slice(&bytes[..32]);
+        Ok(VRFOutput(bits))
+    }
 
     /// Pair a VRF output with the hash of the given transcript.
     pub fn attach_input_hash<T>(&self, t: T) -> SignatureResult<VRFInOut>
@@ -124,7 +151,7 @@ impl VRFOutput {
     }
 }
 
-// serde_boilerplate!(VRFOutput);
+serde_boilerplate!(VRFOutput);
 
 /// VRF input and output paired together, possibly unverified.
 ///
