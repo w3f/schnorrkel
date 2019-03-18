@@ -11,7 +11,7 @@
 //! Elliptic curve Qu-Vanstone implicit certificate scheme (ECQV) for Ristretto
 //!
 //! [Implicit certificates](https://en.wikipedia.org/wiki/Implicit_certificate)
-//! provide an extremely space efficent public key certificate scheme.  
+//! provide an extremely space efficent public key certificate scheme.
 //!
 //! As a rule, implicit certificates do not prove possession of the
 //! private key.  We thus worry more about fear rogue key attack when
@@ -81,7 +81,7 @@ impl Keypair {
     ///
     /// Aside from the issuing `Keypair` supplied as `self`, you provide both
     /// (1) a digest `h` that incorporates both the context and the
-    ///     certificate requester's identity, and 
+    ///     certificate requester's identity, and
     /// (2) the `seed_public_key` supplied by the certificate recipient
     ///     in their certificate request.
     /// We return an `ECQVCertSecret` which the issuer sent to the
@@ -121,10 +121,10 @@ impl PublicKey {
     /// ephemeral `Keypair` and sending the public portion to the issuer
     /// as `seed_public_key`.  An issuer issues the certificat by replying
     /// with the `ECQVCertSecret` created by `issue_ecqv_cert`.
-    /// 
+    ///
     /// Aside from the issuer `PublicKey` supplied as `self`, you provide
     /// (1) a digest `h` that incorporates both the context and the
-    ///     certificate requester's identity, 
+    ///     certificate requester's identity,
     /// (2) the `seed_secret_key` corresponding to the `seed_public_key`
     ///     they sent to the issuer by the certificate recipient in their
     ///     certificate request, and
@@ -144,8 +144,8 @@ impl PublicKey {
         t.proto_name(b"ECQV");
         t.commit_point(b"Issuer-pk",self.as_compressed());
 
-        // Again we cannot commit much to the transcript, but we again 
-        // treat anything relevant as a witness when defining the 
+        // Again we cannot commit much to the transcript, but we again
+        // treat anything relevant as a witness when defining the
         let mut nonce = [0u8; 32];
         t.witness_bytes(&mut nonce, &[&cert_secret.0[..],&seed_secret_key.nonce]);
 
@@ -155,7 +155,7 @@ impl PublicKey {
         let cert_public : ECQVCertPublic = cert_secret.into();
         let gamma = CompressedRistretto(cert_public.0.clone());
         t.commit_point(b"gamma",&gamma);
-        
+
         let key = s + cert_public.derive_e(t) * seed_secret_key.key;
         Ok(( cert_public, SecretKey { key, nonce } ))
     }
@@ -167,22 +167,22 @@ impl Keypair {
     /// We can issue an implicit certificate to ourselves if we merely
     /// want to certify an associated public key.  We should prefer
     /// this option over "hierarchical deterministic" key derivation
-    /// because compromizing the resulting secret key does not 
+    /// because compromizing the resulting secret key does not
     /// compromize the issuer's secret key.
-    /// 
-    /// In this case, we avoid the entire interactive protocol described 
+    ///
+    /// In this case, we avoid the entire interactive protocol described
     /// by `issue_ecqv_cert` and `accept_ecqv_cert` by hiding it an all
     /// managment of the ephemeral `Keypair` inside this function.
     ///
     /// Aside from the issuing secret key supplied as `self`, you provide
     /// only a digest `h` that incorporates any context and metadata
-    /// pertaining to the issued key.  
+    /// pertaining to the issued key.
     pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
     where T: SigningTranscript+Clone
     {
         let seed = Keypair::generate(thread_rng());
         let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
-        self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).unwrap()
+        self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).expect("Cert issued above and known to produce signature errors; qed")
     }
 }
 
@@ -216,6 +216,6 @@ mod tests {
         let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
         let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
         assert_eq!(secret_key.to_public(), public_key);
-    }   
+    }
 }
 
