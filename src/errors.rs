@@ -1,6 +1,6 @@
 // -*- mode: rust; -*-
 //
-// This file is part of ed25519-dalek.
+// This file is part of schnorrkel.
 // Copyright (c) 2019 Isis Lovecruft and Web 3 Foundation
 // See LICENSE for licensing information.
 //
@@ -63,7 +63,7 @@ impl Display for MultiSignatureStage {
 // * Failure of a signature to satisfy the verification equation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum SignatureError {
-    /// A signature verification equation failed.  
+    /// A signature verification equation failed.
     ///
     /// We emphasise that all variants represent a failed signature,
     /// not only this one.
@@ -74,7 +74,7 @@ pub enum SignatureError {
     ScalarFormatError,
     /// An error in the length of bytes handed to a constructor.
     ///
-    /// To use this, pass a string specifying the `name` of the type 
+    /// To use this, pass a string specifying the `name` of the type
     /// which is returning the error, and the `length` in bytes which
     /// its constructor expects.
     BytesLengthError {
@@ -83,7 +83,7 @@ pub enum SignatureError {
         /// Describes the type returning the error
         description: &'static str,
         /// Length expected by the constructor in bytes
-        length: usize 
+        length: usize
     },
     /// There is no record of the preceeding multi-signautre protocol
     /// stage for the specified public key.
@@ -98,12 +98,12 @@ pub enum SignatureError {
     MuSigInconsistent {
         /// Identifies the multi-signature protocol stage during which
         /// the error occured.
-        musig_stage: MultiSignatureStage, 
+        musig_stage: MultiSignatureStage,
         /// Set true if the stage was reached correctly once but this
         /// duplicate disagrees.
         duplicate: bool,
     },
-    
+
     // /// Reveal did not match commitment
     // InvalidReveal,
 // other multisig errors
@@ -117,9 +117,9 @@ impl Display for SignatureError {
         match *self {
             EquationFalse =>
                 write!(f, "Verification equation failed"),
-            PointDecompressionError => 
+            PointDecompressionError =>
                 write!(f, "Cannot decompress Ristretto point"),
-            ScalarFormatError => 
+            ScalarFormatError =>
                 write!(f, "Cannot use scalar with high-bit set"),
             BytesLengthError { name, length, .. } =>
                 write!(f, "{} must be {} bytes in length", name, length),

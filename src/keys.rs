@@ -1,6 +1,6 @@
 // -*- mode: rust; -*-
 //
-// This file is part of ed25519-dalek.
+// This file is part of schnorrkel.
 // Copyright (c) 2019 Isis Lovecruft and Web 3 Foundation
 // See LICENSE for licensing information.
 //
@@ -126,7 +126,7 @@ impl MiniSecretKey {
         let r = h.fixed_result();
 
         // We need not clamp in a Schnorr group like Ristretto, but here
-        // we do so to improve Ed25519 comparability.  
+        // we do so to improve Ed25519 comparability.
         let mut key = [0u8; 32];
         key.copy_from_slice(&r.as_slice()[0..32]);
         key[0]  &= 248;
@@ -464,7 +464,7 @@ impl SecretKey {
 
         Ok(SecretKey{
             key: Scalar::from_bits(key),
-            nonce,  
+            nonce,
         })
     }
 
@@ -503,9 +503,9 @@ serde_boilerplate!(SecretKey);
 
 
 /// A Ristretto Schnorr public key.
-/// 
+///
 /// Internally, these are represented as a `RistrettoPoint`, meaning
-/// an Edwards point with a static guarantee to be 2-torsion free. 
+/// an Edwards point with a static guarantee to be 2-torsion free.
 ///
 /// At present, we decompress `PublicKey`s into this representation
 /// during deserialization, which improves error handling, but costs
@@ -629,7 +629,7 @@ impl From<SecretKey> for Keypair {
 impl Keypair {
     const DESCRIPTION : &'static str = "A 96 bytes Ristretto Schnorr keypair";
     /*
-    const DESCRIPTION_LONG : &'static str = 
+    const DESCRIPTION_LONG : &'static str =
         "An ristretto schnorr keypair, 96 bytes in total, where the \
         first 64 bytes contains the secret key represented as an \
         ed25519 expanded secret key, as specified in RFC8032, and \
@@ -710,7 +710,7 @@ impl Keypair {
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`.
-    /// 
+    ///
     /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
     /// impoised on Ed25519 keys.
