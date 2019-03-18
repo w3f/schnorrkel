@@ -325,7 +325,7 @@ impl ConstantTimeEq for SecretKey {
     }
 }
 
-impl<'a> From<&'a MiniSecretKey> for SecretKey {
+impl From<&MiniSecretKey> for SecretKey {
     /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
     /// # Examples
@@ -345,7 +345,7 @@ impl<'a> From<&'a MiniSecretKey> for SecretKey {
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// # }
     /// ```
-    fn from(msk: &'a MiniSecretKey) -> SecretKey {
+    fn from(msk: &MiniSecretKey) -> SecretKey {
         msk.expand()
     }
 }
@@ -664,7 +664,7 @@ impl Keypair {
     ///
     /// A `Result` whose okay value is an EdDSA `Keypair` or whose error value
     /// is an `SignatureError` describing the error that occurred.
-    pub fn from_bytes<'a>(bytes: &'a [u8]) -> SignatureResult<Keypair> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<Keypair> {
         if bytes.len() != KEYPAIR_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Keypair",
