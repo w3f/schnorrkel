@@ -240,7 +240,7 @@ impl VRFInOut {
     /// We think this might be marginally slower than `ChaChaRng`
     /// when considerable output is required, but it should reduce
     /// the final linked binary size slightly, and improves domain
-    /// seperation.
+    /// separation.
     pub fn make_merlin_rng(&self, context: &'static [u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
