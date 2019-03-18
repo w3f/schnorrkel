@@ -26,17 +26,17 @@ use curve25519_dalek::scalar::Scalar;
 // === Signing context as transcript === //
 
 /// Schnorr signing transcript
-/// 
+///
 /// We envision signatures being on messages, but if a signature occurs
-/// inside a larger protocol then the signature scheme's internal 
+/// inside a larger protocol then the signature scheme's internal
 /// transcript may exist before or persist after signing.
-/// 
+///
 /// In this trait, we provide an interface for Schnorr signature-like
 /// constructions that is compatable with `merlin::Transcript`, but
 /// abstract enough to support normal hash functions as well.
 ///
 /// We also abstract over owned and borrowed `merlin::Transcript`s,
-/// so that simple use cases do not suffer from our support for. 
+/// so that simple use cases do not suffer from our support for.
 pub trait SigningTranscript {
     /// Extend transcript with some bytes, shadowed by `merlin::Transcript`.
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]);
@@ -82,7 +82,7 @@ pub trait SigningTranscript {
     fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar {
         let mut scalar_bytes = [0u8; 64];
         self.witness_bytes(&mut scalar_bytes, nonce_seeds);
-        Scalar::from_bytes_mod_order_wide(&scalar_bytes)        
+        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
     /// Produce secret witness bytes from the protocol transcript
@@ -98,9 +98,9 @@ pub trait SigningTranscript {
 }
 
 /// We delegates any mutable reference to its base type, like `&mut Rng`
-/// or similar to `BorrowMut<..>` do, but doing so here simplifies 
+/// or similar to `BorrowMut<..>` do, but doing so here simplifies
 /// alternative implementations.
-impl<'a,T> SigningTranscript for &'a mut T
+impl<T> SigningTranscript for &mut T
 where T: SigningTranscript + ?Sized
 {
     #[inline(always)]
@@ -131,7 +131,7 @@ where T: SigningTranscript + ?Sized
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
-/// inherent methods of `merlin::Transcript` and implement two 
+/// inherent methods of `merlin::Transcript` and implement two
 /// witness methods to avoid abrtasting the `merlin::TranscriptRng`
 /// machenry.
 impl SigningTranscript for Transcript {
@@ -194,7 +194,7 @@ impl SigningContext {
     /// Initalize an owned signing transcript on a message provided as a hash function with extensible output
     pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
-        h.xof_result().read(&mut prehash);      
+        h.xof_result().read(&mut prehash);
         let mut t = self.0.clone();
         t.commit_bytes(b"sign-XoF", &prehash);
         t
@@ -266,7 +266,7 @@ where H: Input + ExtendableOutput + Clone
         let mut r = [0u8; 32];
         rng.fill_bytes(&mut r);
         h.input(&r);
-        h.xof_result().read(dest);      
+        h.xof_result().read(dest);
     }
 }
 
@@ -285,7 +285,7 @@ where H: Input + ExtendableOutput + Clone
 /// by an arbitrary `CryptoRng`.
 ///
 /// If `ThreadRng` breaks on your platform, or merely if your paranoid,
-/// then you might "upgrade" from `ThreadRng` to `OsRng` by using calls 
+/// then you might "upgrade" from `ThreadRng` to `OsRng` by using calls
 /// like `keypair.sign( attach_rng(t,OSRng::new()) )`.
 /// We recommend instead simply fixing `ThreadRng` for your platform
 /// however.
@@ -295,7 +295,7 @@ where H: Input + ExtendableOutput + Clone
 /// for deterministic signing in tests too.  Although derandomization
 /// produces secure signatures, we recommend against doing this in
 /// production because we implement protocols like multi-signatures
-/// which likely become vulnerabile when derandomized. 
+/// which likely become vulnerabile when derandomized.
 pub struct SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: Rng+CryptoRng
 {
@@ -327,7 +327,7 @@ where T: SigningTranscript, R: Rng+CryptoRng
 /// for deterministic tests.  We warn against doing this in production
 /// however because, although such derandomization produces secure Schnorr
 /// signatures, we do implement protocols here like multi-signatures which
-/// likely become vulnerabile when derandomized. 
+/// likely become vulnerabile when derandomized.
 pub fn attach_rng<T,R>(t: T, rng: R) -> SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: Rng+CryptoRng
 {
@@ -340,7 +340,7 @@ where T: SigningTranscript, R: Rng+CryptoRng
 #[cfg(debug_assertions)]
 use rand_chacha::ChaChaRng;
 
-/// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng` 
+/// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng`
 #[cfg(debug_assertions)]
 pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> SigningTranscriptWithRng<ChaChaRng> {
     attach_rng(t,ChaChaRng::from_seed(seed))
