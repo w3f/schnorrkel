@@ -32,7 +32,7 @@ use serde::de::Visitor;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 // use curve25519_dalek::scalar::Scalar;
 
-use crate::errors::SignatureError;
+use crate::errors::{SignatureError,SignatureResult};
 
 
 /// Compressed Ristretto point length
@@ -76,7 +76,7 @@ impl RistrettoBoth {
 
     /// Decompress into the `RistrettoBoth` format that also retains the
     /// compressed form.
-    pub fn from_compressed(compressed: CompressedRistretto) -> Result<RistrettoBoth,SignatureError> {
+    pub fn from_compressed(compressed: CompressedRistretto) -> SignatureResult<RistrettoBoth> {
         Ok(RistrettoBoth {
             point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
             compressed,
@@ -135,13 +135,13 @@ impl RistrettoBoth {
     /// A `Result` whose okay value is an EdDSA `RistrettoBoth` or whose error value
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
         RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DESCRIPTION,bytes)
     }
 
     /// Variant of `RistrettoBoth::from_bytes` that propogates more informative errors.
     #[inline]
-    pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> Result<RistrettoBoth, SignatureError> {
+    pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
             return Err(SignatureError::BytesLengthError{
                 name, description, length: RISTRETTO_POINT_LENGTH,

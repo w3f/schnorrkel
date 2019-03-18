@@ -18,6 +18,9 @@ use core::fmt;
 use core::fmt::Display;
 
 
+/// `Result` specilized to this crate for convenience.
+pub type SignatureResult<T> = Result<T, SignatureError>;
+
 /// Three-round trip multi-signature stage identifies used in error reporting
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum MultiSignatureStage {

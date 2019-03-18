@@ -304,5 +304,5 @@ pub mod errors;
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
 pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature,SIGNATURE_LENGTH,verify_batch};
-pub use crate::errors::SignatureError;
+pub use crate::errors::{SignatureError,SignatureResult};
 

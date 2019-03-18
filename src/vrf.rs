@@ -88,6 +88,7 @@ use crate::context::SigningTranscript;
 use crate::points::RistrettoBoth;
 // use crate::errors::SignatureError;
 
+
 /// Create a VRF input point by hashing a transcript to a point.
 pub fn vrf_hash<T: SigningTranscript>(mut t: T) -> RistrettoBoth {
     let mut b = [0u8; 64];
@@ -115,10 +116,8 @@ impl VRFOutput {
         "A Ristretto Schnorr VRF output represented as a 32-byte Ristretto compressed point";
 
     /// Pair a VRF output with the hash of the given transcript.
-    pub fn attach_input_hash<T: SigningTranscript>(
-        &self,
-        t: T,
-    ) -> Result<VRFInOut, SignatureError> {
+    pub fn attach_input_hash<T>(&self, t: T) -> SignatureResult<VRFInOut>
+	where T: SigningTranscript {
         let input = vrf_hash(t);
         let output = RistrettoBoth::from_bytes_ser("VRFOutput", VRFOutput::DESCRIPTION, &self.0)?;
         Ok(VRFInOut { input, output })
@@ -149,15 +148,9 @@ impl SecretKey {
 
     /// Evaluate the VRF-like multiplication on a compressed point,
     /// useful for proving key exchanges, OPRFs, or sequential VRFs.
-    pub fn vrf_create_from_compressed_point(
-        &self,
-        input: &VRFOutput,
-    ) -> Result<VRFInOut, SignatureError> {
-        Ok(
-            self.vrf_create_from_point(RistrettoBoth::from_compressed(CompressedRistretto(
-                input.0,
-            ))?),
-        )
+    pub fn vrf_create_from_compressed_point(&self, input: &VRFOutput) -> SignatureResult<VRFInOut> {
+        let input = RistrettoBoth::from_compressed(CompressedRistretto(input.0)) ?;
+        Ok(self.vrf_create_from_point(input))
     }
 
     /// Evaluate the VRF on the given transcript.
@@ -245,16 +238,10 @@ impl VRFInOut {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
         impl ::rand::RngCore for ZeroFakeRng {
-            fn next_u32(&mut self) -> u32 {
-                panic!()
-            }
-            fn next_u64(&mut self) -> u64 {
-                panic!()
-            }
+            fn next_u32(&mut self) -> u32 {  panic!()  }
+            fn next_u64(&mut self) -> u64 {  panic!()  }
             fn fill_bytes(&mut self, dest: &mut [u8]) {
-                for i in dest.iter_mut() {
-                    *i = 0;
-                }
+                for i in dest.iter_mut() {  *i = 0;  }
             }
             fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
                 self.fill_bytes(dest);
@@ -331,15 +318,12 @@ impl PublicKey {
             p.borrow().commit(&mut t);
         }
 
-        let zs: Vec<Scalar> = ps
-            .iter()
-            .skip(1)
+        let zs: Vec<Scalar> = ps.iter().skip(1)
             .map(|p| {
                 let mut t0 = t.clone();
                 p.borrow().commit(&mut t0);
                 challenge_scalar_128(t0)
-            })
-            .collect();
+            }).collect();
         let one = Scalar::one();
         let zf = || once(&one).chain(zs.iter());
 
@@ -393,8 +377,7 @@ impl VRFProofBatchable {
     /// Return the shortened `VRFProof` for retransmitting in not batched situations
     #[allow(non_snake_case)]
     pub fn shorten_dleq<T>(&self, mut t: T, public: &PublicKey, p: &VRFInOut) -> VRFProof
-    where
-        T: SigningTranscript,
+    where T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
@@ -418,12 +401,9 @@ impl VRFProofBatchable {
     /// TODO: Avoid the error path here by avoiding decompressing,
     /// either locally here, or more likely by decompressing
     /// `VRFOutput` in deserialization.
-    pub fn shorten_vrf<T: SigningTranscript>(
-        &self,
-        public: &PublicKey,
-        t: T,
-        out: &VRFOutput,
-    ) -> Result<VRFProof, SignatureError> {
+    pub fn shorten_vrf<T>( &self, public: &PublicKey, t: T, out: &VRFOutput) -> SignatureResult<VRFProof>
+    where T: SigningTranscript,
+	{
         let p = out.attach_input_hash(t)?; // Avoidable by avoiding decompressing out here.
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
         Ok(self.shorten_dleq(t0, public, &p))
@@ -484,8 +464,7 @@ impl Keypair {
         T: SigningTranscript,
         I: IntoIterator<Item = T>,
     {
-        let ps = ts
-            .into_iter()
+        let ps = ts.into_iter()
             .map(|t| self.secret.vrf_create_hash(t))
             .collect::<Vec<VRFInOut>>();
         let p = self.public.vrfs_merge_vartime(&ps);
@@ -512,7 +491,7 @@ impl PublicKey {
         mut t: T,
         p: &VRFInOut,
         proof: &VRFProof,
-    ) -> Result<VRFProofBatchable, SignatureError>
+    ) -> SignatureResult<VRFProofBatchable>
     where
         T: SigningTranscript,
     {
@@ -558,7 +537,7 @@ impl PublicKey {
         t: T,
         out: &VRFOutput,
         proof: &VRFProof,
-    ) -> Result<(VRFInOut, VRFProofBatchable), SignatureError> {
+    ) -> SignatureResult<(VRFInOut, VRFProofBatchable)> {
         let p = out.attach_input_hash(t)?;
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear breaks batching
         let proof_batchable = self.dleq_verify(t0, &p, proof)?;
@@ -572,18 +551,16 @@ impl PublicKey {
         transcripts: I,
         outs: &[O],
         proof: &VRFProof,
-    ) -> Result<(Box<[VRFInOut]>, VRFProofBatchable), SignatureError>
+    ) -> SignatureResult<(Box<[VRFInOut]>, VRFProofBatchable)>
     where
         T: SigningTranscript,
         I: IntoIterator<Item = T>,
         O: Borrow<VRFOutput>,
     {
         let mut ts = transcripts.into_iter();
-        let ps = ts
-            .by_ref()
-            .zip(outs)
+        let ps = ts.by_ref().zip(outs)
             .map(|(t, out)| out.borrow().attach_input_hash(t))
-            .collect::<Result<Vec<VRFInOut>, SignatureError>>()?;
+            .collect::<SignatureResult<Vec<VRFInOut>>>()?;
         assert!(ts.next().is_none(), "Too few VRF outputs for VRF inputs.");
         assert!(
             ps.len() == outs.len(),
@@ -625,14 +602,11 @@ pub fn dleq_verify_batch(
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below.
-    let zz: Vec<Scalar> = proofs
-        .iter()
+    let zz: Vec<Scalar> = proofs.iter()
         .map(|_| Scalar::from(rng.gen::<u128>()))
         .collect();
 
-    let z_s: Vec<Scalar> = zz
-        .iter()
-        .zip(proofs)
+    let z_s: Vec<Scalar> = zz.iter().zip(proofs)
         .map(|(z, proof)| z * proof.s)
         .collect();
 
@@ -640,25 +614,16 @@ pub fn dleq_verify_batch(
     let B_coefficient: Scalar = z_s.iter().sum();
 
     let t0 = Transcript::new(b"VRF");
-    let z_c: Vec<Scalar> = zz
-        .iter()
-        .enumerate()
-        .map(|(i, z)| {
-            z * proofs[i]
-                .shorten_dleq(t0.clone(), &public_keys[i], &ps[i])
-                .c
-        })
+    let z_c: Vec<Scalar> = zz.iter().enumerate()
+        .map( |(i, z)| z * proofs[i].shorten_dleq(t0.clone(), &public_keys[i], &ps[i]).c )
         .collect();
 
     // Compute (∑ z[i] s[i] (mod l)) B + ∑ (z[i] c[i] (mod l)) A[i] - ∑ z[i] R[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
-        zz.iter()
-            .map(|z| -z)
+        zz.iter().map(|z| -z)
             .chain(z_c.iter().cloned())
             .chain(once(B_coefficient)),
-        proofs
-            .iter()
-            .map(|proof| proof.R.decompress())
+        proofs.iter().map(|proof| proof.R.decompress())
             .chain(public_keys.iter().map(|pk| Some(*pk.as_point())))
             .chain(once(Some(constants::RISTRETTO_BASEPOINT_POINT))),
     )
@@ -667,10 +632,10 @@ pub fn dleq_verify_batch(
 
     // Compute (∑ z[i] s[i] (mod l)) Input[i] + ∑ (z[i] c[i] (mod l)) Output[i] - ∑ z[i] Hr[i] = 0
     b & RistrettoPoint::optional_multiscalar_mul(
-        zz.iter().map(|z| -z).chain(z_c).chain(z_s),
-        proofs
-            .iter()
-            .map(|proof| proof.Hr.decompress())
+        zz.iter().map(|z| -z)
+            .chain(z_c)
+            .chain(z_s),
+        proofs.iter().map(|proof| proof.Hr.decompress())
             .chain(ps.iter().map(|p| Some(*p.output.as_point())))
             .chain(ps.iter().map(|p| Some(*p.input.as_point()))),
     )
@@ -687,17 +652,16 @@ pub fn vrf_verify_batch<T, I>(
     outs: &[VRFOutput],
     proofs: &[VRFProofBatchable],
     public_keys: &[PublicKey],
-) -> Result<Box<[VRFInOut]>, SignatureError>
+) -> SignatureResult<Box<[VRFInOut]>>
 where
     T: SigningTranscript,
     I: IntoIterator<Item = T>,
 {
     let mut ts = transcripts.into_iter();
-    let ps = ts
-        .by_ref()
+    let ps = ts.by_ref()
         .zip(outs)
         .map(|(t, out)| out.attach_input_hash(t))
-        .collect::<Result<Vec<VRFInOut>, SignatureError>>()?;
+        .collect::<SignatureResult<Vec<VRFInOut>>>()?;
     assert!(ts.next().is_none(), "Too few VRF outputs for VRF inputs.");
     assert!(
         ps.len() == outs.len(),
@@ -836,8 +800,7 @@ mod tests {
             );
         }
         for (k, (ios, proof, _proof_batchable)) in keypairs.iter().zip(&ios_n_proofs) {
-            let outs = ios
-                .iter()
+            let outs = ios.iter()
                 .rev()
                 .map(|io| io.to_output())
                 .collect::<Vec<VRFOutput>>();
@@ -847,8 +810,7 @@ mod tests {
             );
         }
         for (k, (ios, proof, _proof_batchable)) in keypairs.iter().rev().zip(&ios_n_proofs) {
-            let outs = ios
-                .iter()
+            let outs = ios.iter()
                 .map(|io| io.to_output())
                 .collect::<Vec<VRFOutput>>();
             assert!(
@@ -857,19 +819,15 @@ mod tests {
             );
         }
 
-        let mut ios = keypairs
-            .iter()
-            .enumerate()
+        let mut ios = keypairs.iter().enumerate()
             .map(|(i, keypair)| keypair.public.vrfs_merge_vartime(&ios_n_proofs[i].0))
             .collect::<Vec<VRFInOut>>();
 
-        let mut proofs = ios_n_proofs
-            .iter()
+        let mut proofs = ios_n_proofs.iter()
             .map(|(_ios, _proof, proof_batchable)| proof_batchable.clone())
             .collect::<Vec<VRFProofBatchable>>();
 
-        let mut public_keys = keypairs
-            .iter()
+        let mut public_keys = keypairs.iter()
             .map(|keypair| keypair.public.clone())
             .collect::<Vec<PublicKey>>();
 

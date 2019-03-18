@@ -94,7 +94,7 @@ impl Signature {
 
     /// Construct a `Signature` from a slice of bytes.
     #[inline]
-    pub fn from_bytes(bytes: &[u8]) -> Result<Signature, SignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> SignatureResult<Signature> {
         if bytes.len() != SIGNATURE_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Signature",
