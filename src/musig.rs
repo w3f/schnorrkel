@@ -14,8 +14,8 @@
 //!
 //! We observe the security arguments from the
 //! [original 2-round version](https://eprint.iacr.org/2018/068/20180118:124757)
-//! were found lacking in 
-//! "On the Provable Security of Two-Round Multi-Signatures" by 
+//! were found lacking in
+//! "On the Provable Security of Two-Round Multi-Signatures" by
 //! Manu Drijvers, Kasra Edalatnejad, Bryan Ford, and Gregory Neven
 //! https://eprint.iacr.org/2018/417
 //! ([slides](https://rwc.iacr.org/2019/slides/neven.pdf))
@@ -79,7 +79,7 @@ pub trait AggregatePublicKey {
     fn public_key(&self) -> PublicKey;
 }
 
-impl<K,V> AggregatePublicKey for BTreeMap<K,V> 
+impl<K,V> AggregatePublicKey for BTreeMap<K,V>
 where K: Borrow<PublicKey>+Ord
 {
     fn weighting(&self, choice: &PublicKey) -> Option<Scalar> {
@@ -239,7 +239,7 @@ impl CoR {
                     *self = CoR::Cosigned { s };
                     Ok(())
                 },
-            CoR::Cosigned { s: s_old } => 
+            CoR::Cosigned { s: s_old } =>
                 if *s_old==s { Ok(()) } else {
                     let musig_stage = MultiSignatureStage::Cosignature;
                     Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: true, })
@@ -285,7 +285,7 @@ impl<T: SigningTranscript,S> MuSig<T,S> {
     pub fn public_key(&self) -> PublicKey
         {  self.compute_public_key(true)  }
 
-	/// Aggregate public key expected if all currently committed nodes fully participate 
+	/// Aggregate public key expected if all currently committed nodes fully participate
     pub fn expected_public_key(&self) -> PublicKey
         {  self.compute_public_key(false)  }
 
@@ -312,7 +312,7 @@ impl<T: SigningTranscript, S: TranscriptStages> MuSig<T,S> {
     /// that say the message may be agreed upon in parallel to the
 	/// commitments.  We advise against doing so however, as this
     /// requires absolute faith in your random number generator,
-	/// usually `rand::thread_rng()`. 
+	/// usually `rand::thread_rng()`.
     pub fn transcript(&mut self) -> &mut T { &mut self.t }
 }
 
@@ -412,16 +412,16 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
 
     /// Add a new cosigner's public key and associated `R` bypassing our
     /// commitmewnt phase.
-    /// 
+    ///
     /// Avoid using this due to the attack described in
-    /// "On the Provable Security of Two-Round Multi-Signatures" by 
+    /// "On the Provable Security of Two-Round Multi-Signatures" by
     /// Manu Drijvers, Kasra Edalatnejad, Bryan Ford, and Gregory Neven
     /// https://eprint.iacr.org/2018/417
     /// Avoid using this for public keys held by networked devices
     /// in particular.
     ///
     /// There are however limited scenarios in which using this appears
-    /// secure, primarily if the trusted device is (a) air gapped, 
+    /// secure, primarily if the trusted device is (a) air gapped,
     /// (b) stateful, and (c) infrequently used, via some constrained
     /// channel like manually scanning QR code.  Almost all hardware
     /// wallets designs fail (b), but non-hardware wallets fail (a),
@@ -464,12 +464,12 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
         let s_me = &(&c * &a_me * &self.stage.keypair.secret.key) + &self.stage.r_me;
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
-        *(Rs.get_mut(&self.stage.keypair.public).unwrap()) = CoR::Cosigned { s: s_me.clone() };
+        *(Rs.get_mut(&self.stage.keypair.public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };
         MuSig { t, Rs, stage: CosignStage { R, s_me }, }
     }
 }
 
-/// Final cosigning stage  colelction 
+/// Final cosigning stage  colelction
 #[allow(non_snake_case)]
 pub struct CosignStage {
     /// Collective `R` value
@@ -526,7 +526,7 @@ impl<T: SigningTranscript> MuSig<T,CosignStage> {
         } )
     }
 
-    /// Actually computes the cosignature 
+    /// Actually computes the cosignature
     #[allow(non_snake_case)]
     pub fn sign(&self) -> Option<Signature> {
         // if self.uncosigned().all(|_| false) { return None; }  // TODO:  why does this fail?
@@ -534,7 +534,7 @@ impl<T: SigningTranscript> MuSig<T,CosignStage> {
         let s: Scalar = self.Rs.iter()
             .filter_map( |(_pk,cor)| match cor {
                 CoR::Commit(_) => None,
-                CoR::Reveal { .. } => panic!("Internal error, MuSig<T,CosignStage>::uncosigned broken."), 
+                CoR::Reveal { .. } => panic!("Internal error, MuSig<T,CosignStage>::uncosigned broken."),
                 CoR::Cosigned { s, .. } => Some(s),
                 CoR::Collect { .. } => panic!("Collect found in Cosign phase."),
             } ).sum();
@@ -659,5 +659,5 @@ mod tests {
             assert_eq!(pk, cosigns[i].public_key());
             assert_eq!(signature, cosigns[i].sign().unwrap());
         }
-    }   
+    }
 }
