@@ -429,8 +429,6 @@ serde_boilerplate!(VRFProof);
 #[derive(Debug, Clone, PartialEq, Eq)] // PartialOrd, Ord, Hash
 #[allow(non_snake_case)]
 pub struct VRFProofBatchable {
-    // /// Challenge
-    // c: Scalar,
     /// Our nonce R = r G to permits batching the first verification equation
     R: CompressedRistretto,
     /// Our input hashed and raised to r to permit batching the second verification equation
@@ -547,12 +545,37 @@ impl Keypair {
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }
 
-    /// Run VRF on one single input transcript, producing the outpus and correspodning short proof.
+    /// Run VRF on one single input transcript, producing the outpus
+    /// and correspodning short proof.
+    ///
+    /// There are schemes like Ouroboros Praos in which nodes evaluate
+    /// VRFs repeatedly until they win some contest.  In these case,
+    /// you should implement this function manually to gain access to
+    /// the `VRFInOut` from `vrf_create_hash` first, and then 
     pub fn vrf_sign<T: SigningTranscript>(&self, t: T) -> (VRFInOut, VRFProof, VRFProofBatchable) {
         let p = self.secret.vrf_create_hash(t);
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
         let (proof, proof_batchable) = self.dleq_proove(t0, &p);
         (p, proof, proof_batchable)
+    }
+
+    /// Run VRF on one single input transcript, producing the outpus
+    /// and correspodning short proof only if the result first passes
+    /// some check.
+    ///
+    /// There are schemes like Ouroboros Praos in which nodes evaluate
+    /// VRFs repeatedly until they win some contest.  In these case,
+    /// you could implement `vrf_sign` or use this function to short
+    /// circuit computing the full proof.
+    pub fn vrf_sign_n_check<T,F>(&self, t: T, mut check: F) -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
+	where T: SigningTranscript,
+          F: FnMut(&VRFInOut) -> bool
+    {
+        let p = self.secret.vrf_create_hash(t);
+        if ! check(&p) { return None; }
+        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
+        let (proof, proof_batchable) = self.dleq_proove(t0, &p);
+        Some((p, proof, proof_batchable))
     }
 
     /// Run VRF on several input transcripts, producing their outputs
