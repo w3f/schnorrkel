@@ -21,7 +21,15 @@
 //! ([slides](https://rwc.iacr.org/2019/slides/neven.pdf))
 //! so we implement only the
 //! [3-round version](https://eprint.iacr.org/2018/068/20180520:191909).
-//https://github.com/lovesh/signature-schemes/issues/2
+//!
+//! Appendix A of the [MuSig paper](https://eprint.iacr.org/2018/068)
+//! discusses Interactive Aggregate Signatures (IAS) in which cosigners'
+//! messages differ.  Appendix A.3 gives a secure scheme that correctly
+//! binds signers to their messages.  See
+//! https://github.com/w3f/schnorrkel/issues/5#issuecomment-477912319
+
+// See also https://github.com/lovesh/signature-schemes/issues/2
+
 
 use core::borrow::{Borrow};  // BorrowMut
 use std::collections::BTreeMap;
