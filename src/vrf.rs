@@ -48,9 +48,10 @@
 //! where the points are not even hashes.  At minimum, we expect
 //! hashing the public key prevents malicious signers from choosing
 //! their key to cancel out the blinding of a particular point,
-//! which might become important in a verifiable shuffle or other
-//! anonymity applications.  In any case, there is no cost to
-//! hashing the public key for VRF applications.
+//! which might become important in a some anonymity applications.
+//! In any case, there is no cost to hashing the public key for VRF
+//! applications, but important such an approach cannot yield a
+//! verifiable shuffle.
 //! TODO: Explain better!
 //!
 //! We also implement verifier side batching analogous to batched
