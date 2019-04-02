@@ -3,7 +3,7 @@
 
 Schnorrkel implements Schnorr signature on [Ristretto](https://ristretto.group) compressed Ed25519 points, as well as [related](https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) protocols like HDKD, [MuSig](https://eprint.iacr.org/2018/068), and a verifiable random function (VRF).  
 
-[Ristretto](https://doc.dalek.rs/curve25519_dalek/ristretto/index.html) implements roughly section 7 of Mike Hamburg's [Decaf](https://eprint.iacr.org/2015/673.pdf) paper to provides the 2-torsion free points of the Ed25519 curve as a prime order group.  ([related](https://forum.web3.foundation/t/account-signatures-and-keys-in-polkadot/70/3?u=burdges))
+[Ristretto](https://doc.dalek.rs/curve25519_dalek/ristretto/index.html) implements roughly section 7 of Mike Hamburg's [Decaf](https://eprint.iacr.org/2015/673.pdf) paper to provide the 2-torsion free points of the Ed25519 curve as a prime order group.  ([related](https://forum.web3.foundation/t/account-signatures-and-keys-in-polkadot/70/3?u=burdges))
 
 We employ the [merlin](https://github.com/dalek-cryptography/merlin) strategy of [type specific hashing methods](https://docs.rs/merlin/1.0.3/merlin/struct.Transcript.html) with sound domain separation.  These wrap Mike Hamburg's [STROBE128](https://strobe.sourceforge.io) construction for symmetric cryptography, itself based on Keccak.  
 
