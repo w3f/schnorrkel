@@ -551,8 +551,9 @@ impl Keypair {
     ///
     /// There are schemes like Ouroboros Praos in which nodes evaluate
     /// VRFs repeatedly until they win some contest.  In these case,
-    /// you should implement this function manually to gain access to
-    /// the `VRFInOut` from `vrf_create_hash` first, and then 
+    /// you should probably implement this function manually to gain
+    /// access to the `VRFInOut` from `vrf_create_hash` first, and
+    /// then avoid computing the proof whenever you do not win. 
     pub fn vrf_sign<T: SigningTranscript>(&self, t: T) -> (VRFInOut, VRFProof, VRFProofBatchable) {
         let p = self.secret.vrf_create_hash(t);
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
