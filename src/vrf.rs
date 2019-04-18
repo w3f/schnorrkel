@@ -106,6 +106,41 @@ pub const VRF_PROOF_LENGTH : usize = 64;
 /// Length of the longer VRF proof which supports batch verification.
 pub const VRF_PROOF_BATCHABLE_LENGTH : usize = 96;
 
+/// `SigningTranscript` helper trait that manages VRF output malleability.
+pub trait VRFSigningTranscript {
+    /// Real underlying `SigningTranscript`
+    type T: SigningTranscript;
+    /// Return the underlying `SigningTranscript` after addressing
+    /// VRF output malleability, usually by making it non-malleable,
+    fn transcript_with_malleability_addressed(self, publickey: &PublicKey) -> Self::T;
+}
+
+impl<T> VRFSigningTranscript for T where T: SigningTranscript {
+    type T = T;
+    fn transcript_with_malleability_addressed(mut self, publickey: &PublicKey) -> T {
+        self.commit_point(b"vrf-nm-pk", publickey.as_compressed());        
+        // publickey.make_transcript_nonmalleable(&mut self);
+        self
+    }
+}
+
+/// VRF SigningTranscript for malleable VRF ouputs.
+///
+/// *Warning*  We caution that malleable VRF outputs are insecure when
+/// used in conjunction with HDKD, as provided in dervie.rs. 
+/// Attackers could translate malleable VRF outputs from one soft subkey 
+/// to another soft subkey, gaining early knowledge of the VRF output.
+/// We think most VRF applicaitons for which HDKH soudns suitable
+/// benefit from using implicit certificates insead of HDKD anyways,
+/// which should also be secure in combination with HDKH.
+/// We always use non-malleable VRF inputs in our convenience methods.
+#[derive(Clone)]
+pub struct Malleable<T: SigningTranscript>(pub T);
+impl<T> VRFSigningTranscript for Malleable<T> where T: SigningTranscript {
+    type T = T;
+    fn transcript_with_malleability_addressed(self, _publickey: &PublicKey) -> T { self.0 }
+}
+
 
 /// Create a malleable VRF input point by hashing a transcript to a point.
 ///
@@ -124,21 +159,15 @@ pub fn vrf_malleable_hash<T: SigningTranscript>(mut t: T) -> RistrettoBoth {
 }
 
 impl PublicKey {
-    /// Make the transcript for a VRF input non-malleable.
-    fn make_transcript_nonmalleable<T: SigningTranscript>(&self, t: &mut T) {
-        t.commit_point(b"vrf-nm-pk", self.as_compressed());        
-    }
-
     /// Create a non-malleable VRF input point by hashing a transcript to a point.
-    pub fn vrf_hash<T>(&self, mut t: T) -> RistrettoBoth
-    where T: SigningTranscript {
-        self.make_transcript_nonmalleable(&mut t);
-        vrf_malleable_hash(t)
+    pub fn vrf_hash<T>(&self, t: T) -> RistrettoBoth
+    where T: VRFSigningTranscript {
+        vrf_malleable_hash(t.transcript_with_malleability_addressed(self))
     }
 
     /// Pair a non-malleable VRF output with the hash of the given transcript.
     pub fn vrf_attach_hash<T>(&self, output: VRFOutput, t: T) -> SignatureResult<VRFInOut>
-    where T: SigningTranscript {
+    where T: VRFSigningTranscript {
         output.attach_input_hash(self,t)
     }
 }
@@ -189,28 +218,12 @@ impl VRFOutput {
         Ok(VRFOutput(bits))
     }
 
-    /// Pair a malleable VRF output with the hash of the given transcript.
-    ///
-    /// *Warning*  We caution that malleable VRF inputs are insecure when
-    /// used in conjunction with HDKD, as provided in dervie.rs. 
-    /// Attackers could translate malleable VRF outputs from one soft subkey 
-    /// to another soft subkey, gaining early knowledge of the VRF output.
-    /// We think most VRF applicaitons for which HDKH soudns suitable
-    /// benefit from using implicit certificates insead of HDKD anyways,
-    /// which should also be secure in combination with HDKH.
-    /// We always use non-malleable VRF inputs in our convenience methods.
-    pub fn attach_malleable_input_hash<T>(&self, t: T) -> SignatureResult<VRFInOut>
-	where T: SigningTranscript {
-        let input = vrf_malleable_hash(t);
+    /// Pair a non-malleable VRF output with the hash of the given transcript.
+    pub fn attach_input_hash<T>(&self, public: &PublicKey, t: T) -> SignatureResult<VRFInOut>
+	where T: VRFSigningTranscript {
+        let input = public.vrf_hash(t);
         let output = RistrettoBoth::from_bytes_ser("VRFOutput", VRFOutput::DESCRIPTION, &self.0)?;
         Ok(VRFInOut { input, output })
-    }
-
-    /// Pair a non-malleable VRF output with the hash of the given transcript.
-    pub fn attach_input_hash<T>(&self, public: &PublicKey, mut t: T) -> SignatureResult<VRFInOut>
-	where T: SigningTranscript {
-        public.make_transcript_nonmalleable(&mut t);
-        self.attach_malleable_input_hash(t)
     }
 }
 
@@ -242,21 +255,13 @@ impl SecretKey {
         let input = RistrettoBoth::from_compressed(CompressedRistretto(input.0)) ?;
         Ok(self.vrf_create_from_point(input))
     }
-
-    /// Evaluate the VRF on the given transcript.
-    pub fn vrf_create_malleable_hash<T: SigningTranscript>(&self, t: T) -> VRFInOut {
-        self.vrf_create_from_point(vrf_malleable_hash(t))
-    }
 }
 
 impl Keypair {
     /// Evaluate the VRF on the given transcript.
-    pub fn vrf_create_hash<T: SigningTranscript>(&self, mut t: T) -> VRFInOut {
-        self.public.make_transcript_nonmalleable(&mut t);
-        self.secret.vrf_create_malleable_hash(t)
+    pub fn vrf_create_hash<T: VRFSigningTranscript>(&self, t: T) -> VRFInOut {
+        self.secret.vrf_create_from_point(self.public.vrf_hash(t))
     }
-
-
 }
 
 impl VRFInOut {
@@ -561,34 +566,17 @@ impl VRFProofBatchable {
 
     /// Return the shortened `VRFProof` for retransmitting in non-batched situations
     ///
-    /// *Warning*  We caution that malleable VRF inputs are insecure
-    /// when used in conjunction with HDKD, as provided in dervie.rs. 
-    /// Attackers could translate malleable VRF outputs from one soft subkey 
-    /// to another soft subkey, gaining early knowledge of the VRF output.
-    ///
     /// TODO: Avoid the error path here by avoiding decompressing,
     /// either locally here, or more likely by decompressing
     /// `VRFOutput` in deserialization.
-    pub fn shorten_malleable_vrf<T>( &self, public: &PublicKey, t: T, out: &VRFOutput)
+    pub fn shorten_vrf<T>( &self, public: &PublicKey, t: T, out: &VRFOutput)
      -> SignatureResult<VRFProof>
-    where T: SigningTranscript,
+    where T: VRFSigningTranscript,
 	{
-        let p = out.attach_malleable_input_hash(t) ?; // Avoidable errors if decompressed earlier
+        let p = out.attach_input_hash(public,t) ?; // Avoidable errors if decompressed earlier
         let t0 = Transcript::new(b"VRF");  // We have context in t and another hear confuses batching
         Ok(self.shorten_dleq(t0, public, &p))
     }
-
-    /// Return the shortened `VRFProof` for retransmitting in non-batched situations
-    pub fn shorten_vrf<T>( &self, public: &PublicKey, mut t: T, out: &VRFOutput) -> SignatureResult<VRFProof>
-    where T: SigningTranscript, 
-    {
-        public.make_transcript_nonmalleable(&mut t);
-        self.shorten_malleable_vrf(public,t,out)
-        // let p = out.attach_input_hash(public,t) ?;
-        // let t0 = Transcript::new(b"VRF");
-        // Ok(self.shorten_dleq(t0, public, &p))
-    }
-
 }
 
 serde_boilerplate!(VRFProofBatchable);
@@ -628,44 +616,14 @@ impl Keypair {
     /// Run VRF on one single input transcript, producing the outpus
     /// and correspodning short proof.
     ///
-    /// *Warning*  We caution that malleable VRF inputs are insecure when
-    /// used in conjunction with HDKD, as provided in dervie.rs. 
-    /// Attackers could translate malleable VRF outputs from one soft subkey 
-    /// to another soft subkey, gaining early knowledge of the VRF output.
-    /// We think most VRF applicaitons for which HDKH soudns suitable
-    /// benefit from using implicit certificates insead of HDKD anyways,
-    /// which should also be secure in combination with HDKH.
-    /// We always use non-malleable VRF inputs in our convenience methods.
-    ///
-    /// There are schemes like Ouroboros Praos in which nodes evaluate
-    /// VRFs repeatedly until they win some contest.  In these case,
-    /// you should probably implement this function manually to gain
-    /// access to the `VRFInOut` from `vrf_create_hash` first, and
-    /// then avoid computing the proof whenever you do not win. 
-    pub fn vrf_sign_malleable<T>(&self, t: T) -> (VRFInOut, VRFProof, VRFProofBatchable)
-    where T: SigningTranscript,
-    {
-        let p = self.secret.vrf_create_malleable_hash(t);
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
-        let (proof, proof_batchable) = self.dleq_proove(t0, &p);
-        (p, proof, proof_batchable)
-    }
-
-
-    /// Run VRF on one single input transcript, producing the outpus
-    /// and correspodning short proof.
-    ///
     /// There are schemes like Ouroboros Praos in which nodes evaluate
     /// VRFs repeatedly until they win some contest.  In these case,
     /// you should probably use vrf_sign_n_check to gain access to the
     /// `VRFInOut` from `vrf_create_hash` first, and then avoid computing
     /// the proof whenever you do not win. 
     pub fn vrf_sign<T>(&self, t: T) -> (VRFInOut, VRFProof, VRFProofBatchable)
-    where T: SigningTranscript,
+    where T: VRFSigningTranscript,
     {
-        // Is equivelent to:
-        // self.public.make_transcript_nonmalleable(&mut t);
-        // self.vrf_sign_malleable(t)
         let p = self.vrf_create_hash(t);
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
         let (proof, proof_batchable) = self.dleq_proove(t0, &p);
@@ -682,7 +640,7 @@ impl Keypair {
     /// proof.
     pub fn vrf_sign_n_check<T,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
-	where T: SigningTranscript,
+	where T: VRFSigningTranscript,
           F: FnMut(&VRFInOut) -> bool
     {
         let p = self.vrf_create_hash(t);
@@ -701,7 +659,7 @@ impl Keypair {
     #[cfg(any(feature = "alloc", feature = "std"))]
     pub fn vrfs_sign<T, I>(&self, ts: I) -> (Box<[VRFInOut]>, VRFProof, VRFProofBatchable)
     where
-        T: SigningTranscript,
+        T: VRFSigningTranscript,
         I: IntoIterator<Item = T>,
     {
         let ps = ts.into_iter()
@@ -772,37 +730,12 @@ impl PublicKey {
     }
 
     /// Verify VRF proof for one single input transcript and corresponding output.
-    ///
-    /// *Warning*  We caution that malleable VRF inputs are insecure when
-    /// used in conjunction with HDKD, as provided in dervie.rs. 
-    /// Attackers could translate malleable VRF outputs from one soft subkey 
-    /// to another soft subkey, gaining early knowledge of the VRF output.
-    /// We think most VRF applicaitons for which HDKH soudns suitable
-    /// benefit from using implicit certificates insead of HDKD anyways,
-    /// which should also be secure in combination with HDKH.
-    /// We always use non-malleable VRF inputs in our convenience methods.
-    pub fn vrf_verify_malleable<T: SigningTranscript>(
+    pub fn vrf_verify<T: VRFSigningTranscript>(
         &self,
         t: T,
         out: &VRFOutput,
         proof: &VRFProof,
     ) -> SignatureResult<(VRFInOut, VRFProofBatchable)> {
-        let p = out.attach_malleable_input_hash(t)?;
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear breaks batching
-        let proof_batchable = self.dleq_verify(t0, &p, proof)?;
-        Ok((p, proof_batchable))
-    }
-
-    /// Verify VRF proof for one single input transcript and corresponding output.
-    pub fn vrf_verify<T: SigningTranscript>(
-        &self,
-        t: T,
-        out: &VRFOutput,
-        proof: &VRFProof,
-    ) -> SignatureResult<(VRFInOut, VRFProofBatchable)> {
-        // Is equivelent to:
-        // self.make_transcript_nonmalleable(&mut t);
-        // self.vrf_verify_malleable(t,out,proof)
         let p = out.attach_input_hash(self,t)?;
         let t0 = Transcript::new(b"VRF"); // We have context in t and another hear breaks batching
         let proof_batchable = self.dleq_verify(t0, &p, proof)?;
@@ -818,7 +751,7 @@ impl PublicKey {
         proof: &VRFProof,
     ) -> SignatureResult<(Box<[VRFInOut]>, VRFProofBatchable)>
     where
-        T: SigningTranscript,
+        T: VRFSigningTranscript,
         I: IntoIterator<Item = T>,
         O: Borrow<VRFOutput>,
     {
@@ -919,7 +852,7 @@ pub fn vrf_verify_batch<T, I>(
     publickeys: &[PublicKey],
 ) -> SignatureResult<Box<[VRFInOut]>>
 where
-    T: SigningTranscript,
+    T: VRFSigningTranscript,
     I: IntoIterator<Item = T>,
 {
     let mut ts = transcripts.into_iter();
@@ -977,13 +910,6 @@ mod tests {
             "Rerunning VRF gave different output"
         );
 
-        let io1m = {
-            let mut t = ctx.bytes(msg);
-            keypair1.public.make_transcript_nonmalleable(&mut t);
-            keypair1.vrf_sign_malleable(t)
-        }.0;
-        assert_eq!( io1m, io1, "Rerunning malleable VRF gave different output" );
-
         assert!(
             keypair1.public.vrf_verify(ctx.bytes(b"not meow"), &out1, &proof1).is_err(),
             "VRF verification with incorrect message passed!"
@@ -1002,15 +928,15 @@ mod tests {
 
         let ctx = signing_context(b"yo!");
         let msg = b"meow";
-        let (io1, proof1, proof1batchable) = keypair1.vrf_sign_malleable(ctx.bytes(msg));
+        let (io1, proof1, proof1batchable) = keypair1.vrf_sign(Malleable(ctx.bytes(msg)));
         let out1 = &io1.to_output();
         assert_eq!(
             proof1,
-            proof1batchable.shorten_malleable_vrf(&keypair1.public, ctx.bytes(msg), &out1).unwrap(),
+            proof1batchable.shorten_vrf(&keypair1.public, Malleable(ctx.bytes(msg)), &out1).unwrap(),
             "Oops `shorten_vrf` failed"
         );
         let (io1too, proof1too) = keypair1
-            .public.vrf_verify_malleable(ctx.bytes(msg), &out1, &proof1)
+            .public.vrf_verify(Malleable(ctx.bytes(msg)), &out1, &proof1)
             .expect("Correct VRF verification failed!");
         assert_eq!(
             io1too, io1,
@@ -1021,21 +947,21 @@ mod tests {
             "VRF verification yielded incorrect batchable proof"
         );
         assert_eq!(
-            keypair1.vrf_sign_malleable(ctx.bytes(msg)).0,
+            keypair1.vrf_sign(Malleable(ctx.bytes(msg))).0,
             io1,
             "Rerunning VRF gave different output"
         );
         assert!(
-            keypair1.public.vrf_verify_malleable(ctx.bytes(b"not meow"), &out1, &proof1).is_err(),
+            keypair1.public.vrf_verify(Malleable(ctx.bytes(b"not meow")), &out1, &proof1).is_err(),
             "VRF verification with incorrect message passed!"
         );
 
         let keypair2 = Keypair::generate(&mut thread_rng());
         assert!(
-            keypair2.public.vrf_verify_malleable(ctx.bytes(msg), &out1, &proof1).is_err(),
+            keypair2.public.vrf_verify(Malleable(ctx.bytes(msg)), &out1, &proof1).is_err(),
             "VRF verification with incorrect signer passed!"
         );
-        let (io2, _proof2, _proof2batchable) = keypair2.vrf_sign_malleable(ctx.bytes(msg));
+        let (io2, _proof2, _proof2batchable) = keypair2.vrf_sign(Malleable(ctx.bytes(msg)));
         let out2 = &io2.to_output();
 
         // Verified key exchange, aka sequential two party VRF.
