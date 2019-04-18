@@ -9,11 +9,17 @@
 
 //! ### Implementation of "hierarchical deterministic key derivation" (HDKD) for Schnorr signatures on Ristretto 
 //! 
-//! *Warning*  We warn that our VRF construction in vrf.rs has
-//! malleable outputs, making it potentially insecure to use in
-//! conjunction with our hierarchical key derivation methods
-//! provided in dervie.rs.  An attacker could translate a 
-//! VRF output from one soft subkey to another soft subkey.  
+//! *Warning*  We warn that our VRF construction in vrf.rs supports
+//! for malleable VRF outputs via the methods `vrf_malleable_hash` and
+//! `attach_malleable_input_hash`, which become insecure when used in
+//! conjunction with our hierarchical key derivation methods here.
+//! Attackers could translate malleable VRF outputs from one soft subkey 
+//! to another soft subkey, gaining early knowledge of the VRF output.
+//! We think most VRF applicaitons for which HDKH soudns suitable
+//! benefit from using implicit certificates insead of HDKD anyways,
+//! which should also be secure in combination with HDKH.
+//! We always use non-malleable VRF inputs in our convenience methods.
+
 //! We suggest using implicit certificates instead of HDKD when 
 //! using VRFs.
 //!
