@@ -785,7 +785,12 @@ impl PublicKey {
 /// We do this by delinearizing both verification equations with
 /// random numbers.
 ///
-/// TODO: Combine the two verification equations.
+/// TODO: Assess when the two verification equations should be
+/// combined, presumably by benchmarking both forms.  At smaller batch
+/// sizes then we should clearly benefit form the combined form, but
+/// bany combination doubles the scalar by scalar multiplicications
+/// and hashing, so large enough batch verifications should favor two
+/// seperate calls.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn dleq_verify_batch(
