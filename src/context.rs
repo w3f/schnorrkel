@@ -34,6 +34,10 @@ use curve25519_dalek::scalar::Scalar;
 /// constructions that is compatable with `merlin::Transcript`, but
 /// abstract enough to support normal hash functions as well.
 ///
+/// We fold randomness into witness generation here too, which
+/// gives every function that takes a `SigningTranscript` a default
+/// argument `rng: impl Rng = thread_rng()` too.
+///
 /// We also abstract over owned and borrowed `merlin::Transcript`s,
 /// so that simple use cases do not suffer from our support for.
 pub trait SigningTranscript {
@@ -157,9 +161,9 @@ impl SigningTranscript for Transcript {
 
 /// Schnorr signing context
 ///
-/// We expect users to seperate `SigningContext`s for each role that
-/// signature play in their protocol.  These `SigningContext`s may be
-/// global `lazy_static!`s.
+/// We expect users to have seperate `SigningContext`s for each role 
+/// that signature play in their protocol.  These `SigningContext`s
+/// may be global `lazy_static!`s, or perhaps constants in future.
 ///
 /// To sign a message, apply the appropriate inherent method to create
 /// a signature transcript.

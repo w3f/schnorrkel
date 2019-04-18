@@ -107,6 +107,10 @@ pub const VRF_PROOF_LENGTH : usize = 64;
 pub const VRF_PROOF_BATCHABLE_LENGTH : usize = 96;
 
 /// `SigningTranscript` helper trait that manages VRF output malleability.
+///
+/// In short, `VRFSigningTranscript` acts like a default argument
+/// `malleabe : bool = false` for every mathod that uses it instead of
+/// `SigningTranscript`.
 pub trait VRFSigningTranscript {
     /// Real underlying `SigningTranscript`
     type T: SigningTranscript;
