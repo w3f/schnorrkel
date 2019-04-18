@@ -7,9 +7,17 @@
 // Authors:
 // - Jeffrey Burdges <jeff@web3.foundation>
 
-//! Implementation of "hierarchical deterministic" key derivation for
-//! Schnorr signatures compatable with the Ristretto representation of
-//! ed25519.
+//! ### Implementation of "hierarchical deterministic key derivation" (HDKD) for Schnorr signatures on Ristretto 
+//! 
+//! *Warning*  We warn that our VRF construction in vrf.rs has
+//! malleable outputs, making it potentially insecure to use in
+//! conjunction with our hierarchical key derivation methods
+//! provided in dervie.rs.  An attacker could translate a 
+//! VRF output from one soft subkey to another soft subkey.  
+//! We suggest using implicit certificates instead of HDKD when 
+//! using VRFs.
+//!
+//! 
 
 // use curve25519_dalek::digest::generic_array::typenum::U64;
 // use curve25519_dalek::digest::Digest;

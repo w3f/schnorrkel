@@ -7,15 +7,15 @@
 // Authors:
 // - Jeff Burdges <jeff@web3.foundation>
 
-//! ristretto point tooling
+//! ### Ristretto point tooling
 //! 
 //! We provide a `RistrettoBoth` type that contains both an uncompressed
 //! `RistrettoPoint` along side its matching `CompressedRistretto`, 
 //! which helps several protocols avoid duplicate ristretto compressions
 //! and/or decompressions.  
 
-// We expect some ariant to eventually appear in curve25519-dalek, ala
-// ..
+// We're discussing including some variant in curve25519-dalek directly in
+// https://github.com/dalek-cryptography/curve25519-dalek/pull/220
 
 
 use core::fmt::{Debug};

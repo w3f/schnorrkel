@@ -8,7 +8,7 @@
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
 // - Jeffrey Burdges <jeff@web3.foundation>
 
-//! ed25519 signatures and verification
+//! Schnorr signature variants using Ristretto point compression.
 //!
 //! # Example
 //!

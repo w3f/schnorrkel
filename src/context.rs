@@ -7,8 +7,7 @@
 // Authors:
 // - Jeffrey Burdges <jeff@web3.foundation>
 
-//! Schnorr signature contexts and configuration, adaptable
-//! to most Schnorr signature schemes.
+//! ### Schnorr signature contexts and configuration, adaptable to most Schnorr signature schemes.
 
 use std::cell::RefCell;
 

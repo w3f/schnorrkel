@@ -8,8 +8,7 @@
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
 // - Jeff Burdges <jeff@web3.foundation>
 
-//! Schnorr signatures on the 2-tortsion free subgroup of ed25519,
-//! as provided by the Ristretto point compression.
+//! ### Schnorr signatures on the 2-tortsion free subgroup of ed25519, as provided by the Ristretto point compression.
 
 use core::convert::AsRef;
 use core::default::Default;

@@ -7,8 +7,7 @@
 // Authors:
 // - jeffrey Burdges <jeff@web3.foundation>
 
-//! Schnorr signature creation and verification,
-//! including batch verification.
+//! ### Schnorr signature creation and verification, including batch verification.
 
 
 use core::fmt::{Debug};

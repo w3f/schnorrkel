@@ -8,9 +8,7 @@
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
 // - Jeff Burdges <jeff@web3.foundation>
 
-//! Various test tooling related to serde
-//!
-//! Right now, these
+//! ### Various and tooling related to serde
 
 // #[cfg(feature = "serde")]
 // use serde::{Serialize, Deserialize};

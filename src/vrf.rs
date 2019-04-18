@@ -7,8 +7,14 @@
 // Authors:
 // - Jeffrey Burdges <jeff@web3.foundation>
 
-//! Implementation of a Verifiable Random Function (VRF) using
-//! Ristretto points and Schnorr DLEQ proofs.
+//! ### Implementation of a Verifiable Random Function (VRF) using Ristretto points and Schnorr DLEQ proofs.
+//!
+//! *Warning*  We warn that our VRF ouput is malleable, making
+//! it potentially insecure to use our VRF construction here in
+//! conjunction with our HDKD provided in dervie.rs because an
+//! attacker could translate a  VRF output from one soft subkey
+//! to another soft subkey.  We suggest using implicit certificates
+//! instead of HDKD when using VRFs.
 //!
 //! We model the VRF on "Making NSEC5 Practical for DNSSEC" by
 //! Dimitrios Papadopoulos, Duane Wessels, Shumon Huque, Moni Naor,

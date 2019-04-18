@@ -8,7 +8,7 @@
 // - Isis Agora Lovecruft <isis@patternsinthevoid.net>
 // - Jeff Burdges <jeff@web3.foundation>
 
-//! Errors which may occur when parsing keys and/or signatures to or from wire formats.
+//! ### Errors which may occur when parsing keys and/or signatures to or from wire formats.
 
 // rustc seems to think the typenames in match statements (e.g. in
 // Display) should be snake cased, for some reason.

@@ -8,7 +8,7 @@
 // - Jeffrey Burdges <jeff@web3.foundation>
 
 
-//! Elliptic curve Qu-Vanstone implicit certificate scheme (ECQV) for Ristretto
+//! ### Elliptic curve Qu-Vanstone implicit certificate scheme (ECQV) for Ristretto
 //!
 //! [Implicit certificates](https://en.wikipedia.org/wiki/Implicit_certificate)
 //! provide an extremely space efficent public key certificate scheme.
