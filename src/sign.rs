@@ -55,6 +55,12 @@ pub struct Signature {
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.
     pub (crate) s: Scalar,
+
+    /// Mark the serialized signature as not being an ed25519 signature
+    /// by setting the high bit of byte 31.  If not set, then schnorrkel
+    /// and ed25519 signatures and public key are indistinguishable, so
+    /// they cannot be batch verified.  
+    pub marked_not_ed25519: bool,
 }
 
 impl Debug for Signature {
@@ -78,15 +84,7 @@ impl Signature {
         let mut bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
         bytes[..32].copy_from_slice(&self.R.as_bytes()[..]);
         bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
-        bytes
-    }
-
-    /// Convert this `Signature` to a byte array, but mark the bytes
-    /// as not an ed25519 signature by setting the high bit of byte 31.
-    #[inline]
-    pub fn to_bytes_marked_not_ed25519(&self) -> [u8; SIGNATURE_LENGTH] {
-        let mut bytes = self.to_bytes();
-        bytes[31] |= 128;
+        if self.marked_not_ed25519 { bytes[31] |= 128; }
         bytes
     }
 
@@ -100,35 +98,28 @@ impl Signature {
                 length: SIGNATURE_LENGTH
             });
         }
+        let marked_not_ed25519 : bool = (bytes[31] & 128 != 0);
+
         let mut lower: [u8; 32] = [0u8; 32];
         let mut upper: [u8; 32] = [0u8; 32];
-
         lower.copy_from_slice(&bytes[..32]);
         upper.copy_from_slice(&bytes[32..]);
 
         let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
-        Ok(Signature{ R: CompressedRistretto(lower), s })
+        Ok(Signature{ R: CompressedRistretto(lower), s, marked_not_ed25519 })
     }
 
     /// Construct a `Signature` from a slice of bytes, which must be
     /// marked as not being an ed25519 signature by setting the high
     /// bit of byte 31.
     #[inline]
-    pub fn from_bytes_marked_not_ed25519(slice: &[u8]) -> SignatureResult<Signature> {
-        if slice.len() != SIGNATURE_LENGTH {
-            return Err(SignatureError::BytesLengthError {
-                name: "Signature",
-                description: Signature::DESCRIPTION,
-                length: SIGNATURE_LENGTH
-            });
-        }
-        if slice[31] & 128 == 0 {
-            return Err(SignatureError::NotMarkedSchnorrkel);
-        }
-        let mut bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
-        bytes.copy_from_slice(slice);
-        bytes[31] &= 127;
-        Signature::from_bytes(&bytes[..])
+    pub fn from_bytes_marked_not_ed25519(bytes: &[u8]) -> SignatureResult<Signature> {
+        Signature::from_bytes(bytes).and_then(
+            |sig| if sig.marked_not_ed25519 {
+                Ok(sig)
+            } else {
+                Err(SignatureError::NotMarkedSchnorrkel)
+            })
     }
 }
 
