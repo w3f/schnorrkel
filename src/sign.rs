@@ -75,11 +75,19 @@ impl Signature {
     /// Convert this `Signature` to a byte array.
     #[inline]
     pub fn to_bytes(&self) -> [u8; SIGNATURE_LENGTH] {
-        let mut signature_bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
+        let mut bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
+        bytes[..32].copy_from_slice(&self.R.as_bytes()[..]);
+        bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
+        bytes
+    }
 
-        signature_bytes[..32].copy_from_slice(&self.R.as_bytes()[..]);
-        signature_bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
-        signature_bytes
+    /// Convert this `Signature` to a byte array, but mark the bytes
+    /// as not an ed25519 signature by setting the high bit of byte 31.
+    #[inline]
+    pub fn to_bytes_marked_not_ed25519(&self) -> [u8; SIGNATURE_LENGTH] {
+        let mut bytes = self.to_bytes();
+        bytes[31] |= 128;
+        bytes
     }
 
     /// Construct a `Signature` from a slice of bytes.
@@ -100,6 +108,27 @@ impl Signature {
 
         let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(Signature{ R: CompressedRistretto(lower), s })
+    }
+
+    /// Construct a `Signature` from a slice of bytes, which must be
+    /// marked as not being an ed25519 signature by setting the high
+    /// bit of byte 31.
+    #[inline]
+    pub fn from_bytes_marked_not_ed25519(slice: &[u8]) -> SignatureResult<Signature> {
+        if slice.len() != SIGNATURE_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "Signature",
+                description: Signature::DESCRIPTION,
+                length: SIGNATURE_LENGTH
+            });
+        }
+        if slice[31] & 128 == 0 {
+            return Err(SignatureError::NotMarkedSchnorrkel);
+        }
+        let mut bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
+        bytes.copy_from_slice(slice);
+        bytes[31] &= 127;
+        Signature::from_bytes(&bytes[..])
     }
 }
 

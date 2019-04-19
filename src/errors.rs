@@ -88,6 +88,8 @@ pub enum SignatureError {
         /// Length expected by the constructor in bytes
         length: usize
     },
+    /// Signature not marked as schnorrkel, maybe try ed25519 instead.
+    NotMarkedSchnorrkel,
     /// There is no record of the preceeding multi-signautre protocol
     /// stage for the specified public key.
     MuSigAbsent {
@@ -126,6 +128,8 @@ impl Display for SignatureError {
                 write!(f, "Cannot use scalar with high-bit set"),
             BytesLengthError { name, length, .. } =>
                 write!(f, "{} must be {} bytes in length", name, length),
+            NotMarkedSchnorrkel => 
+                write!(f, "Signature bytes not marked as a schnorrkel signature"),
             MuSigAbsent { musig_stage, } =>
                 write!(f, "Absent {} violated multi-signature protocol", musig_stage),
             MuSigInconsistent { musig_stage, duplicate, } =>
@@ -155,6 +159,8 @@ where E: ::serde::de::Error
             => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
         SignatureError::BytesLengthError{ description, length, .. }
             => E::invalid_length(length, &description),
+        NotMarkedSchnorrkel
+            => E::custom("Signature bytes not marked as a schnorrkel signature"),
         _ => panic!("Non-serialisation error encountered by serde!"),
     }
 }
