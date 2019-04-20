@@ -41,9 +41,6 @@ use curve25519_dalek::scalar::Scalar;
 /// We also abstract over owned and borrowed `merlin::Transcript`s,
 /// so that simple use cases do not suffer from our support for.
 pub trait SigningTranscript {
-    /// Strong enough domain seperation for usage via `&mut Self` references.
-    const REF_MUT_DOMAIN_SEPERATION : bool = false;
-
     /// Extend transcript with some bytes, shadowed by `merlin::Transcript`.
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]);
 
@@ -103,14 +100,19 @@ pub trait SigningTranscript {
     where R: Rng+CryptoRng;
 }
 
+
+/// Strong enough domain seperation for usage via `&mut Self` references.
+pub trait StrongDomainSeperation : SigningTranscript {}
+impl StrongDomainSeperation for Transcript {}
+impl<T> StrongDomainSeperation for &mut T where T: SigningTranscript + StrongDomainSeperation + ?Sized {}
+
+
 /// We delegates any mutable reference to its base type, like `&mut Rng`
 /// or similar to `BorrowMut<..>` do, but doing so here simplifies
 /// alternative implementations.
 impl<T> SigningTranscript for &mut T
-where T: SigningTranscript + ?Sized,
-      <T as SigningTranscript>::REF_MUT_DOMAIN_SEPERATION == true,
+where T: SigningTranscript + StrongDomainSeperation + ?Sized,
 {
-    const REF_MUT_DOMAIN_SEPERATION : bool = true;
     #[inline(always)]
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
         {  (**self).commit_bytes(label,bytes)  }
@@ -143,7 +145,6 @@ where T: SigningTranscript + ?Sized,
 /// witness methods to avoid abrtasting the `merlin::TranscriptRng`
 /// machenry.
 impl SigningTranscript for Transcript {
-    const REF_MUT_DOMAIN_SEPERATION : bool = true;
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
         Transcript::commit_bytes(self, label, bytes)
     }
@@ -235,10 +236,12 @@ impl SigningContext {
 ///
 /// We provide this transcript type for expository purposes only,
 /// but recommend against its use.  In future, we may depricate
-/// `SimpleTranscript` entirely, constrain its hash argument, and/or
-/// depricate `&mut SimpleTranscript : SimpleTranscript`.
+/// `SimpleTranscript` entirely or constrain its hash argument to
+/// only `Shake*` and `Blake2*`.  
+/// We prevent `&mut SimpleTranscript : SimpleTranscript` already.
+///
 /// We strongly recommend using `merlin::Transcripts` instead because
-/// they provide superior domain seperartion.  We therefore do not
+/// merlin provides superior domain seperartion.  We therefore do not
 /// provide conveniences like `signing_context` for this.
 pub struct SimpleTranscript<H>(pub H)
 where H: Input + ExtendableOutput + Clone;
