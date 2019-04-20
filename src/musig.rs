@@ -331,6 +331,10 @@ where T: SigningTranscript, S: TranscriptStages
 
 impl Keypair {
     /// Initialize a multi-signature aka cosignature protocol run.
+    ///
+    /// We borrow the keypair here to discurage keeping too many
+    /// copies of the private key, but the `new_musig` function
+    /// can create an owned version, or use `Rc` or `Arc`.
     #[allow(non_snake_case)]
     pub fn musig<'k,T>(&'k self, t: T) -> MuSig<T,CommitStage<&'k Keypair>>
     where T: SigningTranscript {
@@ -339,6 +343,10 @@ impl Keypair {
 }
 
 /// Initialize a multi-signature aka cosignature protocol run.
+///
+/// We provide the `Keypair::musig` method that borrows to discurage
+/// keeping too many copies of the private key, but `new_musig` can
+/// create an owned version, or use `Rc` or `Arc`.
 #[allow(non_snake_case)]
 pub fn new_musig<K,T>(keypair: K, t: T) -> MuSig<T,CommitStage<K>>
 where K: Borrow<Keypair>, T: SigningTranscript
