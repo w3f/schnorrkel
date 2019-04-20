@@ -102,7 +102,6 @@ impl MiniSecretKey {
     /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
-    /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
@@ -393,7 +392,7 @@ impl SecretKey {
         bytes
     }
 
-    /// Convert this `SecretKey` into Ed25519 expanded secreyt key.
+    /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
     pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
         ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_bytes()[..])
         .expect("Improper serialisation of Ed25519 secret key!")

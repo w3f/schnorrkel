@@ -707,8 +707,7 @@ impl PublicKey {
             &proof.c,
             self.as_point(),
             &proof.s,
-        )
-        .compress();
+        ).compress();
         t.commit_point(b"R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
@@ -716,8 +715,7 @@ impl PublicKey {
         let Hr = RistrettoPoint::vartime_multiscalar_mul(
             &[proof.c, proof.s],
             &[*p.output.as_point(), *p.input.as_point()],
-        )
-        .compress();
+        ).compress();
         t.commit_point(b"h^r", &Hr);
 
         t.commit_point(b"pk", self.as_compressed());
@@ -833,9 +831,7 @@ pub fn dleq_verify_batch(
         proofs.iter().map(|proof| proof.R.decompress())
             .chain(public_keys.iter().map(|pk| Some(*pk.as_point())))
             .chain(once(Some(constants::RISTRETTO_BASEPOINT_POINT))),
-    )
-    .map(|id| id.is_identity())
-    .unwrap_or(false);
+    ).map(|id| id.is_identity()).unwrap_or(false);
 
     // Compute (∑ z[i] s[i] (mod l)) Input[i] + ∑ (z[i] c[i] (mod l)) Output[i] - ∑ z[i] Hr[i] = 0
     b & RistrettoPoint::optional_multiscalar_mul(
@@ -845,9 +841,7 @@ pub fn dleq_verify_batch(
         proofs.iter().map(|proof| proof.Hr.decompress())
             .chain(ps.iter().map(|p| Some(*p.output.as_point())))
             .chain(ps.iter().map(|p| Some(*p.input.as_point()))),
-    )
-    .map(|id| id.is_identity())
-    .unwrap_or(false)
+    ).map(|id| id.is_identity()).unwrap_or(false)
 }
 
 /// Batch verify VRFs by different signers
