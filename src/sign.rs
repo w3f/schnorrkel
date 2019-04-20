@@ -14,6 +14,8 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 
+use clear_on_drop::clear::Clear;
+
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -153,21 +155,17 @@ impl SecretKey {
     #[allow(non_snake_case)]
     pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
     {
-        let R: CompressedRistretto;
-        let r: Scalar;
-        let s: Scalar;
-        let k: Scalar;
-
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"pk",public_key.as_compressed());
 
-        r = t.witness_scalar(&[&self.nonce]);  // context, message, A/public_key
-        R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
+        let mut r = t.witness_scalar(&[&self.nonce]);  // context, message, A/public_key
+        let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"no",&R);
 
-        k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
-        s = &(&k * &self.key) + &r;
+        let k: Scalar = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
+        let s: Scalar = &(&k * &self.key) + &r;
+        r.clear();
 
         Signature{ R, s }
     }

@@ -15,9 +15,7 @@ use core::default::Default;
 use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
-
 use sha2::Sha512;
-
 use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader

@@ -35,6 +35,7 @@ use core::borrow::{Borrow};  // BorrowMut
 use std::collections::BTreeMap;
 
 use merlin::Transcript;
+use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
@@ -496,6 +497,7 @@ where K: Borrow<Keypair>, T: SigningTranscript
         let a_me = compute_weighting(t0, &self.stage.keypair.borrow().public);
         let c = self.t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
+        self.stage.r_me.clear();
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
         *(Rs.get_mut(&self.stage.keypair.borrow().public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };

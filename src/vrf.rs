@@ -84,6 +84,8 @@ use std::{boxed::Box, vec::Vec};
 use rand::prelude::*; // ThreadRng,thread_rng
 use rand_chacha::ChaChaRng;
 
+use clear_on_drop::clear::Clear;
+
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -600,7 +602,7 @@ impl Keypair {
         t.commit_point(b"h", p.input.as_compressed());
 
         // We compute R after adding pk and all h.
-        let r = t.witness_scalar(&[&self.secret.nonce]);
+        let mut r = t.witness_scalar(&[&self.secret.nonce]);
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"R=g^r", &R);
 
@@ -613,6 +615,7 @@ impl Keypair {
 
         let c = t.challenge_scalar(b""); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
+        r.clear();
 
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }
