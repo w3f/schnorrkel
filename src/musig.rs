@@ -298,6 +298,8 @@ impl<T: SigningTranscript,S> MuSig<T,S> {
         {  self.compute_public_key(false)  }
 
     /// Sums revealed `R` values.
+    ///
+    /// Only compatable with `compute_public_key` when calling it with `require_reveal=true`
     #[allow(non_snake_case)]
     fn compute_R(&self) -> CompressedRistretto {
         let R: RistrettoPoint = self.Rs.iter().filter_map( |(_pk,cor)| match cor {
@@ -310,12 +312,15 @@ impl<T: SigningTranscript,S> MuSig<T,S> {
     }
 }
 
+
 /// Initial cosigning stages during which transcript modification
 /// remains possible but not advisable.
 pub trait TranscriptStages {}
-impl<'k> TranscriptStages for CommitStage<'k> {}
-impl<'k> TranscriptStages for RevealStage<'k> {}
-impl<T: SigningTranscript, S: TranscriptStages> MuSig<T,S> {
+impl<K> TranscriptStages for CommitStage<K> where K: Borrow<Keypair> {}
+impl<K> TranscriptStages for RevealStage<K> where K: Borrow<Keypair> {}
+impl<T,S> MuSig<T,S> 
+where T: SigningTranscript, S: TranscriptStages
+{
     /// We permit extending the transcript whenever you like, so
     /// that say the message may be agreed upon in parallel to the
 	/// commitments.  We advise against doing so however, as this
@@ -327,29 +332,40 @@ impl<T: SigningTranscript, S: TranscriptStages> MuSig<T,S> {
 impl Keypair {
     /// Initialize a multi-signature aka cosignature protocol run.
     #[allow(non_snake_case)]
-    pub fn musig<'k,T: SigningTranscript>(&'k self, t: T) -> MuSig<T,CommitStage<'k>>
-    {
-        let r_me = t.witness_scalar(&[&self.secret.nonce]);
-          // context, message, nonce, but not &self.public.compressed
-        let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
-
-        let mut Rs = BTreeMap::new();
-        Rs.insert(self.public, CoR::Reveal { R: R_me.clone() });
-
-        let stage = CommitStage { keypair: self, r_me, R_me: R_me.compress() };
-        MuSig { t, Rs, stage, }
+    pub fn musig<'k,T>(&'k self, t: T) -> MuSig<T,CommitStage<&'k Keypair>>
+    where T: SigningTranscript {
+        new_musig(self,t)
     }
 }
 
+/// Initialize a multi-signature aka cosignature protocol run.
+#[allow(non_snake_case)]
+pub fn new_musig<K,T>(keypair: K, t: T) -> MuSig<T,CommitStage<K>>
+where K: Borrow<Keypair>, T: SigningTranscript
+{
+    let r_me = t.witness_scalar(&[&keypair.borrow().secret.nonce]);
+      // context, message, nonce, but not &self.public.compressed
+    let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
+
+    let mut Rs = BTreeMap::new();
+    Rs.insert(keypair.borrow().public, CoR::Reveal { R: R_me.clone() });
+
+    let stage = CommitStage { keypair, r_me, R_me: R_me.compress() };
+    MuSig { t, Rs, stage, }
+}
+
+
 /// Commitment stage for cosigner's `R` values
 #[allow(non_snake_case)]
-pub struct CommitStage<'k> {
-    keypair: &'k Keypair,
+pub struct CommitStage<K: Borrow<Keypair>> {
+    keypair: K,
     r_me: Scalar,
     R_me: CompressedRistretto,
 }
 
-impl<'k,T: SigningTranscript> MuSig<T,CommitStage<'k>> {
+impl<K,T> MuSig<T,CommitStage<K>>
+where K: Borrow<Keypair>, T: SigningTranscript
+{
     /// Our commitment to our `R` to send to all other cosigners
     pub fn our_commitment(&self) -> Commitment {
         Commitment::for_R(&self.stage.R_me)
@@ -374,7 +390,7 @@ impl<'k,T: SigningTranscript> MuSig<T,CommitStage<'k>> {
 
     /// Commit to reveal phase transition.
     #[allow(non_snake_case)]
-    pub fn reveal_stage(self) -> MuSig<T,RevealStage<'k>> {
+    pub fn reveal_stage(self) -> MuSig<T,RevealStage<K>> {
         let MuSig { t, Rs, stage: CommitStage { keypair, r_me, R_me, }, } = self;
         MuSig { t, Rs, stage: RevealStage { keypair, r_me, R_me, }, }
     }
@@ -382,8 +398,8 @@ impl<'k,T: SigningTranscript> MuSig<T,CommitStage<'k>> {
 
 /// Reveal stage for cosigner's `R` values
 #[allow(non_snake_case)]
-pub struct RevealStage<'k> {
-    keypair: &'k Keypair,
+pub struct RevealStage<K: Borrow<Keypair>> {
+    keypair: K,
     r_me: Scalar,
     R_me: CompressedRistretto,
 }
@@ -394,7 +410,9 @@ pub struct Reveal(pub [u8; 32]);
 // TODO: serde_boilerplate!(Reveal);
 
 
-impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
+impl<K,T> MuSig<T,RevealStage<K>> 
+where K: Borrow<Keypair>, T: SigningTranscript
+{
     /// Reveal our `R` contribution to send to all other cosigners
     pub fn our_reveal(&self) -> Reveal {
         Reveal(self.stage.R_me.to_bytes())
@@ -467,12 +485,12 @@ impl<'k,T: SigningTranscript> MuSig<T,RevealStage<'k>> {
         self.t.commit_point(b"no",&R);
 
         let t0 = commit_public_keys(self.public_keys(true));
-        let a_me = compute_weighting(t0, &self.stage.keypair.public);
+        let a_me = compute_weighting(t0, &self.stage.keypair.borrow().public);
         let c = self.t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
-        let s_me = &(&c * &a_me * &self.stage.keypair.secret.key) + &self.stage.r_me;
+        let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
-        *(Rs.get_mut(&self.stage.keypair.public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };
+        *(Rs.get_mut(&self.stage.keypair.borrow().public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };
         MuSig { t, Rs, stage: CosignStage { R, s_me }, }
     }
 }
