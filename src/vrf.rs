@@ -503,7 +503,7 @@ serde_boilerplate!(VRFProof);
 #[derive(Debug, Clone, PartialEq, Eq)] // PartialOrd, Ord, Hash
 #[allow(non_snake_case)]
 pub struct VRFProofBatchable {
-    /// Our nonce R = r G to permits batching the first verification equation
+    /// Our nonce R = r G to permit batching the first verification equation
     R: CompressedRistretto,
     /// Our input hashed and raised to r to permit batching the second verification equation
     Hr: CompressedRistretto,
@@ -645,7 +645,7 @@ impl Keypair {
     /// VRFs repeatedly until they win some contest.  In these case,
     /// you might use this function to short circuit computing the full
     /// proof.
-    pub fn vrf_sign_n_check<T,F>(&self, t: T, mut check: F)
+    pub fn vrf_check_n_sign<T,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
 	where T: VRFSigningTranscript,
           F: FnMut(&VRFInOut) -> bool
@@ -680,10 +680,10 @@ impl Keypair {
 }
 
 impl PublicKey {
-    /// Verify DLEQ proof that `points_out` consists of all points in
-    /// `points_in` raised to the same private exponent as `self`.
+    /// Verify DLEQ proof that `p.output = s * p.input` where `self`
+    /// `s` times the basepoint.
     ///
-    /// We also return an enlarged `VRFProofBatchable` instead of true
+    /// We return an enlarged `VRFProofBatchable` instead of just true,
     /// so that verifiers can forward batchable proofs.
     ///
     /// In principle, one might provide "blindly verifiable" VRFs that
