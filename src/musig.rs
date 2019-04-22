@@ -334,35 +334,14 @@ impl Keypair {
     /// Initialize a multi-signature aka cosignature protocol run.
     ///
     /// We borrow the keypair here to discurage keeping too many
-    /// copies of the private key, but the `new_musig` function
+    /// copies of the private key, but the `MuSig::new` method
     /// can create an owned version, or use `Rc` or `Arc`.
     #[allow(non_snake_case)]
     pub fn musig<'k,T>(&'k self, t: T) -> MuSig<T,CommitStage<&'k Keypair>>
     where T: SigningTranscript {
-        new_musig(self,t)
+        MuSig::new(self,t)
     }
 }
-
-/// Initialize a multi-signature aka cosignature protocol run.
-///
-/// We provide the `Keypair::musig` method that borrows to discurage
-/// keeping too many copies of the private key, but `new_musig` can
-/// create an owned version, or use `Rc` or `Arc`.
-#[allow(non_snake_case)]
-pub fn new_musig<K,T>(keypair: K, t: T) -> MuSig<T,CommitStage<K>>
-where K: Borrow<Keypair>, T: SigningTranscript
-{
-    let r_me = t.witness_scalar(&[&keypair.borrow().secret.nonce]);
-      // context, message, nonce, but not &self.public.compressed
-    let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
-
-    let mut Rs = BTreeMap::new();
-    Rs.insert(keypair.borrow().public, CoR::Reveal { R: R_me.clone() });
-
-    let stage = CommitStage { keypair, r_me, R_me: R_me.compress() };
-    MuSig { t, Rs, stage, }
-}
-
 
 /// Commitment stage for cosigner's `R` values
 #[allow(non_snake_case)]
@@ -375,6 +354,25 @@ pub struct CommitStage<K: Borrow<Keypair>> {
 impl<K,T> MuSig<T,CommitStage<K>>
 where K: Borrow<Keypair>, T: SigningTranscript
 {
+    /// Initialize a multi-signature aka cosignature protocol run.
+    ///
+    /// We encurage borrowing the `Keypair` to minimize copies of
+    /// the private key, so we provide the `Keypair::musig` method
+    /// for the `K = &'k Keypair` case.  You could use `Rc` or `Arc`
+    /// with this `MuSig::new` method, or even pass in an owned copy.
+    #[allow(non_snake_case)]
+    pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
+        let r_me = t.witness_scalar(&[&keypair.borrow().secret.nonce]);
+          // context, message, nonce, but not &self.public.compressed
+        let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
+
+        let mut Rs = BTreeMap::new();
+        Rs.insert(keypair.borrow().public, CoR::Reveal { R: R_me.clone() });
+
+        let stage = CommitStage { keypair, r_me, R_me: R_me.compress() };
+        MuSig { t, Rs, stage, }
+    }
+
     /// Our commitment to our `R` to send to all other cosigners
     pub fn our_commitment(&self) -> Commitment {
         Commitment::for_R(&self.stage.R_me)
