@@ -478,11 +478,9 @@ impl SecretKey {
     }
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
-    pub fn to_keypair(&self) -> Keypair {
-        Keypair {
-            secret: self.clone(),
-            public: self.to_public(),
-        }
+    pub fn to_keypair(self) -> Keypair {
+        let public = self.to_public();
+        Keypair { secret: self, public }
     }
 }
 

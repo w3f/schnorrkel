@@ -199,7 +199,7 @@ impl Keypair {
         t.challenge_bytes(b"",&mut nonce);
 
         (SecretKey {
-            key: self.secret.key.clone() + scalar,
+            key: self.secret.key + scalar,
             nonce,
         }, chaincode)
     }
@@ -219,10 +219,7 @@ impl Derivation for SecretKey {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where T: SigningTranscript+Clone
     {
-        Keypair {
-            secret: self.clone(),
-            public: self.to_public(),
-        }.derive_secret_key(t, cc)
+        self.clone().to_keypair().derive_secret_key(t, cc)
     }
 }
 
