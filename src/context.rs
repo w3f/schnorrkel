@@ -32,7 +32,10 @@ use curve25519_dalek::scalar::Scalar;
 ///
 /// In this trait, we provide an interface for Schnorr signature-like
 /// constructions that is compatable with `merlin::Transcript`, but
-/// abstract enough to support normal hash functions as well.
+/// abstract enough to support conventional hash functions as well.
+///
+/// We warn however that conventional hash functions do not provide
+/// strong enough domain seperation for usage via `&mut` references.
 ///
 /// We fold randomness into witness generation here too, which
 /// gives every function that takes a `SigningTranscript` a default
@@ -101,17 +104,11 @@ pub trait SigningTranscript {
 }
 
 
-/// Strong enough domain seperation for usage via `&mut Self` references.
-pub trait StrongDomainSeperation : SigningTranscript {}
-impl StrongDomainSeperation for Transcript {}
-impl<T> StrongDomainSeperation for &mut T where T: SigningTranscript + StrongDomainSeperation + ?Sized {}
-
-
 /// We delegates any mutable reference to its base type, like `&mut Rng`
 /// or similar to `BorrowMut<..>` do, but doing so here simplifies
 /// alternative implementations.
 impl<T> SigningTranscript for &mut T
-where T: SigningTranscript + StrongDomainSeperation + ?Sized,
+where T: SigningTranscript + ?Sized,
 {
     #[inline(always)]
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
@@ -234,22 +231,39 @@ impl SigningContext {
 
 /// Very simple transcript construction from an arbitrary hash fucntion.
 ///
-/// We provide this transcript type for expository purposes only,
-/// but recommend against its use.  In future, we may depricate
-/// `SimpleTranscript` entirely or constrain its hash argument to
-/// only `Shake*` and `Blake2*`.  
-/// We prevent `&mut SimpleTranscript : SimpleTranscript` already.
+/// We provide this transcript type to directly use conventional hash
+/// functions with an extensible output mode, meaning `Shake128` and
+/// `Blake2x`.  We note that Shak128 provides no advantage here,
+/// since `merlin::Transcript`s already use Keccak, and that no rust
+/// implementation for Blake2x currently exists.  
+/// 
+/// We recommend using `merlin::Transcripts` instead because merlin
+/// might provide better domain seperartion than most hash functions.
+/// We therefore do not provide conveniences like `signing_context`
+/// for this.  
 ///
-/// We strongly recommend using `merlin::Transcripts` instead because
-/// merlin provides superior domain seperartion.  We therefore do not
-/// provide conveniences like `signing_context` for this.
-pub struct SimpleTranscript<H>(pub H)
+/// In `SimpleTranscript` style, we never expose the hash function `H`
+/// underlying this type, so that developers cannot circument the
+/// domain seperartion provided by our methods.  We do this to make
+/// `&mut SimpleTranscript : SigningTranscript` safe.
+pub struct SimpleTranscript<H>(H)
 where H: Input + ExtendableOutput + Clone;
 
 fn input_bytes<H: Input>(h: &mut H, bytes: &[u8]) {
     let l = bytes.len() as u64;
     h.input(l.to_le_bytes());
     h.input(bytes);
+}
+
+impl<H> SimpleTranscript<H>
+where H: Input + ExtendableOutput + Clone
+{
+    /// Create a `SimpleTranscript` from a conventional hash functions with an extensible output mode.
+    ///
+    /// We intentionally consume and never reexpose the hash function
+    /// provided, so that our domain seperation works correctly even
+    /// when using `&mut SimpleTranscript : SigningTranscript`.
+    pub fn new(h: H) -> SimpleTranscript<H> { SimpleTranscript(h) }
 }
 
 impl<H> SigningTranscript for SimpleTranscript<H>
