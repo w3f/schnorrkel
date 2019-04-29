@@ -645,7 +645,7 @@ impl Keypair {
     /// VRFs repeatedly until they win some contest.  In these case,
     /// you might use this function to short circuit computing the full
     /// proof.
-    pub fn vrf_check_n_sign<T,F>(&self, t: T, mut check: F)
+    pub fn vrf_sign_after_check<T,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
 	where T: VRFSigningTranscript,
           F: FnMut(&VRFInOut) -> bool
