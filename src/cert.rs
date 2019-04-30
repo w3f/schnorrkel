@@ -48,7 +48,7 @@ pub struct ECQVCertSecret(pub [u8; 64]);
 /*
 impl<'a> From<&'a ECQVCertSecret> for &'a ECQVCertPublic {
     from(secret: &ECQVCertSecret) -> &ECQVCertPublic {
-        unsafe { ::std::mem::transmute(secret) }
+        unsafe { ::core::mem::transmute(secret) }
     }
 }
 */

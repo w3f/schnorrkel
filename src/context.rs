@@ -9,7 +9,7 @@
 
 //! ### Schnorr signature contexts and configuration, adaptable to most Schnorr signature schemes.
 
-use std::cell::RefCell;
+use core::{cell::RefCell};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 

@@ -32,7 +32,12 @@
 
 
 use core::borrow::{Borrow};  // BorrowMut
-use std::collections::BTreeMap;
+
+#[cfg(feature = "alloc")]
+use alloc::collections::{BTreeMap, btree_map::Entry};
+#[cfg(feature = "std")]
+use std::collections::{BTreeMap, btree_map::Entry};
+
 
 use merlin::Transcript;
 use clear_on_drop::clear::Clear;
@@ -383,10 +388,9 @@ where K: Borrow<Keypair>, T: SigningTranscript
      -> SignatureResult<()>
     {
         let theirs = CoR::Commit(theirs);
-        use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
-            Vacant(v) => { v.insert(theirs); () },
-            Occupied(o) =>
+            Entry::Vacant(v) => { v.insert(theirs); () },
+            Entry::Occupied(o) =>
                 if o.get() != &theirs {
                     let musig_stage = MultiSignatureStage::Commitment;
                     return Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: true, });
@@ -433,13 +437,12 @@ where K: Borrow<Keypair>, T: SigningTranscript
     pub fn add_their_reveal(&mut self, them: PublicKey, theirs: Reveal)
      -> SignatureResult<()>
     {
-        use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
-            Vacant(_) => {
+            Entry::Vacant(_) => {
                     let musig_stage = MultiSignatureStage::Commitment;
                     Err(SignatureError::MuSigAbsent { musig_stage, })
                 },
-            Occupied(mut o) => o.get_mut().set_revealed(CompressedRistretto(theirs.0))
+            Entry::Occupied(mut o) => o.get_mut().set_revealed(CompressedRistretto(theirs.0))
         }
     }
 
@@ -468,10 +471,9 @@ where K: Borrow<Keypair>, T: SigningTranscript
         let R = CompressedRistretto(theirs.0).decompress()
             .ok_or(SignatureError::PointDecompressionError) ?;
         let theirs = CoR::Reveal { R };
-        use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
-            Vacant(v) => { v.insert(theirs); () },
-            Occupied(o) =>
+            Entry::Vacant(v) => { v.insert(theirs); () },
+            Entry::Occupied(o) =>
                 if o.get() != &theirs {
                     let musig_stage = MultiSignatureStage::Reveal;
                     return Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: true, });
@@ -528,13 +530,12 @@ impl<T: SigningTranscript> MuSig<T,CosignStage> {
     {
         let theirs = Scalar::from_canonical_bytes(theirs.0)
             .ok_or(SignatureError::ScalarFormatError) ?;
-        use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
-            Vacant(_) => {
+            Entry::Vacant(_) => {
                     let musig_stage = MultiSignatureStage::Reveal;
                     Err(SignatureError::MuSigAbsent { musig_stage, })
                 },
-            Occupied(mut o) => o.get_mut().set_cosigned(theirs)
+            Entry::Occupied(mut o) => o.get_mut().set_cosigned(theirs)
         }
     }
 
@@ -599,10 +600,9 @@ impl<T: SigningTranscript> MuSig<T,CollectStage> {
             .ok_or(SignatureError::ScalarFormatError) ?;
         let cor = CoR::Collect { R, s };
 
-        use std::collections::btree_map::Entry::*;
         match self.Rs.entry(them) {
-            Vacant(v) => { v.insert(cor); () },
-            Occupied(o) =>
+            Entry::Vacant(v) => { v.insert(cor); () },
+            Entry::Occupied(o) =>
                 if o.get() != &cor {
                     let musig_stage = MultiSignatureStage::Reveal;
                     return Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: true, });
