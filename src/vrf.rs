@@ -717,11 +717,11 @@ impl PublicKey {
         t.commit_point(b"R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
-        #[cfg(not(any(feature = "alloc", feature = "std", test)))]
+        #[cfg(not(any(feature = "alloc", feature = "std")))]
         let Hr = (&proof.c * p.output.as_point()) + (&proof.s * p.input.as_point());
 
         // TODO: Verify if this is actually faster using benchmarks
-        #[cfg(any(feature = "alloc", feature = "std", test))]
+        #[cfg(any(feature = "alloc", feature = "std"))]
         let Hr = RistrettoPoint::vartime_multiscalar_mul(
             &[proof.c, proof.s],
             &[*p.output.as_point(), *p.input.as_point()],
@@ -890,9 +890,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
+    #[cfg(feature = "std")]
+    use std::vec::Vec;
+
     use super::*;
     use rand::prelude::*;
-    use std::vec::Vec;
 
     #[test]
     fn vrf_single() {

@@ -254,7 +254,7 @@ impl PublicKey {
 /// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
 /// # }
 /// ```
-#[cfg(any(feature = "alloc", feature = "std", test))]
+#[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn verify_batch<T,I>(
     transcripts: I,
@@ -461,7 +461,11 @@ impl Keypair {
 
 #[cfg(test)]
 mod test {
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
+    #[cfg(feature = "std")]
     use std::vec::Vec;
+
     use rand::prelude::*; // ThreadRng,thread_rng
     use rand_chacha::ChaChaRng;
     use sha3::Shake128;
@@ -528,6 +532,7 @@ mod test {
                 "Verification of a signature on a different message passed!");
     }
 
+    #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn verify_batch_seven_signatures() {
         let ctx = signing_context(b"my batch context");

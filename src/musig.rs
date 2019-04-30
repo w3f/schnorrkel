@@ -626,7 +626,11 @@ impl<T: SigningTranscript> MuSig<T,CollectStage> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
+    #[cfg(feature = "std")]
     use std::vec::Vec;
+
     use rand::prelude::*;
     use super::*;
 

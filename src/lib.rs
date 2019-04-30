@@ -253,7 +253,7 @@
 #![warn(rust_2018_idioms)]
 #![deny(missing_docs)] // refuse to compile if documentation is missing
 
-#[cfg(any(feature = "std", test))]
+#[cfg(any(feature = "std"))]
 #[macro_use]
 extern crate std;
 
@@ -302,7 +302,7 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
-#[cfg(any(feature = "alloc", feature = "std", test))]
+#[cfg(any(feature = "alloc", feature = "std"))]
 pub mod musig;
 
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
@@ -310,5 +310,5 @@ pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
 
-#[cfg(any(feature = "alloc", feature = "std", test))]
+#[cfg(any(feature = "alloc", feature = "std"))]
 pub use crate::sign::{verify_batch};
