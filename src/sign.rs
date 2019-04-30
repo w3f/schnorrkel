@@ -254,7 +254,7 @@ impl PublicKey {
 /// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
 /// # }
 /// ```
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(any(feature = "alloc", feature = "std", test))]
 #[allow(non_snake_case)]
 pub fn verify_batch<T,I>(
     transcripts: I,

@@ -74,7 +74,9 @@
 //! domain of zero-knowledge proof libraries.
 
 use core::borrow::Borrow;
-use core::iter::once; // BorrowMut
+
+#[cfg(any(feature = "alloc", feature = "std"))]
+use core::iter::once;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
@@ -89,6 +91,8 @@ use clear_on_drop::clear::Clear;
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
+
+#[cfg(any(feature = "alloc", feature = "std"))]
 use curve25519_dalek::traits::VartimeMultiscalarMul;
 
 use merlin::Transcript;
@@ -385,7 +389,6 @@ impl PublicKey {
     /// TODO: Add constant time 128 bit batched multiplication to dalek.
     /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
     /// prefer it over merlin for the output?  
-    #[cfg(any(feature = "alloc", feature = "std"))]
     pub fn vrfs_merge<B>(&self, ps: &[B]) -> VRFInOut
     where
         B: Borrow<VRFInOut>,
@@ -714,11 +717,17 @@ impl PublicKey {
         t.commit_point(b"R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
-        // let hr = (&proof.c * p.output.as_point()) + (&proof.s * p.input.as_point());
+        #[cfg(not(any(feature = "alloc", feature = "std", test)))]
+        let Hr = (&proof.c * p.output.as_point()) + (&proof.s * p.input.as_point());
+
+        // TODO: Verify if this is actually faster using benchmarks
+        #[cfg(any(feature = "alloc", feature = "std", test))]
         let Hr = RistrettoPoint::vartime_multiscalar_mul(
             &[proof.c, proof.s],
             &[*p.output.as_point(), *p.input.as_point()],
-        ).compress();
+        );
+
+        let Hr = Hr.compress();
         t.commit_point(b"h^r", &Hr);
 
         t.commit_point(b"pk", self.as_compressed());
@@ -997,6 +1006,7 @@ mod tests {
             .is_ok());
     }
 
+    #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn vrfs_merged_and_batched() {
         let keypairs: Vec<Keypair> = (0..4)

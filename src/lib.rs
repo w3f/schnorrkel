@@ -300,11 +300,15 @@ pub mod sign;
 pub mod vrf;
 pub mod derive;
 pub mod cert;
-pub mod musig;
 pub mod errors;
+
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub mod musig;
 
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
 pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
-pub use crate::sign::{Signature,SIGNATURE_LENGTH,verify_batch};
+pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
 
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub use crate::sign::{verify_batch};
