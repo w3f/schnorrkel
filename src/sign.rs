@@ -265,7 +265,7 @@ where
     T: SigningTranscript, 
     I: IntoIterator<Item=T>,
 {
-    const ASSERT_MESSAGE: &'static [u8] = b"The number of messages/transcripts, signatures, and public keys must be equal.";
+    const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
     assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
 
     #[cfg(feature = "alloc")]

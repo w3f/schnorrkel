@@ -34,10 +34,9 @@
 use core::borrow::{Borrow};  // BorrowMut
 
 #[cfg(feature = "alloc")]
-use alloc::collections::{BTreeMap, btree_map::Entry};
+use alloc::{collections::btree_map::{BTreeMap, Entry}};
 #[cfg(feature = "std")]
-use std::collections::{BTreeMap, btree_map::Entry};
-
+use std::{collections::btree_map::{BTreeMap, Entry}};
 
 use merlin::Transcript;
 use clear_on_drop::clear::Clear;

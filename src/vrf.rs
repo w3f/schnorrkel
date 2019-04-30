@@ -801,7 +801,7 @@ pub fn dleq_verify_batch(
 ) -> bool {
     use curve25519_dalek::traits::IsIdentity;
 
-    const ASSERT_MESSAGE: &'static [u8] = b"The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
+    const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), ASSERT_MESSAGE);
 

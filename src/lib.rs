@@ -253,6 +253,13 @@
 #![warn(rust_2018_idioms)]
 #![deny(missing_docs)] // refuse to compile if documentation is missing
 
+#[cfg(any(feature = "std", test))]
+#[macro_use]
+extern crate std;
+
+#[cfg(feature = "alloc")]
+#[macro_use]
+extern crate alloc;
 
 extern crate curve25519_dalek;
 extern crate merlin;
@@ -264,15 +271,10 @@ extern crate rand_chacha;
 
 extern crate failure;
 
+extern crate ed25519_dalek;
 
 #[cfg(test)]
 extern crate sha3;
-
-extern crate ed25519_dalek;
-
-#[cfg(any(feature = "std", test))]
-#[macro_use]
-extern crate std;
 
 extern crate sha2;
 
