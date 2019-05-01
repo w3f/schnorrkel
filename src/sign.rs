@@ -14,8 +14,6 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 
-use clear_on_drop::clear::Clear;
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -165,7 +163,11 @@ impl SecretKey {
 
         let k: Scalar = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
-        r.clear();
+
+        // TODO: Check assembler to see if this improves anything 
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
+        ::clear_on_drop::clear::Clear::clear(&mut r);
 
         Signature{ R, s }
     }

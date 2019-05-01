@@ -39,7 +39,6 @@ use alloc::{collections::btree_map::{BTreeMap, Entry}};
 use std::{collections::btree_map::{BTreeMap, Entry}};
 
 use merlin::Transcript;
-use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
@@ -496,7 +495,11 @@ where K: Borrow<Keypair>, T: SigningTranscript
         let a_me = compute_weighting(t0, &self.stage.keypair.borrow().public);
         let c = self.t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
-        self.stage.r_me.clear();
+
+        // TODO: Check assembler to see if this improves anything 
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
+        ::clear_on_drop::clear::Clear::clear(&mut self.stage.r_me);
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
         *(Rs.get_mut(&self.stage.keypair.borrow().public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };

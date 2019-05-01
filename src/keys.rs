@@ -16,6 +16,9 @@ use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
 use sha2::Sha512;
+
+// TODO: Replace with Zeroize but ClearOnDrop does not work with std
+#[cfg(any(feature = "std"))]
 use clear_on_drop::clear::Clear;
 
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
@@ -70,6 +73,8 @@ impl Debug for MiniSecretKey {
 /// Overwrite secret key material with null bytes when it goes out of scope.
 impl Drop for MiniSecretKey {
     fn drop(&mut self) {
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
         self.0.clear();
     }
 }
@@ -304,7 +309,10 @@ impl Debug for SecretKey {
 /// Overwrite secret key material with null bytes when it goes out of scope.
 impl Drop for SecretKey {
     fn drop(&mut self) {
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
         self.key.clear();
+        #[cfg(any(feature = "std"))]
         self.nonce.clear();
     }
 }
@@ -772,6 +780,8 @@ mod test {
     fn keypair_clear_on_drop() {
         let mut keypair: Keypair = Keypair::generate(&mut thread_rng());
 
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
         keypair.clear();
 
         fn as_bytes<T>(x: &T) -> &[u8] {

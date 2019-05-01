@@ -86,8 +86,6 @@ use std::{boxed::Box, vec::Vec};
 use rand::prelude::*; // ThreadRng,thread_rng
 use rand_chacha::ChaChaRng;
 
-use clear_on_drop::clear::Clear;
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -618,7 +616,11 @@ impl Keypair {
 
         let c = t.challenge_scalar(b""); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
-        r.clear();
+
+        // TODO: Check assembler to see if this improves anything 
+        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
+        #[cfg(any(feature = "std"))]
+        ::clear_on_drop::clear::Clear::clear(&mut r);
 
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }
