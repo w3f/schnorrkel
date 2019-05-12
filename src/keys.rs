@@ -100,7 +100,6 @@ impl MiniSecretKey {
     ///
     /// ```
     /// # extern crate rand;
-    /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
     /// # fn main() {
@@ -113,6 +112,45 @@ impl MiniSecretKey {
     /// # }
     /// ```
     pub fn expand(&self) -> SecretKey {
+        let mut t = merlin::Transcript::new(b"");
+        t.append_message(b"mini", &self.0[..]);
+
+        let mut scalar_bytes = [0u8; 64];
+        t.challenge_bytes(b"sk", &mut scalar_bytes);
+        let key = Scalar::from_bytes_mod_order_wide(&scalar_bytes);
+
+        let mut nonce = [0u8; 32];
+        t.challenge_bytes(b"no", &mut nonce);
+
+        SecretKey { key, nonce }
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    pub fn expand_to_keypair(&self) -> Keypair {
+        self.expand().into()
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    pub fn expand_to_public(&self) -> PublicKey {
+        self.expand().to_public()
+    }
+
+    /// Expand this `MiniSecretKey` into a `SecretKey` using
+    /// ed25519-style bit clamping.
+    ///
+    /// We recommend the `expand` method instead because it provides
+    /// a more uniformly distributed secret key, poly benifiting some
+    /// future protocols. 
+    ///
+    /// At present, there is no exposed mapping from Ristretto
+    /// to the underlying Edwards curve because Ristretto invovles
+    /// an inverse square root and thus two such mappings exist.
+    /// Ristretto could be made usable with Ed25519 keys by choosing
+    /// one mapping as standard, but doing so makes the standard more
+    /// complex, and possibly harder to implement.  If anyone does
+    /// standardize the mapping to the curve then this method becomes
+    /// useful.
+    pub fn expand_ed25519(&self) -> SecretKey {
         let mut h: Sha512 = Sha512::default();
         h.input(self.as_bytes());
         let r = h.fixed_result();
@@ -133,16 +171,6 @@ impl MiniSecretKey {
         nonce.copy_from_slice(&r.as_slice()[32..64]);
 
         SecretKey{ key, nonce }
-    }
-
-    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_keypair(&self) -> Keypair {
-        self.expand().into()
-    }
-
-    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_public(&self) -> PublicKey {
-        self.expand().to_public()
     }
 
     /// Convert this secret key to a byte array.
