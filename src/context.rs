@@ -191,7 +191,11 @@ impl SigningContext {
         SigningContext(Transcript::new(context))
     }
 
-    /// Initalize an owned signing transcript on a message provided as a byte array
+    /// Initalize an owned signing transcript on a message provided as a byte array.
+    ///
+    /// Avoid this method when processing large slices because it
+    /// calls `merlin::Transcript::append_message` directly and
+    /// `merlin` is designed for domain seperation, not performance.
     pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
         t.append_message(b"sign-bytes", bytes);
@@ -233,7 +237,7 @@ impl SigningContext {
 ///
 /// We provide this transcript type to directly use conventional hash
 /// functions with an extensible output mode, meaning `Shake128` and
-/// `Blake2x`.  We note that Shak128 provides no advantage here,
+/// `Blake2x`.  We note that Shak128 might provide no advantage here,
 /// since `merlin::Transcript`s already use Keccak, and that no rust
 /// implementation for Blake2x currently exists.  
 /// 
