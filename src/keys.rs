@@ -355,16 +355,13 @@ impl From<&MiniSecretKey> for SecretKey {
 }
 
 impl SecretKey {
-    const DESCRIPTION : &'static str = "An ed25519 expanded secret key as 64 bytes, as specified in RFC8032.";
+    const DESCRIPTION : &'static str = "An ed25519-like expanded secret key as 64 bytes, as specified in RFC8032.";
 
-    /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
-    /// an Ed25519 expanded secreyt key.
+    /// Convert this `SecretKey` into an array of 64 bytes with.
     ///
-    /// # Returns
-    ///
-    /// An array of 64 bytes.  The first 32 bytes represent the "expanded"
-    /// secret key, and the last 32 bytes represent the "domain-separation"
-    /// "nonce".
+    /// Returns an array of 64 bytes, with the first 32 bytes being
+    /// the secret scalar represented cannonically, and the last
+    /// 32 bytes being the seed for nonces.
     ///
     /// # Examples
     ///
@@ -389,27 +386,12 @@ impl SecretKey {
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
         let mut bytes: [u8; 64] = [0u8; 64];
-        let mut key = self.key.to_bytes();
-        // We multiply by the cofactor to improve ed25519 compatability,
-        // while our internally using a scalar mod l.
-        scalars::multiply_scalar_bytes_by_cofactor(&mut key);
-        bytes[..32].copy_from_slice(&key[..]);
+        bytes[..32].copy_from_slice(&self.key.to_bytes()[..]);
         bytes[32..].copy_from_slice(&self.nonce[..]);
         bytes
     }
 
-    /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
-    pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
-        ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_bytes()[..])
-        .expect("Improper serialisation of Ed25519 secret key!")
-    }
-
     /// Construct an `SecretKey` from a slice of bytes.
-    ///
-    /// # Returns
-    ///
-    /// A `Result` whose okay value is an EdDSA `SecretKey` or whose
-    /// error value is an `SignatureError` describing the error that occurred.
     ///
     /// # Examples
     ///
@@ -447,20 +429,64 @@ impl SecretKey {
 
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
+        let key = Scalar::from_canonical_bytes(key).ok_or(SignatureError::ScalarFormatError) ?;
+        
+        let mut nonce: [u8; 32] = [0u8; 32];
+        nonce.copy_from_slice(&bytes[32..64]);
+
+        Ok(SecretKey{ key, nonce })
+    }
+
+    /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
+    /// an Ed25519 expanded secreyt key.
+    ///
+    /// Returns an array of 64 bytes, with the first 32 bytes being
+    /// the secret scalar shifted ed25519 style, and the last 32 bytes
+    /// being the seed for nonces.
+    #[inline]
+    pub fn to_ed25519_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
+        let mut bytes: [u8; 64] = [0u8; 64];
+        let mut key = self.key.to_bytes();
+        // We multiply by the cofactor to improve ed25519 compatability,
+        // while our internally using a scalar mod l.
+        scalars::multiply_scalar_bytes_by_cofactor(&mut key);
+        bytes[..32].copy_from_slice(&key[..]);
+        bytes[32..].copy_from_slice(&self.nonce[..]);
+        bytes
+    }
+
+    /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
+    pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
+        ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_ed25519_bytes()[..])
+        .expect("Improper serialisation of Ed25519 secret key!")
+    }
+
+    /// Construct an `SecretKey` from a slice of bytes, corresponding to
+    /// an Ed25519 expanded secret key.
+    #[inline]
+    pub fn from_ed25519_bytes(bytes: &[u8]) -> SignatureResult<SecretKey> {
+        if bytes.len() != SECRET_KEY_LENGTH {
+            return Err(SignatureError::BytesLengthError{
+                name: "SecretKey",
+                description: SecretKey::DESCRIPTION,
+                length: SECRET_KEY_LENGTH,
+            });
+        }
+
+        let mut key: [u8; 32] = [0u8; 32];
+        key.copy_from_slice(&bytes[00..32]);
         // TODO:  We should consider making sure the scalar is valid,
-        // maybe by zering the high bit, orp referably by checking < l.
+        // maybe by zering the high bit, or preferably by checking < l.
         // key[31] &= 0b0111_1111;
         // We devide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
+        let key = Scalar::from_bits(key);
 
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);
 
-        Ok(SecretKey{
-            key: Scalar::from_bits(key),
-            nonce,
-        })
+        Ok(SecretKey{ key, nonce })
     }
 
     /// Generate an "unbiased" `SecretKey` directly, bypassing the
