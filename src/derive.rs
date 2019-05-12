@@ -119,8 +119,8 @@ impl SecretKey {
     {
         let mut t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
 
-		if let Some(c) = cc { t.commit_bytes(b"chain-code", &c.0); }
-        t.commit_bytes(b"secret-key",& self.key.to_bytes() as &[u8]);
+		if let Some(c) = cc { t.append_message(b"chain-code", &c.0); }
+        t.append_message(b"secret-key",& self.key.to_bytes() as &[u8]);
 
         let mut msk = [0u8; MINI_SECRET_KEY_LENGTH]; 
         t.challenge_bytes(b"HDKD-hard",&mut msk);

@@ -143,7 +143,7 @@ where T: SigningTranscript + ?Sized,
 /// machenry.
 impl SigningTranscript for Transcript {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        Transcript::commit_bytes(self, label, bytes)
+        Transcript::append_message(self, label, bytes)
     }
 
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
@@ -155,7 +155,7 @@ impl SigningTranscript for Transcript {
     {
         let mut br = self.build_rng();
         for ns in nonce_seeds {
-            br = br.commit_witness_bytes(b"", ns);
+            br = br.rekey_with_witness_bytes(b"", ns);
         }
         let mut r = br.finalize(&mut rng);
         r.fill_bytes(dest)
@@ -194,7 +194,7 @@ impl SigningContext {
     /// Initalize an owned signing transcript on a message provided as a byte array
     pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
-        t.commit_bytes(b"sign-bytes", bytes);
+        t.append_message(b"sign-bytes", bytes);
         t
     }
 
@@ -203,7 +203,7 @@ impl SigningContext {
         let mut prehash = [0u8; 32];
         h.xof_result().read(&mut prehash);
         let mut t = self.0.clone();
-        t.commit_bytes(b"sign-XoF", &prehash);
+        t.append_message(b"sign-XoF", &prehash);
         t
     }
 
@@ -213,7 +213,7 @@ impl SigningContext {
         let mut prehash = [0u8; 32];
         prehash.copy_from_slice(h.fixed_result().as_slice());
         let mut t = self.0.clone();
-        t.commit_bytes(b"sign-256", &prehash);
+        t.append_message(b"sign-256", &prehash);
         t
     }
 
@@ -223,7 +223,7 @@ impl SigningContext {
         let mut prehash = [0u8; 64];
         prehash.copy_from_slice(h.fixed_result().as_slice());
         let mut t = self.0.clone();
-        t.commit_bytes(b"sign-256", &prehash);
+        t.append_message(b"sign-256", &prehash);
         t
     }
 }
