@@ -694,7 +694,7 @@ mod tests {
         }
         let signature = c.signature();
 
-        assert!(pk.verify(t,&signature));
+        assert!( pk.verify(t,&signature).is_ok() );
         for i in 0..cosigns.len() {
             assert_eq!(pk, cosigns[i].public_key());
             assert_eq!(signature, cosigns[i].sign().unwrap());

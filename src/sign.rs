@@ -188,7 +188,8 @@ impl PublicKey {
     /// `SigningContext` and a message, as well as the signature
     /// to be verified.
     #[allow(non_snake_case)]
-    pub fn verify<T: SigningTranscript>(&self, mut t: T, signature: &Signature) -> bool
+    pub fn verify<T: SigningTranscript>(&self, mut t: T, signature: &Signature)
+     -> SignatureResult<()>
     {
         let A: &RistrettoPoint = self.as_point();
         let R: RistrettoPoint;
@@ -201,11 +202,12 @@ impl PublicKey {
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
-        R.compress() == signature.R
+        if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
     }
 
     /// Verify a signature by this public key on a message.
-    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> bool
+    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature)
+     -> SignatureResult<()>
     {
         let t = SigningContext::new(ctx).bytes(msg);
         self.verify(t,signature)
@@ -253,7 +255,7 @@ impl PublicKey {
 ///
 /// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
 ///
-/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
+/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
@@ -262,7 +264,7 @@ pub fn verify_batch<T,I>(
     transcripts: I,
     signatures: &[Signature],
     public_keys: &[PublicKey]
-) -> bool
+) -> SignatureResult<()>
 where
     T: SigningTranscript, 
     I: IntoIterator<Item=T>,
@@ -332,12 +334,14 @@ where
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
-    RistrettoPoint::optional_multiscalar_mul(
+    let b = RistrettoPoint::optional_multiscalar_mul(
         once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
         B.chain(Rs).chain(As),
-    ).map(|id| id.is_identity()).unwrap_or(false)
+    ).map(|id| id.is_identity()).unwrap_or(false);
     // We need not return SigenatureError::PointDecompressionError because
     // the decompression failures occur for R represent invalid signatures.
+
+    if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
 }
 
 
@@ -445,16 +449,16 @@ impl Keypair {
     ///
     /// let sig: Signature = keypair.sign(ctx.bytes(message));
     ///
-    /// assert!( keypair.public.verify(ctx.bytes(message), &sig) );
+    /// assert!( keypair.public.verify(ctx.bytes(message), &sig).is_ok() );
     /// # }
     /// ```
-    pub fn verify<T: SigningTranscript>(&self, t: T, signature: &Signature) -> bool
+    pub fn verify<T: SigningTranscript>(&self, t: T, signature: &Signature) -> SignatureResult<()>
     {
         self.public.verify(t, signature)
     }
 
     /// Verify a signature by keypair's public key on a message.
-    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> bool
+    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> SignatureResult<()>
     {
         self.public.verify_simple(ctx, msg, signature)
     }
@@ -493,13 +497,13 @@ mod test {
         good_sig = keypair.sign(ctx.bytes(&good));
         bad_sig  = keypair.sign(ctx.bytes(&bad));
 
-        assert!(keypair.verify(ctx.bytes(&good), &good_sig),
+        assert!(keypair.verify(ctx.bytes(&good), &good_sig).is_ok(),
                 "Verification of a valid signature failed!");
-        assert!(!keypair.verify(ctx.bytes(&good), &bad_sig),
+        assert!(!keypair.verify(ctx.bytes(&good), &bad_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
-        assert!(!keypair.verify(ctx.bytes(&bad),  &good_sig),
+        assert!(!keypair.verify(ctx.bytes(&bad),  &good_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
-        assert!(!keypair.verify(signing_context(b"bad").bytes(&good),  &good_sig),
+        assert!(!keypair.verify(signing_context(b"bad").bytes(&good),  &good_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
     }
 
@@ -524,13 +528,13 @@ mod test {
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
         bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
 
-        assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig),
+        assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig).is_ok(),
                 "Verification of a valid signature failed!");
-        assert!(! keypair.verify(ctx.xof(prehashed_good.clone()), &bad_sig),
+        assert!(! keypair.verify(ctx.xof(prehashed_good.clone()), &bad_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
-        assert!(! keypair.verify(ctx.xof(prehashed_bad.clone()), &good_sig),
+        assert!(! keypair.verify(ctx.xof(prehashed_bad.clone()), &good_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
-        assert!(! keypair.verify(signing_context(b"oops").xof(prehashed_good), &good_sig),
+        assert!(! keypair.verify(signing_context(b"oops").xof(prehashed_good), &good_sig).is_ok(),
                 "Verification of a signature on a different message passed!");
     }
 
@@ -559,7 +563,7 @@ mod test {
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
 
-        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]) );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
     }
 }
 

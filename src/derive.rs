@@ -335,15 +335,15 @@ mod tests {
                 let bad_sig = extended_keypair.key.sign(ctx.xof(h_bad.clone()));
 
                 assert!(
-                    extended_public_key.key.verify(ctx.xof(h.clone()), &good_sig),
+                    extended_public_key.key.verify(ctx.xof(h.clone()), &good_sig).is_ok(),
                     "Verification of a valid signature failed!"
                 );
                 assert!(
-                    ! extended_public_key.key.verify(ctx.xof(h.clone()), &bad_sig),
+                    ! extended_public_key.key.verify(ctx.xof(h.clone()), &bad_sig).is_ok(),
                     "Verification of a signature on a different message passed!"
                 );
                 assert!(
-                    ! extended_public_key.key.verify(ctx.xof(h_bad), &good_sig),
+                    ! extended_public_key.key.verify(ctx.xof(h_bad), &good_sig).is_ok(),
                     "Verification of a signature on a different message passed!"
                 );
             }

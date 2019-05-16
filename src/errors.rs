@@ -116,6 +116,15 @@ pub enum SignatureError {
 // InvalidCommitment
 }
 
+/*
+impl SignatureError {
+    #[inline(always)]
+    fn equation(b: bool) -> SignatureResult<()> {
+        if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
+    }
+}
+*/
+
 impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::SignatureError::*;

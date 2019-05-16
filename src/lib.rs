@@ -71,7 +71,7 @@
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
-//! assert!(keypair.verify(context.bytes(message), &signature));
+//! assert!(keypair.verify(context.bytes(message), &signature).is_ok());
 //! # }
 //! ```
 //!
@@ -93,7 +93,7 @@
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
 //! let public_key: PublicKey = keypair.public;
-//! assert!(public_key.verify(context.bytes(message), &signature));
+//! assert!(public_key.verify(context.bytes(message), &signature).is_ok());
 //! # }
 //! ```
 //!
@@ -239,7 +239,7 @@
 //! # assert_eq!(public_key, decoded_public_key);
 //! # assert_eq!(signature, decoded_signature);
 //! #
-//! let verified: bool = decoded_public_key.verify(context.bytes(message), &decoded_signature);
+//! let verified: bool = decoded_public_key.verify(context.bytes(message), &decoded_signature).is_ok();
 //!
 //! assert!(verified);
 //! # }

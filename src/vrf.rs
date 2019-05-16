@@ -809,7 +809,7 @@ pub fn dleq_verify_batch(
     ps: &[VRFInOut],
     proofs: &[VRFProofBatchable],
     public_keys: &[PublicKey],
-) -> bool {
+) -> SignatureResult<()> {
     use curve25519_dalek::traits::IsIdentity;
 
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
@@ -838,7 +838,7 @@ pub fn dleq_verify_batch(
         .collect();
 
     // Compute (∑ z[i] s[i] (mod l)) B + ∑ (z[i] c[i] (mod l)) A[i] - ∑ z[i] R[i] = 0
-    let b = RistrettoPoint::optional_multiscalar_mul(
+    let mut b = RistrettoPoint::optional_multiscalar_mul(
         zz.iter().map(|z| -z)
             .chain(z_c.iter().cloned())
             .chain(once(B_coefficient)),
@@ -848,14 +848,16 @@ pub fn dleq_verify_batch(
     ).map(|id| id.is_identity()).unwrap_or(false);
 
     // Compute (∑ z[i] s[i] (mod l)) Input[i] + ∑ (z[i] c[i] (mod l)) Output[i] - ∑ z[i] Hr[i] = 0
-    b & RistrettoPoint::optional_multiscalar_mul(
+    b &= RistrettoPoint::optional_multiscalar_mul(
         zz.iter().map(|z| -z)
             .chain(z_c)
             .chain(z_s),
         proofs.iter().map(|proof| proof.Hr.decompress())
             .chain(ps.iter().map(|p| Some(*p.output.as_point())))
             .chain(ps.iter().map(|p| Some(*p.input.as_point()))),
-    ).map(|id| id.is_identity()).unwrap_or(false)
+    ).map(|id| id.is_identity()).unwrap_or(false);
+
+    if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
 }
 
 /// Batch verify VRFs by different signers
@@ -883,7 +885,7 @@ where
         ps.len() == outs.len(),
         "Too few VRF inputs for VRF outputs."
     );
-    if dleq_verify_batch(&ps[..], proofs, publickeys) {
+    if dleq_verify_batch(&ps[..], proofs, publickeys).is_ok() {
         Ok(ps.into_boxed_slice())
     } else {
         Err(SignatureError::EquationFalse)
@@ -1080,24 +1082,24 @@ mod tests {
             .collect::<Vec<PublicKey>>();
 
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys),
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_ok(),
             "Batch verification failed!"
         );
         proofs.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys) == false,
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect proofs passed!"
         );
         proofs.reverse();
         public_keys.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys) == false,
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect public keys passed!"
         );
         public_keys.reverse();
         ios.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys) == false,
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect points passed!"
         );
     }
