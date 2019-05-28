@@ -14,3 +14,7 @@ by Alex Davidson, Ian Goldberg, Nick Sullivan, George Tankersley, and Filippo Va
 
 Aside from some naive sequential VRF construction, we currently only support the three-round [MuSig](https://eprint.iacr.org/2018/068) for Schnorr multi-signatures, due to all other Schnorr multi-signatures being somewhat broken.  In future, we should develop secure schemes like mBCJ from section 5.1 starting page 21 of https://eprint.iacr.org/2018/417 however mBCJ itself works by proof-of-possession, while a [delinearized](http://crypto.stanford.edu/~dabo/pubs/abstracts/aggsurvey.html) variant sounds more applicable.
 
+
+There are partial bindings for [JavaScript](https://github.com/paritytech/schnorrkel-js/) and [Python](https://gitlab.com/kauriid/schnorrpy/) as well.
+
+
