@@ -89,9 +89,13 @@ impl Signature {
     /// this marker remains unset because otherwise schnorrkel 
     /// signatures would be indistinguishable from ed25519 signatures.
     /// We cannot always distinguish between schnorrkel and ed25519
-    /// public keys eoither, so without this market bit we could not
+    /// public keys either, so without this market bit we could not
     /// do batch verification in systems that support precisely
-    /// ed25519 and schnorrkel.
+    /// ed25519 and schnorrkel.  
+    ///
+    /// We cannot distinguish amongst different `SigningTranscript`
+    /// types using these markey bits, but protocol should not need
+    /// two different transcript types.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<Signature> {
         if bytes.len() != SIGNATURE_LENGTH {
