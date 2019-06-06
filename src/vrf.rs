@@ -125,6 +125,7 @@ pub trait VRFSigningTranscript {
 
 impl<T> VRFSigningTranscript for T where T: SigningTranscript {
     type T = T;
+    #[inline(always)]
     fn transcript_with_malleability_addressed(mut self, publickey: &PublicKey) -> T {
         self.commit_point(b"vrf-nm-pk", publickey.as_compressed());        
         // publickey.make_transcript_nonmalleable(&mut self);
@@ -146,6 +147,7 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
 pub struct Malleable<T: SigningTranscript>(pub T);
 impl<T> VRFSigningTranscript for Malleable<T> where T: SigningTranscript {
     type T = T;
+    #[inline(always)]
     fn transcript_with_malleability_addressed(self, _publickey: &PublicKey) -> T { self.0 }
 }
 
@@ -347,6 +349,7 @@ impl VRFInOut {
     /// when considerable output is required, but it should reduce
     /// the final linked binary size slightly, and improves domain
     /// separation.
+    #[inline(always)]
     pub fn make_merlin_rng(&self, context: &'static [u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;

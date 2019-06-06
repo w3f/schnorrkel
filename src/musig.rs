@@ -57,6 +57,7 @@ use crate::errors::MultiSignatureStage;
 /// run in the same sorted ordering as `BTreeMap::iter`/`keys`/etc.
 /// We avoided a context: &'static [u8] here and in callers becuase they
 /// seem irreevant to the security arguments in the MuSig paper.
+#[inline(always)]
 fn commit_public_keys<'a,I>(keys: I) -> Transcript
 where I: Iterator<Item=&'a PublicKey>
 {

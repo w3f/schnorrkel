@@ -175,11 +175,16 @@ impl SigningTranscript for Transcript {
 /// You should use `merlin::Transcript`s directly if you must do
 /// anything more complex, like use signatures in larger zero-knoweldge
 /// protocols or sign several components but only reveal one later.
+///
+/// We declare these methods `#[inline(always)]` because rustc does
+/// not handle large returns as efficently as one might like.
+/// https://github.com/rust-random/rand/issues/817
 #[derive(Clone)] // Debug
 pub struct SigningContext(Transcript);
 
 /// Initialize a signing context from a static byte string that
 /// identifies the signature's role in the larger protocol.
+#[inline(always)]
 pub fn signing_context(context : &'static [u8]) -> SigningContext {
     SigningContext::new(context)
 }
@@ -187,6 +192,7 @@ pub fn signing_context(context : &'static [u8]) -> SigningContext {
 impl SigningContext {
     /// Initialize a signing context from a static byte string that
     /// identifies the signature's role in the larger protocol.
+    #[inline(always)]
     pub fn new(context : &'static [u8]) -> SigningContext {
         SigningContext(Transcript::new(context))
     }
@@ -196,6 +202,7 @@ impl SigningContext {
     /// Avoid this method when processing large slices because it
     /// calls `merlin::Transcript::append_message` directly and
     /// `merlin` is designed for domain seperation, not performance.
+    #[inline(always)]
     pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
         t.append_message(b"sign-bytes", bytes);
@@ -203,6 +210,7 @@ impl SigningContext {
     }
 
     /// Initalize an owned signing transcript on a message provided as a hash function with extensible output
+    #[inline(always)]
     pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
         h.xof_result().read(&mut prehash);
@@ -213,6 +221,7 @@ impl SigningContext {
 
     /// Initalize an owned signing transcript on a message provided as
     /// a hash function with 256 bit output.
+    #[inline(always)]
     pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
         prehash.copy_from_slice(h.fixed_result().as_slice());
@@ -223,6 +232,7 @@ impl SigningContext {
 
     /// Initalize an owned signing transcript on a message provided as
     /// a hash function with 512 bit output, usually a gross over kill.
+    #[inline(always)]
     pub fn hash512<D: FixedOutput<OutputSize=U64>>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 64];
         prehash.copy_from_slice(h.fixed_result().as_slice());
@@ -267,6 +277,7 @@ where H: Input + ExtendableOutput + Clone
     /// We intentionally consume and never reexpose the hash function
     /// provided, so that our domain seperation works correctly even
     /// when using `&mut SimpleTranscript : SigningTranscript`.
+    #[inline(always)]
     pub fn new(h: H) -> SimpleTranscript<H> { SimpleTranscript(h) }
 }
 
