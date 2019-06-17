@@ -85,21 +85,21 @@ pub trait SigningTranscript {
 
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
     /// transcript and any "nonce seeds" kept with the secret keys.
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar {
+    fn witness_scalar(&self, label: &'static [u8], nonce_seeds: &[&[u8]]) -> Scalar {
         let mut scalar_bytes = [0u8; 64];
-        self.witness_bytes(&mut scalar_bytes, nonce_seeds);
+        self.witness_bytes(label, &mut scalar_bytes, nonce_seeds);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-    	self.witness_bytes_rng(dest, nonce_seeds, thread_rng())
+    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
+    	self.witness_bytes_rng(label, dest, nonce_seeds, thread_rng())
     }
 
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
-    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
     where R: Rng+CryptoRng;
 }
 
@@ -126,15 +126,15 @@ where T: SigningTranscript + ?Sized,
     fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar
         {  (**self).challenge_scalar(label)  }
     #[inline(always)]
-    fn witness_scalar(&self, nonce_seeds: &[&[u8]]) -> Scalar
-        {  (**self).witness_scalar(nonce_seeds)  }
+    fn witness_scalar(&self, label: &'static [u8], nonce_seeds: &[&[u8]]) -> Scalar
+        {  (**self).witness_scalar(label,nonce_seeds)  }
     #[inline(always)]
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
-        {  (**self).witness_bytes(dest,nonce_seeds)  }
+    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]])
+        {  (**self).witness_bytes(label,dest,nonce_seeds)  }
     #[inline(always)]
-    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
     where R: Rng+CryptoRng
-        {  (**self).witness_bytes_rng(dest,nonce_seeds,rng)  }
+        {  (**self).witness_bytes_rng(label,dest,nonce_seeds,rng)  }
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
@@ -150,12 +150,12 @@ impl SigningTranscript for Transcript {
         Transcript::challenge_bytes(self, label, dest)
     }
 
-    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
     where R: Rng+CryptoRng
     {
         let mut br = self.build_rng();
         for ns in nonce_seeds {
-            br = br.rekey_with_witness_bytes(b"", ns);
+            br = br.rekey_with_witness_bytes(label, ns);
         }
         let mut r = br.finalize(&mut rng);
         r.fill_bytes(dest)
@@ -298,10 +298,11 @@ where H: Input + ExtendableOutput + Clone
         self.0.clone().chain(b"xof").xof_result().read(dest);
     }
 
-    fn witness_bytes_rng<R>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
     where R: Rng+CryptoRng
     {
         let mut h = self.0.clone().chain(b"wb");
+        input_bytes(&mut h, label);
         for ns in nonce_seeds {
             input_bytes(&mut h, ns);
         }
@@ -357,12 +358,12 @@ where T: SigningTranscript, R: Rng+CryptoRng
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8])
         {  self.t.challenge_bytes(label, dest)  }
 
-    fn witness_bytes(&self, dest: &mut [u8], nonce_seeds: &[&[u8]])
-       {  self.witness_bytes_rng(dest, nonce_seeds, &mut *self.rng.borrow_mut())  }
+    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]])
+       {  self.witness_bytes_rng(label, dest, nonce_seeds, &mut *self.rng.borrow_mut())  }
 
-    fn witness_bytes_rng<RR>(&self, dest: &mut [u8], nonce_seeds: &[&[u8]], rng: RR)
+    fn witness_bytes_rng<RR>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: RR)
     where RR: Rng+CryptoRng
-       {  self.t.witness_bytes_rng(dest,nonce_seeds,rng)  }
+       {  self.t.witness_bytes_rng(label,dest,nonce_seeds,rng)  }
 
 }
 
