@@ -158,12 +158,12 @@ impl SecretKey {
     pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
     {
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk",public_key.as_compressed());
+        t.commit_point(b"pk\x00",public_key.as_compressed());
 
         let mut r = t.witness_scalar(&[&self.nonce]);  // context, message, A/public_key
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        t.commit_point(b"no",&R);
+        t.commit_point(b"no\x00",&R);
 
         let k: Scalar = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
@@ -200,8 +200,8 @@ impl PublicKey {
         let k: Scalar;
 
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk",self.as_compressed());
-        t.commit_point(b"no",&signature.R);
+        t.commit_point(b"pk\x00",self.as_compressed());
+        t.commit_point(b"no\x00",&signature.R);
 
         k = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
@@ -306,8 +306,8 @@ where
     let hrams = (0..signatures.len()).map(|i| {
         let mut t = transcripts[i].borrow().clone();
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk",public_keys[i].as_compressed());
-        t.commit_point(b"no",&signatures[i].R);
+        t.commit_point(b"pk\x00",public_keys[i].as_compressed());
+        t.commit_point(b"no\x00",&signatures[i].R);
         t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
     });
     */
@@ -321,8 +321,8 @@ where
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             t.proto_name(b"Schnorr-sig");
-            t.commit_point(b"pk",public_keys[i].as_compressed());
-            t.commit_point(b"no",&signatures[i].R);
+            t.commit_point(b"pk\x00",public_keys[i].as_compressed());
+            t.commit_point(b"no\x00",&signatures[i].R);
             t.challenge_scalar(b"")  // context, message, A/public_key, R=rG
         } );
 
