@@ -165,7 +165,7 @@ impl SecretKey {
 
         t.commit_point(b"no\x00",&R);
 
-        let k: Scalar = t.challenge_scalar(b"sign");  // context, message, A/public_key, R=rG
+        let k: Scalar = t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
 
         // TODO: Check assembler to see if this improves anything 
@@ -203,7 +203,7 @@ impl PublicKey {
         t.commit_point(b"pk\x00",self.as_compressed());
         t.commit_point(b"no\x00",&signature.R);
 
-        k = t.challenge_scalar(b"sign");  // context, message, A/public_key, R=rG
+        k = t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
@@ -308,7 +308,7 @@ where
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"pk\x00",public_keys[i].as_compressed());
         t.commit_point(b"no\x00",&signatures[i].R);
-        t.challenge_scalar(b"sign")  // context, message, A/public_key, R=rG
+        t.challenge_scalar(b"sign\x00")  // context, message, A/public_key, R=rG
     });
     */
     // We might collect here anyways, but right now you cannot have
@@ -323,7 +323,7 @@ where
             t.proto_name(b"Schnorr-sig");
             t.commit_point(b"pk\x00",public_keys[i].as_compressed());
             t.commit_point(b"no\x00",&signatures[i].R);
-            t.challenge_scalar(b"sign")  // context, message, A/public_key, R=rG
+            t.challenge_scalar(b"sign\x00")  // context, message, A/public_key, R=rG
         } );
 
     // Multiply each H(R || A || M) by the random value

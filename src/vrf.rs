@@ -569,7 +569,7 @@ impl VRFProofBatchable {
         t.commit_point(b"h^sk\x00", p.output.as_compressed());
 
         VRFProof {
-            c: t.challenge_scalar(b"prove"), // context, message, A/public_key, R=rG
+            c: t.challenge_scalar(b"prove\x00"), // context, message, A/public_key, R=rG
             s: self.s,
         }
     }
@@ -617,7 +617,7 @@ impl Keypair {
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
         t.commit_point(b"h^sk\x00", p.output.as_compressed());
 
-        let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
+        let c = t.challenge_scalar(b"prove\x00"); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
 
         // TODO: Check assembler to see if this improves anything 
@@ -741,7 +741,7 @@ impl PublicKey {
 
         // We need not check that h^pk lies on the curve because Ristretto ensures this.
         let VRFProof { c, s } = *proof;
-        if c == t.challenge_scalar(b"prove") {
+        if c == t.challenge_scalar(b"prove\x00") {
             Ok(VRFProofBatchable { R, Hr, s }) // Scalar: Copy ?!?
         } else {
             Err(SignatureError::EquationFalse)

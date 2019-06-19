@@ -179,7 +179,7 @@ impl Commitment {
         let mut t = Transcript::new(b"MuSig-commitment");
         t.commit_point(b"no\x00",R);
         let mut commit = [0u8; COMMITMENT_SIZE];
-        t.challenge_bytes(b"sign",&mut commit[..]);
+        t.challenge_bytes(b"sign\x00",&mut commit[..]);
         Commitment(commit)
     }
 }
@@ -494,7 +494,7 @@ where K: Borrow<Keypair>, T: SigningTranscript
 
         let t0 = commit_public_keys(self.public_keys(true));
         let a_me = compute_weighting(t0, &self.stage.keypair.borrow().public);
-        let c = self.t.challenge_scalar(b"sign");  // context, message, A/public_key, R=rG
+        let c = self.t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
 
         // TODO: Check assembler to see if this improves anything 
