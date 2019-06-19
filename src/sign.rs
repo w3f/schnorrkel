@@ -160,7 +160,7 @@ impl SecretKey {
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"pk\x00",public_key.as_compressed());
 
-        let mut r = t.witness_scalar(b"signing",&[&self.nonce]);  // context, message, A/public_key
+        let mut r = t.witness_scalar(b"signing\x00",&[&self.nonce]);  // context, message, A/public_key
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"no\x00",&R);

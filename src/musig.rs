@@ -366,7 +366,7 @@ where K: Borrow<Keypair>, T: SigningTranscript
     /// with this `MuSig::new` method, or even pass in an owned copy.
     #[allow(non_snake_case)]
     pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
-        let r_me = t.witness_scalar(b"signing",&[&keypair.borrow().secret.nonce]);
+        let r_me = t.witness_scalar(b"signing\x00",&[&keypair.borrow().secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
         let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
 

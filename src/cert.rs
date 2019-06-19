@@ -96,7 +96,7 @@ impl Keypair {
         // We cannot commit the `seed_public_key` to the transcript
         // because the whole point is to keep the transcript minimal.
         // Instead we consume it as witness datathat influences only k.
-        let k = t.witness_scalar(&[ &self.secret.nonce, seed_public_key.as_compressed().as_bytes() ]);
+        let k = t.witness_scalar(b"issuing",&[ &self.secret.nonce, seed_public_key.as_compressed().as_bytes() ]);
 
         // Compute the public key reconstruction data
         let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
@@ -147,7 +147,7 @@ impl PublicKey {
         // Again we cannot commit much to the transcript, but we again
         // treat anything relevant as a witness when defining the
         let mut nonce = [0u8; 32];
-        t.witness_bytes(&mut nonce, &[&cert_secret.0[..],&seed_secret_key.nonce]);
+        t.witness_bytes(b"accepting\x00",&mut nonce, &[&cert_secret.0[..],&seed_secret_key.nonce]);
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
