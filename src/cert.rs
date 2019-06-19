@@ -72,7 +72,7 @@ pub struct ECQVCertPublic(pub [u8; 32]);
 
 impl ECQVCertPublic {
     fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
-        t.challenge_scalar(b"e")
+        t.challenge_scalar(b"e\x00")
     }
 }
 
