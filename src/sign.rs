@@ -34,7 +34,7 @@ pub const SIGNATURE_LENGTH: usize = 64;
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Signature {
-    /// `R` is an `EdwardsPoint`, formed by using an hash function with
+    /// `R` is a `RistrettoPoint`, formed by using an hash function with
     /// 512-bits output to produce the digest of:
     ///
     /// - the nonce half of the `SecretKey`, and
@@ -42,7 +42,7 @@ pub struct Signature {
     ///
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.  The scalar is then multiplied by the distinguished
-    /// basepoint to produce `R`, and `EdwardsPoint`.
+    /// basepoint to produce `R`, and `RistrettoPoint`.
     pub (crate) R: CompressedRistretto,
 
     /// `s` is a `Scalar`, formed by using an hash function with 512-bits output
@@ -78,7 +78,7 @@ impl Signature {
         let mut bytes: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
         bytes[..32].copy_from_slice(&self.R.as_bytes()[..]);
         bytes[32..].copy_from_slice(&self.s.as_bytes()[..]);
-        bytes[31] |= 128;
+        bytes[63] |= 128;
         bytes
     }
 
@@ -110,10 +110,10 @@ impl Signature {
         let mut upper: [u8; 32] = [0u8; 32];
         lower.copy_from_slice(&bytes[..32]);
         upper.copy_from_slice(&bytes[32..]);
-        if lower[31] & 128 == 0 {
+        if upper[31] & 128 == 0 {
             return Err(SignatureError::NotMarkedSchnorrkel);
         }
-        lower[31] &= 127;
+        upper[31] &= 127;
 
         let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(Signature{ R: CompressedRistretto(lower), s })
@@ -132,7 +132,7 @@ impl Signature {
         }
         let mut bytes0: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
         bytes0.copy_from_slice(bytes);
-        bytes0[31] |= 128;
+        bytes0[63] |= 128;
         Signature::from_bytes(&bytes0[..])
     }
 }
@@ -501,6 +501,9 @@ mod test {
         good_sig = keypair.sign(ctx.bytes(&good));
         bad_sig  = keypair.sign(ctx.bytes(&bad));
 
+        let good_sig = Signature::from_bytes(&good_sig.to_bytes()[..]).unwrap();
+        let bad_sig  = Signature::from_bytes(&bad_sig.to_bytes()[..]).unwrap();
+
         assert!(keypair.verify(ctx.bytes(&good), &good_sig).is_ok(),
                 "Verification of a valid signature failed!");
         assert!(!keypair.verify(ctx.bytes(&good), &bad_sig).is_ok(),
@@ -531,6 +534,9 @@ mod test {
         keypair  = Keypair::generate(&mut csprng);
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
         bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
+
+        let good_sig = Signature::from_bytes(&good_sig.to_bytes()[..]).unwrap();
+        let bad_sig  = Signature::from_bytes(&bad_sig.to_bytes()[..]).unwrap();
 
         assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig).is_ok(),
                 "Verification of a valid signature failed!");
