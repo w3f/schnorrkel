@@ -112,7 +112,7 @@ impl MiniSecretKey {
     /// # }
     /// ```
     pub fn expand(&self) -> SecretKey {
-        let mut t = merlin::Transcript::new(b"");
+        let mut t = merlin::Transcript::new(b"ExpandSecretKeys");
         t.append_message(b"mini", &self.0[..]);
 
         let mut scalar_bytes = [0u8; 64];

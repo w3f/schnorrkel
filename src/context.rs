@@ -185,7 +185,7 @@ pub struct SigningContext(Transcript);
 /// Initialize a signing context from a static byte string that
 /// identifies the signature's role in the larger protocol.
 #[inline(always)]
-pub fn signing_context(context : &'static [u8]) -> SigningContext {
+pub fn signing_context(context : &[u8]) -> SigningContext {
     SigningContext::new(context)
 }
 
@@ -193,8 +193,10 @@ impl SigningContext {
     /// Initialize a signing context from a static byte string that
     /// identifies the signature's role in the larger protocol.
     #[inline(always)]
-    pub fn new(context : &'static [u8]) -> SigningContext {
-        SigningContext(Transcript::new(context))
+    pub fn new(context : &[u8]) -> SigningContext {
+        let mut t = Transcript::new(b"SigningContext");
+        t.append_message(b"",context);
+        SigningContext(t)
     }
 
     /// Initalize an owned signing transcript on a message provided as a byte array.

@@ -309,8 +309,9 @@ impl VRFInOut {
     /// construction from Theorem 2 on page 32 in appendex C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
-    pub fn make_bytes<B: Default + AsMut<[u8]>>(&self, context: &'static [u8]) -> B {
-        let mut t = Transcript::new(context);
+    pub fn make_bytes<B: Default + AsMut<[u8]>>(&self, context: &[u8]) -> B {
+        let mut t = Transcript::new(b"VRFResult");
+        t.append_message(b"",context);
         self.commit(&mut t);
         let mut seed = B::default();
         t.challenge_bytes(b"", seed.as_mut());
@@ -322,7 +323,7 @@ impl VRFInOut {
     /// If you are not the signer then you must verify the VRF before calling this method.
     ///
     /// We expect most users would prefer the less generic `VRFInOut::make_chacharng` method.
-    pub fn make_rng<R: SeedableRng>(&self, context: &'static [u8]) -> R {
+    pub fn make_rng<R: SeedableRng>(&self, context: &[u8]) -> R {
         R::from_seed(self.make_bytes::<R::Seed>(context))
     }
 
@@ -337,7 +338,7 @@ impl VRFInOut {
     /// construction from Theorem 2 on page 32 in appendex C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
-    pub fn make_chacharng(&self, context: &'static [u8]) -> ChaChaRng {
+    pub fn make_chacharng(&self, context: &[u8]) -> ChaChaRng {
         self.make_rng::<ChaChaRng>(context)
     }
 
@@ -350,7 +351,7 @@ impl VRFInOut {
     /// the final linked binary size slightly, and improves domain
     /// separation.
     #[inline(always)]
-    pub fn make_merlin_rng(&self, context: &'static [u8]) -> merlin::TranscriptRng {
+    pub fn make_merlin_rng(&self, context: &[u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
         impl ::rand::RngCore for ZeroFakeRng {
@@ -366,7 +367,8 @@ impl VRFInOut {
         }
         impl ::rand::CryptoRng for ZeroFakeRng {}
 
-        let mut t = Transcript::new(context);
+        let mut t = Transcript::new(b"VRFResult");
+        t.append_message(b"",context);
         self.commit(&mut t);
         t.build_rng().finalize(&mut ZeroFakeRng)
     }
