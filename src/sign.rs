@@ -177,7 +177,7 @@ impl SecretKey {
     }
 
     /// Sign a message with this `SecretKey`.
-    pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8], public_key: &PublicKey) -> Signature
+    pub fn sign_simple(&self, ctx: &[u8], msg: &[u8], public_key: &PublicKey) -> Signature
     {
         let t = SigningContext::new(ctx).bytes(msg);
         self.sign(t,public_key)
@@ -210,7 +210,7 @@ impl PublicKey {
     }
 
     /// Verify a signature by this public key on a message.
-    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature)
+    pub fn verify_simple(&self, ctx: &[u8], msg: &[u8], signature: &Signature)
      -> SignatureResult<()>
     {
         let t = SigningContext::new(ctx).bytes(msg);
@@ -424,7 +424,7 @@ impl Keypair {
     }
 
     /// Sign a message with this keypair's secret key.
-    pub fn sign_simple(&self, ctx: &'static [u8], msg: &[u8]) -> Signature
+    pub fn sign_simple(&self, ctx: &[u8], msg: &[u8]) -> Signature
     {
         self.secret.sign_simple(ctx, msg, &self.public)
     }
@@ -462,7 +462,7 @@ impl Keypair {
     }
 
     /// Verify a signature by keypair's public key on a message.
-    pub fn verify_simple(&self, ctx: &'static [u8], msg: &[u8], signature: &Signature) -> SignatureResult<()>
+    pub fn verify_simple(&self, ctx: &[u8], msg: &[u8], signature: &Signature) -> SignatureResult<()>
     {
         self.public.verify_simple(ctx, msg, signature)
     }
