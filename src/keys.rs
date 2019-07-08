@@ -139,17 +139,17 @@ impl MiniSecretKey {
     /// ed25519-style bit clamping.
     ///
     /// We recommend the `expand` method instead because it provides
-    /// a more uniformly distributed secret key, poly benifiting some
-    /// future protocols. 
+    /// a more uniformly distributed secret key, possibly benifiting 
+    /// some future protocols. 
     ///
     /// At present, there is no exposed mapping from Ristretto
     /// to the underlying Edwards curve because Ristretto invovles
-    /// an inverse square root and thus two such mappings exist.
+    /// an inverse square root, and thus two such mappings exist.
     /// Ristretto could be made usable with Ed25519 keys by choosing
     /// one mapping as standard, but doing so makes the standard more
     /// complex, and possibly harder to implement.  If anyone does
-    /// standardize the mapping to the curve then this method becomes
-    /// useful.
+    /// standardize the mapping to the curve then this method permits
+    /// compatable schnorrkel and ed25519 keys.
     pub fn expand_ed25519(&self) -> SecretKey {
         let mut h: Sha512 = Sha512::default();
         h.input(self.as_bytes());
@@ -245,7 +245,6 @@ impl MiniSecretKey {
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
-    /// use sha2::Sha512;
     /// use schnorrkel::PublicKey;
     /// use schnorrkel::MiniSecretKey;
     /// use schnorrkel::Signature;
@@ -273,7 +272,6 @@ impl MiniSecretKey {
     /// # use rand::Rng;
     /// # use rand_chacha::ChaChaRng;
     /// # use rand::SeedableRng;
-    /// # use sha2::Sha512;
     /// # use schnorrkel::PublicKey;
     /// # use schnorrkel::MiniSecretKey;
     /// # use schnorrkel::Signature;
@@ -284,10 +282,6 @@ impl MiniSecretKey {
     /// let public_key: PublicKey = secret_key.expand_to_public();
     /// # }
     /// ```
-    ///
-    /// The standard hash function used for most ed25519 libraries is SHA-512,
-    /// which is available with `use sha2::Sha512` as in the example above.
-    /// Other suitable hash functions include Keccak-512 and Blake2b-512.
     ///
     /// # Input
     ///
@@ -369,7 +363,6 @@ impl From<&MiniSecretKey> for SecretKey {
     /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
-    /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
@@ -400,7 +393,6 @@ impl SecretKey {
     /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
-    /// use sha2::Sha512;
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
