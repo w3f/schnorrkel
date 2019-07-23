@@ -153,20 +153,21 @@ impl Display for SignatureError {
 
 impl ::failure::Fail for SignatureError {}
 
-#[cfg(feature = "serde")]
 /// Convert `SignatureError` into `::serde::de::Error` aka `SerdeError`
 ///
 /// We should do this with `From` but right now the orphan rules prohibit
 /// `impl From<SignatureError> for E where E: ::serde::de::Error`.
+#[cfg(feature = "serde")]
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
 where E: ::serde::de::Error
 {
+    use self::SignatureError::*;
     match err {
-        SignatureError::PointDecompressionError
+        PointDecompressionError
             => E::custom("Ristretto point decompression failed"),
-        SignatureError::ScalarFormatError
+        ScalarFormatError
             => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
-        SignatureError::BytesLengthError{ description, length, .. }
+        BytesLengthError{ description, length, .. }
             => E::invalid_length(length, &description),
         NotMarkedSchnorrkel
             => E::custom("Signature bytes not marked as a schnorrkel signature"),

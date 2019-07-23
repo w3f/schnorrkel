@@ -195,7 +195,7 @@
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
-//! # let verified: bool = public_key.verify(context.bytes(message), &signature);
+//! # assert!( public_key.verify(context.bytes(message), &signature).is_ok() );
 //!
 //! let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
 //! let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
@@ -230,7 +230,6 @@
 //! # let context = signing_context(b"this signature does this thing");
 //! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
-//! # let verified: bool = public_key.verify(context.bytes(message), &signature);
 //! # let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
 //! # let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
 //! let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
@@ -239,9 +238,7 @@
 //! # assert_eq!(public_key, decoded_public_key);
 //! # assert_eq!(signature, decoded_signature);
 //! #
-//! let verified: bool = decoded_public_key.verify(context.bytes(message), &decoded_signature).is_ok();
-//!
-//! assert!(verified);
+//! assert!( public_key.verify(context.bytes(message), &signature).is_ok() );
 //! # }
 //! # #[cfg(not(feature = "serde"))]
 //! # fn main() {}

@@ -535,8 +535,10 @@ mod test {
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
         bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
 
-        let good_sig = Signature::from_bytes(&good_sig.to_bytes()[..]).unwrap();
-        let bad_sig  = Signature::from_bytes(&bad_sig.to_bytes()[..]).unwrap();
+        let good_sig_d = Signature::from_bytes(&good_sig.to_bytes()[..]).unwrap();
+        let bad_sig_d  = Signature::from_bytes(&bad_sig.to_bytes()[..]).unwrap();
+        assert_eq!(good_sig, good_sig_d);
+        assert_eq!(bad_sig, bad_sig_d);
 
         assert!(keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig).is_ok(),
                 "Verification of a valid signature failed!");
