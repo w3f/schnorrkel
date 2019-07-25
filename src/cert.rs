@@ -78,8 +78,8 @@ impl Keypair {
     /// Issue an ECQV implicit certificate
     ///
     /// Aside from the issuing `Keypair` supplied as `self`, you provide both
-    /// (1) a digest `h` that incorporates both the context and the
-    ///     certificate requester's identity, and
+    /// (1) a `SigningTranscript` called `t` that incorporates both the context 
+    ///     and the certificate requester's identity, and
     /// (2) the `seed_public_key` supplied by the certificate recipient
     ///     in their certificate request.
     /// We return an `ECQVCertSecret` which the issuer sent to the
@@ -121,8 +121,8 @@ impl PublicKey {
     /// with the `ECQVCertSecret` created by `issue_ecqv_cert`.
     ///
     /// Aside from the issuer `PublicKey` supplied as `self`, you provide
-    /// (1) a digest `h` that incorporates both the context and the
-    ///     certificate requester's identity,
+    /// (1) a `SigningTranscript` called `t` that incorporates both the context
+    ///     and the certificate requester's identity,
     /// (2) the `seed_secret_key` corresponding to the `seed_public_key`
     ///     they sent to the issuer by the certificate recipient in their
     ///     certificate request, and

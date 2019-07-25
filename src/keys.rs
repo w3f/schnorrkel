@@ -614,12 +614,6 @@ impl PublicKey {
 
     /// Construct a `PublicKey` from a slice of bytes.
     ///
-    /// # Warning
-    ///
-    /// The caller is responsible for ensuring that the bytes passed into this
-    /// method actually represent a `curve25519_dalek::ristretto::CompressedRistretto`
-    /// and that said compressed point is actually a point on the curve.
-    ///
     /// # Example
     ///
     /// ```

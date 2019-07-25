@@ -211,7 +211,9 @@ impl SigningContext {
         t
     }
 
-    /// Initalize an owned signing transcript on a message provided as a hash function with extensible output
+    /// Initalize an owned signing transcript on a message provided
+    /// as a hash function with extensible output mode (XOF) by
+    /// finalizing the hash and extracting 32 bytes from XOF.
     #[inline(always)]
     pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
