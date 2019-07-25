@@ -46,6 +46,13 @@ impl Debug for RistrettoBoth {
     }
 }
 
+impl ::zeroize::Zeroize for RistrettoBoth {
+    fn zeroize(&mut self) {
+        super::zeroize_hack(&mut self.compressed);
+        super::zeroize_hack(&mut self.point);
+    }
+}
+
 impl RistrettoBoth {
     const DESCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
 

@@ -576,6 +576,12 @@ impl Debug for PublicKey {
     }
 }
 
+impl Zeroize for PublicKey {
+    fn zeroize(&mut self) {
+        self.0.zeroize()
+    }
+}
+
 // We should imho drop this impl but it benifits users who start with ring.
 impl AsRef<[u8]> for PublicKey {
     fn as_ref(&self) -> &[u8] {
