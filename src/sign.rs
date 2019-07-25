@@ -242,8 +242,8 @@ impl PublicKey {
 /// # Examples
 ///
 /// ```
-/// extern crate schnorrkel;
 /// extern crate rand;
+/// extern crate schnorrkel;
 ///
 /// use schnorrkel::{Keypair,PublicKey,Signature,verify_batch,signing_context};
 /// use rand::thread_rng;
@@ -252,7 +252,7 @@ impl PublicKey {
 /// # fn main() {
 /// let ctx = signing_context(b"some batch");
 /// let mut csprng: ThreadRng = thread_rng();
-/// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate(&mut csprng)).collect();
+/// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate_with(&mut csprng)).collect();
 /// let msg: &[u8] = b"They're good dogs Brant";
 /// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg))).collect();
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
@@ -375,7 +375,7 @@ impl Keypair {
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
-    /// let keypair: Keypair = Keypair::generate(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate_with(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
     /// // Create a hash digest object and feed it the message:
@@ -404,7 +404,7 @@ impl Keypair {
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
     /// # let mut csprng: ThreadRng = thread_rng();
-    /// # let keypair: Keypair = Keypair::generate(&mut csprng);
+    /// # let keypair: Keypair = Keypair::generate_with(&mut csprng);
     /// # let message: &[u8] = b"All I want is to pet all of the dogs.";
     /// # let prehashed = ::sha3::Shake256::default().chain(message);
     /// #
@@ -446,7 +446,7 @@ impl Keypair {
     ///
     /// # fn main() {
     /// let mut csprng: ThreadRng = thread_rng();
-    /// let keypair: Keypair = Keypair::generate(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate_with(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
     ///
     /// let ctx = signing_context(b"Some context string");
@@ -477,7 +477,6 @@ mod test {
     use std::vec::Vec;
 
     use rand::prelude::*; // ThreadRng,thread_rng
-    use rand_chacha::ChaChaRng;
     use sha3::Shake128;
     use curve25519_dalek::digest::{Input};
 
@@ -486,7 +485,6 @@ mod test {
 
     #[test]
     fn sign_verify_bytes() {
-        let mut csprng: ChaChaRng;
         let keypair: Keypair;
         let good_sig: Signature;
         let bad_sig:  Signature;
@@ -496,8 +494,7 @@ mod test {
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
-        csprng  = ChaChaRng::from_seed([0u8; 32]);
-        keypair  = Keypair::generate(&mut csprng);
+        keypair  = Keypair::generate();
         good_sig = keypair.sign(ctx.bytes(&good));
         bad_sig  = keypair.sign(ctx.bytes(&bad));
 
@@ -516,7 +513,6 @@ mod test {
 
     #[test]
     fn sign_verify_xof() {
-        let mut csprng: ChaChaRng;
         let keypair: Keypair;
         let good_sig: Signature;
         let bad_sig:  Signature;
@@ -530,8 +526,7 @@ mod test {
         let prehashed_bad: Shake128 = Shake128::default().chain(bad);
         // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
-        csprng   = ChaChaRng::from_seed([0u8; 32]);
-        keypair  = Keypair::generate(&mut csprng);
+        keypair  = Keypair::generate();
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
         bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
 
@@ -568,7 +563,7 @@ mod test {
         let mut signatures: Vec<Signature> = Vec::new();
 
         for i in 0..messages.len() {
-            let keypair: Keypair = Keypair::generate(&mut csprng);
+            let keypair: Keypair = Keypair::generate_with(&mut csprng);
             signatures.push(keypair.sign(ctx.bytes(messages[i])));
             keypairs.push(keypair);
         }

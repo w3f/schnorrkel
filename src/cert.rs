@@ -27,8 +27,6 @@
 //!     Springer Berlin Heidelberg. 2339 (1): 156–165. doi:10.1007/3-540-46088-8_15.
 //!     http://www.cacr.math.uwaterloo.ca/techreports/2000/corr2000-55.ps
 
-use rand::prelude::*;
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto};
 use curve25519_dalek::scalar::Scalar;
@@ -180,7 +178,7 @@ impl Keypair {
     pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
     where T: SigningTranscript+Clone
     {
-        let seed = Keypair::generate(thread_rng());
+        let seed = Keypair::generate();
         let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
         self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).expect("Cert issued above and known to produce signature errors; qed")
     }
@@ -205,14 +203,12 @@ impl PublicKey {
 
 #[cfg(test)]
 mod tests {
-    use rand::prelude::*;
-
     use super::*;
 
     #[test]
     fn ecqv_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
-        let issuer = Keypair::generate(thread_rng());
+        let issuer = Keypair::generate();
         let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
         let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
         assert_eq!(secret_key.to_public(), public_key);

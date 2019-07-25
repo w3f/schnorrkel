@@ -905,11 +905,10 @@ mod tests {
     use std::vec::Vec;
 
     use super::*;
-    use rand::prelude::*;
 
     #[test]
     fn vrf_single() {
-        let keypair1 = Keypair::generate(&mut thread_rng());
+        let keypair1 = Keypair::generate();
 
         let ctx = signing_context(b"yo!");
         let msg = b"meow";
@@ -943,7 +942,7 @@ mod tests {
             "VRF verification with incorrect message passed!"
         );
 
-        let keypair2 = Keypair::generate(&mut thread_rng());
+        let keypair2 = Keypair::generate();
         assert!(
             keypair2.public.vrf_verify(ctx.bytes(msg), &out1, &proof1).is_err(),
             "VRF verification with incorrect signer passed!"
@@ -952,7 +951,7 @@ mod tests {
 
     #[test]
     fn vrf_malleable() {
-        let keypair1 = Keypair::generate(&mut thread_rng());
+        let keypair1 = Keypair::generate();
 
         let ctx = signing_context(b"yo!");
         let msg = b"meow";
@@ -984,7 +983,7 @@ mod tests {
             "VRF verification with incorrect message passed!"
         );
 
-        let keypair2 = Keypair::generate(&mut thread_rng());
+        let keypair2 = Keypair::generate();
         assert!(
             keypair2.public.vrf_verify(Malleable(ctx.bytes(msg)), &out1, &proof1).is_err(),
             "VRF verification with incorrect signer passed!"
@@ -1022,8 +1021,9 @@ mod tests {
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn vrfs_merged_and_batched() {
+        let mut csprng = thread_rng();
         let keypairs: Vec<Keypair> = (0..4)
-            .map(|_| Keypair::generate(&mut thread_rng()))
+            .map(|_| Keypair::generate_with(&mut csprng))
             .collect();
 
         let ctx = signing_context(b"yo!");

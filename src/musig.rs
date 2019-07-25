@@ -635,13 +635,11 @@ mod tests {
     #[cfg(feature = "std")]
     use std::vec::Vec;
 
-    use rand::prelude::*;
     use super::*;
 
     #[test]
     fn aggregation_btreeemap_vs_slice() {
-        let mut csprng = thread_rng();
-        let mut vec: Vec<PublicKey> = (0..16).map(|_| SecretKey::generate(&mut csprng).to_public()).collect();
+        let mut vec: Vec<PublicKey> = (0..16).map(|_| SecretKey::generate().to_public()).collect();
         let btm: BTreeMap<PublicKey,()> = vec.iter().map( |x| (x.clone(),()) ).collect();
         debug_assert_eq!(
             btm.public_key(),
@@ -652,8 +650,7 @@ mod tests {
 
     #[test]
     fn multi_signature() {
-        let mut csprng = thread_rng();
-        let keypairs: Vec<Keypair> = (0..16).map(|_| Keypair::generate(&mut csprng)).collect();
+        let keypairs: Vec<Keypair> = (0..16).map(|_| Keypair::generate()).collect();
 
         let t = signing_context(b"multi-sig").bytes(b"We are legion!");
         let mut commits: Vec<_> = keypairs.iter().map( |k| k.musig(t.clone()) ).collect();

@@ -290,8 +290,6 @@ impl ExtendedKey<SecretKey> {
 
 #[cfg(test)]
 mod tests {
-    use rand::prelude::*; // thread_rng
-
     use sha3::digest::{Input}; // ExtendableOutput,XofReader
     use sha3::{Shake128};
 
@@ -299,12 +297,11 @@ mod tests {
 
     #[test]
     fn derive_key_public_vs_private_paths() {
-        let mut rng = thread_rng();
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);
         let msg : &'static [u8] = b"Just some test message!";
         let mut h = Shake128::default().chain(msg);
 
-        let key = Keypair::generate(&mut rng);
+        let key = Keypair::generate();
         let mut extended_public_key = ExtendedKey {
             key: key.public.clone(),
             chaincode,

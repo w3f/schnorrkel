@@ -107,7 +107,7 @@ impl MiniSecretKey {
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     /// let secret_key: SecretKey = mini_secret_key.expand();
     /// # }
     /// ```
@@ -238,60 +238,73 @@ impl MiniSecretKey {
     ///
     /// ```
     /// extern crate rand;
-    /// extern crate sha2;
     /// extern crate schnorrkel;
     ///
     /// # #[cfg(feature = "std")]
     /// # fn main() {
     /// #
     /// use rand::{Rng, rngs::OsRng};
-    /// use schnorrkel::PublicKey;
-    /// use schnorrkel::MiniSecretKey;
-    /// use schnorrkel::Signature;
+    /// use schnorrkel::{PublicKey, MiniSecretKey, Signature};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     /// # }
     /// #
     /// # #[cfg(not(feature = "std"))]
     /// # fn main() { }
     /// ```
     ///
-    /// Afterwards, you can generate the corresponding public—provided you also
-    /// supply a hash function which implements the `FixedOutput` and `Default`
-    /// traits, and which returns 512 bits of output—via:
-    ///
-    /// ```
-    /// # extern crate rand;
-    /// # extern crate rand_chacha;
-    /// # extern crate sha2;
-    /// # extern crate schnorrkel;
-    /// #
-    /// # fn main() {
-    /// #
-    /// # use rand::Rng;
-    /// # use rand_chacha::ChaChaRng;
-    /// # use rand::SeedableRng;
-    /// # use schnorrkel::PublicKey;
-    /// # use schnorrkel::MiniSecretKey;
-    /// # use schnorrkel::Signature;
-    /// #
-    /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-    /// # let secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
-    ///
-    /// let public_key: PublicKey = secret_key.expand_to_public();
-    /// # }
-    /// ```
-    ///
     /// # Input
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`
-    pub fn generate<R>(mut csprng: R) -> MiniSecretKey
+    pub fn generate_with<R>(mut csprng: R) -> MiniSecretKey
     where R: CryptoRng + Rng,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
         csprng.fill_bytes(&mut sk.0);
         sk
+    }
+
+    /// Generate a `MiniSecretKey` from rand's `thread_rng`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// extern crate schnorrkel;
+    ///
+    /// # #[cfg(feature = "std")]
+    /// # fn main() {
+    /// #
+    /// use schnorrkel::{PublicKey, MiniSecretKey, Signature};
+    ///
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate();
+    /// # }
+    /// #
+    /// # #[cfg(not(feature = "std"))]
+    /// # fn main() { }
+    /// ```
+    ///
+    /// Afterwards, you can generate the corresponding public key.
+    ///
+    /// ```
+    /// # extern crate rand;
+    /// # extern crate rand_chacha;
+    /// # extern crate schnorrkel;
+    /// #
+    /// # fn main() {
+    /// #
+    /// # use rand::{Rng, SeedableRng};
+    /// # use rand_chacha::ChaChaRng;
+    /// # use schnorrkel::{PublicKey, MiniSecretKey, Signature};
+    /// #
+    /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
+    /// # let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    ///
+    /// let public_key: PublicKey = secret_key.expand_to_public();
+    /// # }
+    /// ```
+    pub fn generate() -> MiniSecretKey {
+        Self::generate_with(thread_rng())
     }
 }
 
@@ -366,7 +379,7 @@ impl From<&MiniSecretKey> for SecretKey {
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// # }
     /// ```
@@ -395,8 +408,7 @@ impl SecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// let secret_key_bytes: [u8; 64] = secret_key.to_bytes();
     ///
@@ -424,7 +436,7 @@ impl SecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
     /// let secret_key_again = SecretKey::from_bytes(&bytes) ?;
@@ -509,13 +521,9 @@ impl SecretKey {
         Ok(SecretKey{ key, nonce })
     }
 
-    /// Generate an "unbiased" `SecretKey` directly, bypassing the
-    /// `MiniSecretKey` Ed25519 compatability layer.
-    ///
-    /// As we generate a `SecretKey` directly bypassing `MiniSecretKey`,
-    /// so our secret keys do not satisfy the high bit "clamping"
-    /// impoised on Ed25519 keys.
-    pub fn generate<R>(mut csprng: R) -> SecretKey
+    /// Generate an "unbiased" `SecretKey` directly from a user
+    /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
+    pub fn generate_with<R>(mut csprng: R) -> SecretKey
     where R: CryptoRng + Rng,
     {
         let mut key: [u8; 64] = [0u8; 64];
@@ -523,6 +531,12 @@ impl SecretKey {
         let mut nonce: [u8; 32] = [0u8; 32];
         csprng.fill_bytes(&mut nonce);
         SecretKey { key: Scalar::from_bytes_mod_order_wide(&key), nonce }
+    }
+
+    /// Generate an "unbiased" `SecretKey` directly,
+    /// bypassing the `MiniSecretKey` layer.
+    pub fn generate() -> SecretKey {
+        Self::generate_with(thread_rng())
     }
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
@@ -726,7 +740,8 @@ impl Keypair {
         Ok(Keypair{ secret: secret, public: public })
     }
 
-    /// Generate a Ristretto Schnorr keypair.
+    /// Generate a Ristretto Schnorr `Keypair` directly,
+    /// bypassing the `MiniSecretKey` layer.
     ///
     /// # Example
     ///
@@ -741,7 +756,7 @@ impl Keypair {
     /// use schnorrkel::Signature;
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let keypair: Keypair = Keypair::generate(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate_with(&mut csprng);
     ///
     /// # }
     /// ```
@@ -753,13 +768,19 @@ impl Keypair {
     /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
     /// impoised on Ed25519 keys.
-    pub fn generate<R>(csprng: R) -> Keypair
+    pub fn generate_with<R>(csprng: R) -> Keypair
     where R: CryptoRng + Rng,
     {
-        let secret: SecretKey = SecretKey::generate(csprng);
+        let secret: SecretKey = SecretKey::generate_with(csprng);
         let public: PublicKey = secret.to_public();
 
         Keypair{ public, secret }
+    }
+
+    /// Generate a Ristretto Schnorr `Keypair` directly, from a user
+    /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
+    pub fn generate() -> Keypair {
+        Self::generate_with(thread_rng())
     }
 }
 
@@ -770,7 +791,6 @@ serde_boilerplate!(Keypair);
 mod test {
     // use std::vec::Vec;
     // use hex::FromHex;
-    use rand::prelude::*; // ThreadRng,thread_rng
     use super::*;
 
     /*
@@ -824,7 +844,7 @@ mod test {
 
     #[test]
     fn keypair_clear_on_drop() {
-        let mut keypair: Keypair = Keypair::generate(&mut thread_rng());
+        let mut keypair: Keypair = Keypair::generate();
 
         // TODO: Replace with Zeroize but ClearOnDrop does not work with std
         #[cfg(any(feature = "std"))]
@@ -844,8 +864,7 @@ mod test {
 
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
-        let mut csprng = thread_rng();
-        let mini_secret: MiniSecretKey = MiniSecretKey::generate(&mut csprng);
+        let mini_secret: MiniSecretKey = MiniSecretKey::generate();
         let secret: SecretKey = mini_secret.expand();
         let public_from_mini_secret: PublicKey = mini_secret.expand_to_public();
         let public_from_secret: PublicKey = secret.to_public();

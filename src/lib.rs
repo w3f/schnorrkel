@@ -30,7 +30,7 @@
 //! use schnorrkel::{Keypair,Signature};
 //!
 //! let mut csprng: OsRng = OsRng::new().unwrap();
-//! let keypair: Keypair = Keypair::generate(&mut csprng);
+//! let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # }
 //! #
 //! # #[cfg(any(not(feature = "std")))]
@@ -48,7 +48,7 @@
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! let context = signing_context(b"this signature does this thing");
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! let signature: Signature = keypair.sign(context.bytes(message));
@@ -67,7 +67,7 @@
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
@@ -88,7 +88,7 @@
 //! # use schnorrkel::{Keypair,Signature,signing_context};
 //! use schnorrkel::PublicKey;
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
@@ -115,7 +115,7 @@
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
 //! use schnorrkel::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
@@ -140,7 +140,7 @@
 //! # use schnorrkel::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair_orig: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair_orig: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature_orig: Signature = keypair_orig.sign(context.bytes(message));
@@ -190,7 +190,7 @@
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
 //! use bincode::{serialize, Infinite};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let signature: Signature = keypair.sign(context.bytes(message));
@@ -225,7 +225,7 @@
 //! use bincode::{deserialize};
 //!
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
-//! # let keypair: Keypair = Keypair::generate(&mut csprng);
+//! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
 //! # let context = signing_context(b"this signature does this thing");
 //! # let signature: Signature = keypair.sign(context.bytes(message));
