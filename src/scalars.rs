@@ -15,7 +15,7 @@
 // use curve25519_dalek::scalar::Scalar;
 
 
-pub fn divide_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
+pub(crate) fn divide_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
     let mut low = 0u8;
     for i in scalar.iter_mut().rev() {
         let r = *i & 0b00000111; // save remainder
@@ -25,7 +25,7 @@ pub fn divide_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
     }
 }
 
-pub fn multiply_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
+pub(crate) fn multiply_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
     let mut high = 0u8;
     for i in scalar.iter_mut() {
         let r = *i & 0b11100000; // carry bits
