@@ -31,8 +31,6 @@
 use curve25519_dalek::constants;
 use curve25519_dalek::scalar::Scalar;
 
-// TODO use clear_on_drop::clear::Clear;
-
 use super::*;
 use crate::context::{SigningTranscript,SigningContext};
 

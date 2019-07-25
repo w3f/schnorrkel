@@ -497,10 +497,8 @@ where K: Borrow<Keypair>, T: SigningTranscript
         let c = self.t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
 
-        // TODO: Check assembler to see if this improves anything 
-        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
-        #[cfg(any(feature = "std"))]
-        ::clear_on_drop::clear::Clear::clear(&mut self.stage.r_me);
+        // ::zeroize::Zeroize::zeroize(&mut self.stage.r_me);
+        super::zeroize_hack(&mut self.stage.r_me);
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
         *(Rs.get_mut(&self.stage.keypair.borrow().public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };

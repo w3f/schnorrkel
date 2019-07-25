@@ -17,10 +17,6 @@ use core::fmt::{Debug};
 use rand::prelude::*;  // {RngCore,thread_rng};
 use sha2::Sha512;
 
-// TODO: Replace with Zeroize but ClearOnDrop does not work with std
-#[cfg(any(feature = "std"))]
-use clear_on_drop::clear::Clear;
-
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
 // use curve25519_dalek::digest::generic_array::typenum::U64;
 
@@ -29,6 +25,7 @@ use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use subtle::{Choice,ConstantTimeEq};
+use zeroize::Zeroize;
 
 use crate::scalars;
 use crate::points::RistrettoBoth;
@@ -61,7 +58,9 @@ pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 /// homomorphic properties unavailable from these seeds, so we renamed
 /// these and reserve `SecretKey` for what EdDSA calls an extended
 /// secret key.
-#[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
+#[derive(Default,Clone)] // we derive Default for zeroize_hack
+// #[derive(Clone,Zeroize)]
+// #[zeroize(drop)]
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
 impl Debug for MiniSecretKey {
@@ -70,12 +69,14 @@ impl Debug for MiniSecretKey {
     }
 }
 
-/// Overwrite secret key material with null bytes when it goes out of scope.
+impl Zeroize for MiniSecretKey {
+    fn zeroize(&mut self) {
+        super::zeroize_hack(self);
+    }
+}
 impl Drop for MiniSecretKey {
     fn drop(&mut self) {
-        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
-        #[cfg(any(feature = "std"))]
-        self.0.clear();
+        self.zeroize();
     }
 }
 
@@ -324,7 +325,9 @@ serde_boilerplate!(MiniSecretKey);
 /// We do not however attempt to keep the scalar's high bit set, especially
 /// not during hierarchical deterministic key derivations, so some Ed25519
 /// libraries might compute the public key incorrectly from our secret key.
-#[derive(Default,Clone)] // we derive Default in order to use the clear() method in Drop
+#[derive(Default,Clone)] // we derive Default for zeroize_hack
+// #[derive(Clone,Zeroize)]
+// #[zeroize(drop)]
 pub struct SecretKey {
     /// Actual public key represented as a scalar.
     pub (crate) key: Scalar,
@@ -341,14 +344,15 @@ impl Debug for SecretKey {
     }
 }
 
-/// Overwrite secret key material with null bytes when it goes out of scope.
+impl Zeroize for SecretKey {
+    fn zeroize(&mut self) {
+        super::zeroize_hack(&mut self.key);
+        super::zeroize_hack(&mut self.nonce);
+    }
+}
 impl Drop for SecretKey {
     fn drop(&mut self) {
-        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
-        #[cfg(any(feature = "std"))]
-        self.key.clear();
-        #[cfg(any(feature = "std"))]
-        self.nonce.clear();
+        self.zeroize();
     }
 }
 
@@ -658,12 +662,25 @@ serde_boilerplate!(PublicKey);
 
 
 /// A Ristretto Schnorr keypair.
-#[derive(Debug, Default)] // we derive Default in order to use the clear() method in Drop
+#[derive(Default,Debug)] // we derive Default for zeroize_hack
+// #[derive(Clone,Zeroize)]
+// #[zeroize(drop)]
 pub struct Keypair {
     /// The secret half of this keypair.
     pub secret: SecretKey,
     /// The public half of this keypair.
     pub public: PublicKey,
+}
+
+impl Zeroize for Keypair {
+    fn zeroize(&mut self) {
+        self.secret.zeroize();
+    }
+}
+impl Drop for Keypair {
+    fn drop(&mut self) {
+        self.zeroize();
+    }
 }
 
 impl From<SecretKey> for Keypair {
@@ -837,12 +854,10 @@ mod test {
     }
 
     #[test]
-    fn keypair_clear_on_drop() {
+    fn keypair_zeroize() {
         let mut keypair: Keypair = Keypair::generate();
 
-        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
-        #[cfg(any(feature = "std"))]
-        keypair.clear();
+        keypair.zeroize();
 
         fn as_bytes<T>(x: &T) -> &[u8] {
             use core::mem;

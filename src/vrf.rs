@@ -622,10 +622,8 @@ impl Keypair {
         let c = t.challenge_scalar(b"prove\x00"); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
 
-        // TODO: Check assembler to see if this improves anything 
-        // TODO: Replace with Zeroize but ClearOnDrop does not work with std
-        #[cfg(any(feature = "std"))]
-        ::clear_on_drop::clear::Clear::clear(&mut r);
+        // ::zeroize::Zeroize::zeroize(&mut r);
+        super::zeroize_hack(&mut r);
 
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }

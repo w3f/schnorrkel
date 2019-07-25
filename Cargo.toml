@@ -60,9 +60,10 @@ default-features = false
 version = "^0.1.1"
 default-features = false
 
-[dependencies.clear_on_drop]
-version = "0.2"
+[dependencies.zeroize]
+version = "0.9.2"
 default-features = false
+features = ["zeroize_derive"]
 
 [dev-dependencies]
 hex = "^0.3"
@@ -78,7 +79,7 @@ harness = false
 default = ["std", "u64_backend"]
 std = ["curve25519-dalek/std", "rand/std"]
 alloc = ["curve25519-dalek/alloc"]
-nightly = ["curve25519-dalek/nightly", "rand/nightly", "clear_on_drop/nightly"]
+nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
 asm = ["sha2/asm"]
 yolocrypto = ["curve25519-dalek/yolocrypto"]
 u64_backend = ["curve25519-dalek/u64_backend", "ed25519-dalek/u64_backend"]

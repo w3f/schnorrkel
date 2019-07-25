@@ -260,8 +260,15 @@ extern crate alloc;
 
 extern crate curve25519_dalek;
 extern crate merlin;
-extern crate clear_on_drop;
 extern crate subtle;
+extern crate zeroize;
+
+#[inline(always)]
+fn zeroize_hack<Z: Default>(z: &mut Z) {
+    use core::{ptr, sync::atomic};
+    unsafe { ptr::write_volatile(z, Z::default()); }
+    atomic::compiler_fence(atomic::Ordering::SeqCst);
+}
 
 extern crate rand;
 extern crate rand_chacha;
