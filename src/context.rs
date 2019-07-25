@@ -247,18 +247,26 @@ impl SigningContext {
 }
 
 
-/// Very simple transcript construction from an arbitrary hash fucntion.
+/// Very simple transcript construction from a modern hash fucntion.
 ///
 /// We provide this transcript type to directly use conventional hash
-/// functions with an extensible output mode, meaning `Shake128` and
-/// `Blake2x`.  We note that Shak128 might provide no advantage here,
-/// since `merlin::Transcript`s already use Keccak, and that no rust
-/// implementation for Blake2x currently exists.  
-/// 
-/// We recommend using `merlin::Transcripts` instead because merlin
-/// might provide better domain seperartion than most hash functions.
-/// We therefore do not provide conveniences like `signing_context`
-/// for this.  
+/// functions with an extensible output mode, like Shake128 and
+/// Blake2x.  
+///
+/// We recommend using `merlin::Transcript` instead because merlin
+/// provides the transcript abstraction natively and might function
+/// better in low memory enviroments.  We therefore do not provide
+/// conveniences like `signing_context` for this.  
+///
+/// We note that merlin already uses Keccak, upon which Shak128 is based,
+/// and that no rust implementation for Blake2x currently exists.  
+///
+/// We caution that our transcript abstractions cannot provide the 
+/// protections agsint hash collisions that Ed25519 provides via
+/// double hashing, but that prehashed Ed25519 variants loose.
+/// As such, any hash function used here must be collision resistant.
+/// We strongly recommend agsint building XOFs from weaker hash
+/// functions like SHA1 with HKDF constructions or similar.
 ///
 /// In `SimpleTranscript` style, we never expose the hash function `H`
 /// underlying this type, so that developers cannot circument the
