@@ -177,9 +177,9 @@ impl Commitment {
     #[allow(non_snake_case)]
     fn for_R(R: &CompressedRistretto) -> Commitment {
         let mut t = Transcript::new(b"MuSig-commitment");
-        t.commit_point(b"no\x00",R);
+        t.commit_point(b"sign:R",R);
         let mut commit = [0u8; COMMITMENT_SIZE];
-        t.challenge_bytes(b"sign\x00",&mut commit[..]);
+        t.challenge_bytes(b"commitment",&mut commit[..]);
         Commitment(commit)
     }
 }
@@ -366,7 +366,7 @@ where K: Borrow<Keypair>, T: SigningTranscript
     /// with this `MuSig::new` method, or even pass in an owned copy.
     #[allow(non_snake_case)]
     pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
-        let r_me = t.witness_scalar(b"signing\x00",&[&keypair.borrow().secret.nonce]);
+        let r_me = t.witness_scalar(b"signing",&[&keypair.borrow().secret.nonce]);
           // context, message, nonce, but not &self.public.compressed
         let R_me = &r_me * &constants::RISTRETTO_BASEPOINT_TABLE;
 
@@ -487,14 +487,14 @@ where K: Borrow<Keypair>, T: SigningTranscript
         self.t.proto_name(b"Schnorr-sig");
 
         let pk = self.public_key().as_compressed().clone();
-        self.t.commit_point(b"pk\x00",&pk);
+        self.t.commit_point(b"sign:pk",&pk);
 
         let R = self.compute_R();
-        self.t.commit_point(b"no\x00",&R);
+        self.t.commit_point(b"sign:R",&R);
 
         let t0 = commit_public_keys(self.public_keys(true));
         let a_me = compute_weighting(t0, &self.stage.keypair.borrow().public);
-        let c = self.t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
+        let c = self.t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
         let s_me = &(&c * &a_me * &self.stage.keypair.borrow().secret.key) + &self.stage.r_me;
 
         // ::zeroize::Zeroize::zeroize(&mut self.stage.r_me);

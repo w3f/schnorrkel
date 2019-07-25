@@ -127,7 +127,7 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
     type T = T;
     #[inline(always)]
     fn transcript_with_malleability_addressed(mut self, publickey: &PublicKey) -> T {
-        self.commit_point(b"vrf-nm-pk\x00", publickey.as_compressed());        
+        self.commit_point(b"vrf-nm-pk", publickey.as_compressed());        
         // publickey.make_transcript_nonmalleable(&mut self);
         self
     }
@@ -295,8 +295,8 @@ impl VRFInOut {
     /// We use this construction both for the VRF usage methods
     /// `VRFInOut::make_*` as well as for signer side batching.
     pub fn commit<T: SigningTranscript>(&self, t: &mut T) {
-        t.commit_point(b"vrf-in\x00", self.input.as_compressed());
-        t.commit_point(b"vrf-out\x00", self.output.as_compressed());
+        t.commit_point(b"vrf-in", self.input.as_compressed());
+        t.commit_point(b"vrf-out", self.output.as_compressed());
     }
 
     /// Raw bytes output from the VRF.
@@ -397,7 +397,7 @@ impl PublicKey {
         B: Borrow<VRFInOut>,
     {
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
-        t.commit_point(b"pk\x00", self.as_compressed());
+        t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
             p.borrow().commit(&mut t);
         }
@@ -430,7 +430,7 @@ impl PublicKey {
         B: Borrow<VRFInOut>,
     {
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
-        t.commit_point(b"pk\x00", self.as_compressed());
+        t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
             p.borrow().commit(&mut t);
         }
@@ -561,17 +561,17 @@ impl VRFProofBatchable {
     where T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
-        // t.commit_point(b"g\x00",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
-        t.commit_point(b"h\x00", p.input.as_compressed());
+        // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
+        t.commit_point(b"vrf:h", p.input.as_compressed());
 
-        t.commit_point(b"R=g^r\x00", &self.R);
-        t.commit_point(b"h^r\x00", &self.Hr);
+        t.commit_point(b"vrf:R=g^r", &self.R);
+        t.commit_point(b"vrf:h^r", &self.Hr);
 
-        t.commit_point(b"pk\x00", public.as_compressed());
-        t.commit_point(b"h^sk\x00", p.output.as_compressed());
+        t.commit_point(b"vrf:pk", public.as_compressed());
+        t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         VRFProof {
-            c: t.challenge_scalar(b"prove\x00"), // context, message, A/public_key, R=rG
+            c: t.challenge_scalar(b"prove"), // context, message, A/public_key, R=rG
             s: self.s,
         }
     }
@@ -604,22 +604,22 @@ impl Keypair {
         T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
-        // t.commit_point(b"g\x00",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
-        t.commit_point(b"h\x00", p.input.as_compressed());
+        // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
+        t.commit_point(b"vrf:h", p.input.as_compressed());
 
         // We compute R after adding pk and all h.
         let mut r = t.witness_scalar(b"proving\00",&[&self.secret.nonce]);
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
-        t.commit_point(b"R=g^r\x00", &R);
+        t.commit_point(b"vrf:R=g^r", &R);
 
         let Hr = (&r * p.input.as_point()).compress();
-        t.commit_point(b"h^r\x00", &Hr);
+        t.commit_point(b"vrf:h^r", &Hr);
 
-        t.commit_point(b"pk\x00", self.public.as_compressed());
+        t.commit_point(b"vrf:pk", self.public.as_compressed());
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
-        t.commit_point(b"h^sk\x00", p.output.as_compressed());
+        t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
-        let c = t.challenge_scalar(b"prove\x00"); // context, message, A/public_key, R=rG
+        let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
 
         // ::zeroize::Zeroize::zeroize(&mut r);
@@ -709,8 +709,8 @@ impl PublicKey {
         T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
-        // t.commit_point(b"g\x00",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
-        t.commit_point(b"h\x00", p.input.as_compressed());
+        // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
+        t.commit_point(b"vrf:h", p.input.as_compressed());
 
         // We recompute R aka u from the proof
         // let R = (&proof.c * self.as_point()) + (&proof.s * &constants::RISTRETTO_BASEPOINT_TABLE);
@@ -719,7 +719,7 @@ impl PublicKey {
             self.as_point(),
             &proof.s,
         ).compress();
-        t.commit_point(b"R=g^r\x00", &R);
+        t.commit_point(b"vrf:R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
         #[cfg(not(any(feature = "alloc", feature = "std")))]
@@ -733,15 +733,15 @@ impl PublicKey {
         );
 
         let Hr = Hr.compress();
-        t.commit_point(b"h^r\x00", &Hr);
+        t.commit_point(b"vrf:h^r", &Hr);
 
-        t.commit_point(b"pk\x00", self.as_compressed());
+        t.commit_point(b"vrf:pk", self.as_compressed());
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
-        t.commit_point(b"h^sk\x00", p.output.as_compressed());
+        t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         // We need not check that h^pk lies on the curve because Ristretto ensures this.
         let VRFProof { c, s } = *proof;
-        if c == t.challenge_scalar(b"prove\x00") {
+        if c == t.challenge_scalar(b"prove") {
             Ok(VRFProofBatchable { R, Hr, s }) // Scalar: Copy ?!?
         } else {
             Err(SignatureError::EquationFalse)

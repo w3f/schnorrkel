@@ -70,7 +70,7 @@ pub struct ECQVCertPublic(pub [u8; 32]);
 
 impl ECQVCertPublic {
     fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
-        t.challenge_scalar(b"e\x00")
+        t.challenge_scalar(b"ecqv-e")
     }
 }
 
@@ -89,7 +89,7 @@ impl Keypair {
     where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
-        t.commit_point(b"Issuer-pk",self.public.as_compressed());
+        t.commit_point(b"issuer-pk",self.public.as_compressed());
 
         // We cannot commit the `seed_public_key` to the transcript
         // because the whole point is to keep the transcript minimal.
@@ -140,12 +140,12 @@ impl PublicKey {
     where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
-        t.commit_point(b"Issuer-pk",self.as_compressed());
+        t.commit_point(b"issuer-pk",self.as_compressed());
 
         // Again we cannot commit much to the transcript, but we again
         // treat anything relevant as a witness when defining the
         let mut nonce = [0u8; 32];
-        t.witness_bytes(b"accepting\x00",&mut nonce, &[&cert_secret.0[..],&seed_secret_key.nonce]);
+        t.witness_bytes(b"accepting",&mut nonce, &[&cert_secret.0[..],&seed_secret_key.nonce]);
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
@@ -190,7 +190,7 @@ impl PublicKey {
     where T: SigningTranscript
     {
         t.proto_name(b"ECQV");
-        t.commit_point(b"Issuer-pk",self.as_compressed());
+        t.commit_point(b"issuer-pk",self.as_compressed());
 
         let gamma = CompressedRistretto(cert_public.0.clone());
         t.commit_point(b"gamma",&gamma);

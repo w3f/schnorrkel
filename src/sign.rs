@@ -158,14 +158,14 @@ impl SecretKey {
     pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
     {
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk\x00",public_key.as_compressed());
+        t.commit_point(b"sign:pk",public_key.as_compressed());
 
-        let mut r = t.witness_scalar(b"signing\x00",&[&self.nonce]);  // context, message, A/public_key
+        let mut r = t.witness_scalar(b"signing",&[&self.nonce]);  // context, message, A/public_key
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
-        t.commit_point(b"no\x00",&R);
+        t.commit_point(b"sign:R",&R);
 
-        let k: Scalar = t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
+        let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
 
         // ::zeroize::Zeroize::zeroize(&mut r);
@@ -198,10 +198,10 @@ impl PublicKey {
         let k: Scalar;
 
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk\x00",self.as_compressed());
-        t.commit_point(b"no\x00",&signature.R);
+        t.commit_point(b"sign:pk",self.as_compressed());
+        t.commit_point(b"sign:R",&signature.R);
 
-        k = t.challenge_scalar(b"sign\x00");  // context, message, A/public_key, R=rG
+        k = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
         R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
@@ -304,9 +304,9 @@ where
     let hrams = (0..signatures.len()).map(|i| {
         let mut t = transcripts[i].borrow().clone();
         t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"pk\x00",public_keys[i].as_compressed());
-        t.commit_point(b"no\x00",&signatures[i].R);
-        t.challenge_scalar(b"sign\x00")  // context, message, A/public_key, R=rG
+        t.commit_point(b"sign:pk",public_keys[i].as_compressed());
+        t.commit_point(b"sign:R",&signatures[i].R);
+        t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
     });
     */
     // We might collect here anyways, but right now you cannot have
@@ -319,9 +319,9 @@ where
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             t.proto_name(b"Schnorr-sig");
-            t.commit_point(b"pk\x00",public_keys[i].as_compressed());
-            t.commit_point(b"no\x00",&signatures[i].R);
-            t.challenge_scalar(b"sign\x00")  // context, message, A/public_key, R=rG
+            t.commit_point(b"sign:pk",public_keys[i].as_compressed());
+            t.commit_point(b"sign:R",&signatures[i].R);
+            t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
         } );
 
     // Multiply each H(R || A || M) by the random value
