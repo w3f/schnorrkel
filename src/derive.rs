@@ -52,13 +52,7 @@ pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 /// Key types that support "hierarchical deterministic" key derivation
 pub trait Derivation : Sized {
     /// Derive key with subkey identified by a byte array
-    /// presented as a hash, and a chain code.
-    ///
-    /// At present, your only valid type paramater choices might be
-    /// `sha3::Shake128`/`126`, which we explain further in `lib.rs` by
-    /// the `extern crate sha3;` line.  There remain sitautions where
-    /// passing the hash will prove more convenient than managing
-    /// strings however.
+    /// presented via a `SigningTranscript`, and a chain code.
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
     where T: SigningTranscript+Clone;
 
