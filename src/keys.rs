@@ -15,7 +15,6 @@ use core::default::Default;
 use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
-use sha2::Sha512;
 
 use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
 // use curve25519_dalek::digest::generic_array::typenum::U64;
@@ -93,7 +92,7 @@ impl ConstantTimeEq for MiniSecretKey {
 }
 
 impl MiniSecretKey {
-    const DESCRIPTION : &'static str = "An ed25519 secret key as 32 bytes, as specified in RFC8032.";
+    const DESCRIPTION : &'static str = "Analogous to ed25519 secret key as 32 bytes, see RFC8032.";
 
     /// Expand this `MiniSecretKey` into a `SecretKey`.
     ///
@@ -152,7 +151,7 @@ impl MiniSecretKey {
     /// standardize the mapping to the curve then this method permits
     /// compatable schnorrkel and ed25519 keys.
     pub fn expand_ed25519(&self) -> SecretKey {
-        let mut h: Sha512 = Sha512::default();
+        let mut h = ::sha2::Sha512::default();
         h.input(self.as_bytes());
         let r = h.fixed_result();
 
@@ -375,7 +374,6 @@ impl From<&MiniSecretKey> for SecretKey {
     ///
     /// ```
     /// # extern crate rand;
-    /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
     /// # fn main() {
@@ -405,7 +403,6 @@ impl SecretKey {
     ///
     /// ```
     /// # extern crate rand;
-    /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
     /// # fn main() {
@@ -433,7 +430,6 @@ impl SecretKey {
     ///
     /// ```
     /// # extern crate rand;
-    /// # extern crate sha2;
     /// # extern crate schnorrkel;
     /// #
     /// use schnorrkel::{MiniSecretKey, SecretKey, SignatureError};
