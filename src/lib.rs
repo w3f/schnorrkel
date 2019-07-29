@@ -21,9 +21,6 @@
 //! system's builtin PRNG and SHA-512 to generate a keypair:
 //!
 //! ```
-//! extern crate rand;
-//! extern crate schnorrkel;
-//!
 //! # #[cfg(all(feature = "std"))]
 //! # fn main() {
 //! use rand::{Rng, rngs::OsRng};
@@ -40,9 +37,6 @@
 //! We can now use this `keypair` to sign a message:
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
@@ -59,9 +53,6 @@
 //! that `message`:
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
@@ -79,9 +70,6 @@
 //! verify this signature:
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{SeedableRng}; // Rng
 //! # use rand_chacha::ChaChaRng;
@@ -106,9 +94,6 @@
 //! verify your signatures!)
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
@@ -131,9 +116,6 @@
 //! And similarly, decoded from bytes with `::from_bytes()`:
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{SecretKey, Keypair, Signature, PublicKey, SignatureError, signing_context};
@@ -175,14 +157,6 @@
 //! For example, using [bincode](https://github.com/TyOverby/bincode):
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
-//! # #[cfg(feature = "serde")]
-//! extern crate serde;
-//! # #[cfg(feature = "serde")]
-//! extern crate bincode;
-//!
 //! # #[cfg(feature = "serde")]
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
@@ -208,14 +182,6 @@
 //! recipient may deserialise them and verify:
 //!
 //! ```
-//! # extern crate rand;
-//! # extern crate rand_chacha;
-//! # extern crate schnorrkel;
-//! # #[cfg(feature = "serde")]
-//! # extern crate serde;
-//! # #[cfg(feature = "serde")]
-//! # extern crate bincode;
-//! #
 //! # #[cfg(feature = "serde")]
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};

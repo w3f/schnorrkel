@@ -240,9 +240,6 @@ impl PublicKey {
 /// # Examples
 ///
 /// ```
-/// extern crate rand;
-/// extern crate schnorrkel;
-///
 /// use schnorrkel::{Keypair,PublicKey,Signature,verify_batch,signing_context};
 /// use rand::thread_rng;
 /// use rand::rngs::ThreadRng;
@@ -361,10 +358,6 @@ impl Keypair {
     /// by prehashing your message, like
     ///
     /// ```
-    /// extern crate schnorrkel;
-    /// extern crate rand;
-    /// extern crate sha3;
-    ///
     /// use schnorrkel::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     /// use sha3::Shake128;
@@ -391,10 +384,6 @@ impl Keypair {
     /// one purpose can be substituted for the other.
     ///
     /// ```
-    /// # extern crate schnorrkel;
-    /// # extern crate rand;
-    /// # extern crate sha3;
-    /// #
     /// # use schnorrkel::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
     /// # use sha3::digest::Input;
@@ -436,9 +425,6 @@ impl Keypair {
     /// # Examples
     ///
     /// ```
-    /// extern crate schnorrkel;
-    /// extern crate rand;
-    ///
     /// use schnorrkel::{Keypair,Signature,signing_context};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     ///

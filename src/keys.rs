@@ -95,9 +95,6 @@ impl MiniSecretKey {
     /// # Examples
     ///
     /// ```
-    /// # extern crate rand;
-    /// # extern crate schnorrkel;
-    /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -189,8 +186,6 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// # extern crate schnorrkel;
-    /// #
     /// use schnorrkel::MiniSecretKey;
     /// use schnorrkel::MINI_SECRET_KEY_LENGTH;
     /// use schnorrkel::SignatureError;
@@ -236,9 +231,6 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// extern crate rand;
-    /// extern crate schnorrkel;
-    ///
     /// # #[cfg(feature = "std")]
     /// # fn main() {
     /// #
@@ -269,8 +261,6 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// extern crate schnorrkel;
-    ///
     /// # #[cfg(feature = "std")]
     /// # fn main() {
     /// #
@@ -286,10 +276,6 @@ impl MiniSecretKey {
     /// Afterwards, you can generate the corresponding public key.
     ///
     /// ```
-    /// # extern crate rand;
-    /// # extern crate rand_chacha;
-    /// # extern crate schnorrkel;
-    /// #
     /// # fn main() {
     /// #
     /// # use rand::{Rng, SeedableRng};
@@ -372,9 +358,6 @@ impl From<&MiniSecretKey> for SecretKey {
     /// # Examples
     ///
     /// ```
-    /// # extern crate rand;
-    /// # extern crate schnorrkel;
-    /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -401,9 +384,6 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
-    /// # extern crate rand;
-    /// # extern crate schnorrkel;
-    /// #
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -428,9 +408,6 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
-    /// # extern crate rand;
-    /// # extern crate schnorrkel;
-    /// #
     /// use schnorrkel::{MiniSecretKey, SecretKey, SignatureError};
     /// use rand::{Rng, rngs::OsRng};
     /// # fn do_test() -> Result<SecretKey, SignatureError> {
@@ -623,8 +600,6 @@ impl PublicKey {
     /// # Example
     ///
     /// ```
-    /// # extern crate schnorrkel;
-    /// #
     /// use schnorrkel::PublicKey;
     /// use schnorrkel::PUBLIC_KEY_LENGTH;
     /// use schnorrkel::SignatureError;
@@ -759,9 +734,6 @@ impl Keypair {
     /// # Example
     ///
     /// ```
-    /// extern crate rand;
-    /// extern crate schnorrkel;
-    ///
     /// # fn main() {
     ///
     /// use rand::{Rng, rngs::OsRng};

@@ -101,8 +101,6 @@ impl RistrettoBoth {
     /// # Example
     ///
     /// ```
-    /// # extern crate schnorrkel;
-    /// #
     /// use schnorrkel::points::RistrettoBoth;
     /// use schnorrkel::PUBLIC_KEY_LENGTH;
     /// use schnorrkel::SignatureError;
