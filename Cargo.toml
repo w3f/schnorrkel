@@ -26,7 +26,7 @@ version = "1.0.0-pre.1"
 default-features = false
 
 [dependencies.subtle]
-version = "2.0.0"
+version = "2.1.0"
 default-features = false
 
 [dependencies.merlin] 
@@ -49,16 +49,12 @@ version = "^1.0"
 default-features = false
 optional = true
 
-[dependencies.sha3]
-version = "^0.8"
-default-features = false
-
 [dependencies.sha2]
 version = "^0.8"
 default-features = false
 
 [dependencies.failure]
-version = "^0.1.1"
+version = "^0.1.5"
 default-features = false
 
 [dependencies.zeroize]
@@ -70,6 +66,7 @@ features = ["zeroize_derive"]
 hex = "^0.3"
 rand_chacha = "0.1.0"
 sha2 = "^0.8"
+sha3 = "^0.8"
 bincode = "^0.9"
 criterion = "0.2"
 
