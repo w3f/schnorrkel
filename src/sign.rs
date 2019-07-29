@@ -252,19 +252,21 @@ impl PublicKey {
 ///
 /// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
 ///
-/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
+/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], csprng).is_ok() );
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
-pub fn verify_batch<T,I>(
+pub fn verify_batch<T,I,R>(
     transcripts: I,
     signatures: &[Signature],
-    public_keys: &[PublicKey]
+    public_keys: &[PublicKey],
+    mut rng: R,
 ) -> SignatureResult<()>
 where
     T: SigningTranscript, 
     I: IntoIterator<Item=T>,
+    R: RngCore+CryptoRng
 {
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
     assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
@@ -550,7 +552,7 @@ mod test {
         let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
 
-        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], thread_rng()).is_ok() );
     }
 }
 
