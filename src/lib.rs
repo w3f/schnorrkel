@@ -258,39 +258,12 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
-extern crate curve25519_dalek;
-extern crate merlin;
-extern crate subtle;
-extern crate zeroize;
-
 #[inline(always)]
 fn zeroize_hack<Z: Default>(z: &mut Z) {
     use core::{ptr, sync::atomic};
     unsafe { ptr::write_volatile(z, Z::default()); }
     atomic::compiler_fence(atomic::Ordering::SeqCst);
 }
-
-extern crate rand;
-#[cfg(feature = "rand_chacha")]
-extern crate rand_chacha;
-
-extern crate failure;
-
-#[cfg(feature = "ed25519_dalek")]
-extern crate ed25519_dalek;
-
-#[cfg(test)]
-extern crate sha3;
-
-#[cfg(feature = "sha2")]
-extern crate sha2;
-
-#[cfg(feature = "serde")]
-extern crate serde;
-
-#[cfg(all(test, feature = "serde"))]
-extern crate bincode;
-
 
 #[macro_use]
 mod serdey;
