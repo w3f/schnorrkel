@@ -100,7 +100,7 @@ pub trait SigningTranscript {
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
     fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
-    where R: Rng+CryptoRng;
+    where R: RngCore+CryptoRng;
 }
 
 
@@ -133,7 +133,7 @@ where T: SigningTranscript + ?Sized,
         {  (**self).witness_bytes(label,dest,nonce_seeds)  }
     #[inline(always)]
     fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
-    where R: Rng+CryptoRng
+    where R: RngCore+CryptoRng
         {  (**self).witness_bytes_rng(label,dest,nonce_seeds,rng)  }
 }
 
@@ -151,7 +151,7 @@ impl SigningTranscript for Transcript {
     }
 
     fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
-    where R: Rng+CryptoRng
+    where R: RngCore+CryptoRng
     {
         let mut br = self.build_rng();
         for ns in nonce_seeds {
@@ -311,7 +311,7 @@ where H: Input + ExtendableOutput + Clone
     }
 
     fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
-    where R: Rng+CryptoRng
+    where R: RngCore+CryptoRng
     {
         let mut h = self.0.clone().chain(b"wb");
         input_bytes(&mut h, label);
@@ -355,14 +355,14 @@ where H: Input + ExtendableOutput + Clone
 /// production because we implement protocols like multi-signatures
 /// which likely become vulnerabile when derandomized.
 pub struct SigningTranscriptWithRng<T,R>
-where T: SigningTranscript, R: Rng+CryptoRng
+where T: SigningTranscript, R: RngCore+CryptoRng
 {
 	t: T,
 	rng: RefCell<R>,
 }
 
 impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>
-where T: SigningTranscript, R: Rng+CryptoRng
+where T: SigningTranscript, R: RngCore+CryptoRng
 {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
         {  self.t.commit_bytes(label, bytes)  }
@@ -374,7 +374,7 @@ where T: SigningTranscript, R: Rng+CryptoRng
        {  self.witness_bytes_rng(label, dest, nonce_seeds, &mut *self.rng.borrow_mut())  }
 
     fn witness_bytes_rng<RR>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: RR)
-    where RR: Rng+CryptoRng
+    where RR: RngCore+CryptoRng
        {  self.t.witness_bytes_rng(label,dest,nonce_seeds,rng)  }
 
 }
@@ -387,7 +387,7 @@ where T: SigningTranscript, R: Rng+CryptoRng
 /// signatures, we do implement protocols here like multi-signatures which
 /// likely become vulnerabile when derandomized.
 pub fn attach_rng<T,R>(t: T, rng: R) -> SigningTranscriptWithRng<T,R>
-where T: SigningTranscript, R: Rng+CryptoRng
+where T: SigningTranscript, R: RngCore+CryptoRng
 {
     SigningTranscriptWithRng {
         t, rng: RefCell::new(rng)

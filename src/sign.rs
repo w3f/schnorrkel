@@ -224,7 +224,7 @@ impl PublicKey {
 /// * `messages` is a slice of byte slices, one per signed message.
 /// * `signatures` is a slice of `Signature`s.
 /// * `public_keys` is a slice of `PublicKey`s.
-/// * `csprng` is an implementation of `Rng + CryptoRng`, such as `rand::ThreadRng`.
+/// * `csprng` is an implementation of `RngCore+CryptoRng`, such as `rand::ThreadRng`.
 ///
 /// # Panics
 ///
@@ -241,12 +241,10 @@ impl PublicKey {
 ///
 /// ```
 /// use schnorrkel::{Keypair,PublicKey,Signature,verify_batch,signing_context};
-/// use rand::thread_rng;
-/// use rand::rngs::ThreadRng;
 ///
 /// # fn main() {
 /// let ctx = signing_context(b"some batch");
-/// let mut csprng: ThreadRng = thread_rng();
+/// let mut csprng = rand::thread_rng();
 /// let keypairs: Vec<Keypair> = (0..64).map(|_| Keypair::generate_with(&mut csprng)).collect();
 /// let msg: &[u8] = b"They're good dogs Brant";
 /// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg))).collect();
@@ -280,8 +278,6 @@ where
 
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
-
-    let mut rng = rand::prelude::thread_rng();
     
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
