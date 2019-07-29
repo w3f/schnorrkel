@@ -51,6 +51,7 @@ optional = true
 [dependencies.sha2]
 version = "^0.8"
 default-features = false
+optional = true
 
 [dependencies.failure]
 version = "^0.1.5"
@@ -75,6 +76,7 @@ harness = false
 [features]
 default = ["std", "u64_backend", "chacha"]
 chacha = ["rand_chacha"]
+ed25519_dalek = ["sha2"]
 std = ["curve25519-dalek/std", "rand/std"] # "failure/std"
 alloc = ["curve25519-dalek/alloc"]
 nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"

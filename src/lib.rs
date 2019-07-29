@@ -282,6 +282,7 @@ extern crate ed25519_dalek;
 #[cfg(test)]
 extern crate sha3;
 
+#[cfg(feature = "sha2")]
 extern crate sha2;
 
 #[cfg(feature = "serde")]

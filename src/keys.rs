@@ -11,13 +11,9 @@
 //! ### Schnorr signatures on the 2-torsion free subgroup of ed25519, as provided by the Ristretto point compression.
 
 use core::convert::AsRef;
-use core::default::Default;
 use core::fmt::{Debug};
 
 use rand::prelude::*;  // {RngCore,thread_rng};
-
-use curve25519_dalek::digest::{Input,FixedOutput};  // ExtendableOutput,XofReader
-// use curve25519_dalek::digest::generic_array::typenum::U64;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
@@ -150,8 +146,11 @@ impl MiniSecretKey {
     /// complex, and possibly harder to implement.  If anyone does
     /// standardize the mapping to the curve then this method permits
     /// compatable schnorrkel and ed25519 keys.
+    #[cfg(feature = "sha2")]
     pub fn expand_ed25519(&self) -> SecretKey {
-        let mut h = ::sha2::Sha512::default();
+        use sha2::{Sha512, digest::{Input,FixedOutput}};
+
+        let mut h = Sha512::default();
         h.input(self.as_bytes());
         let r = h.fixed_result();
 
@@ -470,7 +469,7 @@ impl SecretKey {
     }
 
     /// Convert this `SecretKey` into an array of 64 bytes, corresponding to
-    /// an Ed25519 expanded secreyt key.
+    /// an Ed25519 expanded secret key.
     ///
     /// Returns an array of 64 bytes, with the first 32 bytes being
     /// the secret scalar shifted ed25519 style, and the last 32 bytes
