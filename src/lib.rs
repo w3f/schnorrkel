@@ -16,9 +16,7 @@
 //!
 //! First, we need to generate a `Keypair`, which includes both public and
 //! secret halves of an asymmetric key.  To do so, we need a cryptographically
-//! secure pseudorandom number generator (CSPRNG), and a hash function which
-//! has 512 bits of output.  For this example, we'll use the operating
-//! system's builtin PRNG and SHA-512 to generate a keypair:
+//! secure pseudorandom number generator (CSPRNG).
 //!
 //! ```
 //! # #[cfg(all(feature = "std"))]
