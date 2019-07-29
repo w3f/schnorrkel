@@ -26,11 +26,11 @@ default-features = false
 optional = true
 
 [dependencies.subtle]
-version = "2.1.0"
+version = "2.1"
 default-features = false
 
 [dependencies.merlin] 
-version = "1.2.0"
+version = "1.2"
 # features = ["debug-transcript"]
 default-features = false
 
@@ -40,7 +40,7 @@ default-features = false
 features = ["i128_support"]
 
 [dependencies.rand_chacha]
-version = "0.1.0"
+version = "0.2"
 default-features = false
 optional = true
 
