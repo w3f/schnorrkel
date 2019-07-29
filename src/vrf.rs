@@ -344,6 +344,7 @@ impl VRFInOut {
         self.make_rng::<::rand_chacha::ChaChaRng>(context)
     }
 
+    /*
     /// VRF output converted into Merlin's Keccek based `Rng`.
     ///
     /// If you are not the signer then you must verify the VRF before calling this method.
@@ -374,6 +375,7 @@ impl VRFInOut {
         self.commit(&mut t);
         t.build_rng().finalize(&mut ZeroFakeRng)
     }
+    */
 }
 
 fn challenge_scalar_128<T: SigningTranscript>(mut t: T) -> Scalar {
