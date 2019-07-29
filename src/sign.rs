@@ -279,7 +279,15 @@ where
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
-    let mut rng = rand::prelude::thread_rng();
+    // Use a random number generator keyed by both the publidc keys,
+    // and the system randomn number gnerator 
+    let mut rng = {
+        let mut t = merlin::Transcript::new(b"V-RNG");
+        for pk in public_keys {
+            t.commit_point(b"",pk.as_compressed());
+        }
+        t.build_rng().finalize(&mut rand::prelude::thread_rng())
+    };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use

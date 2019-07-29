@@ -821,7 +821,16 @@ pub fn dleq_verify_batch(
     assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), ASSERT_MESSAGE);
 
-    let mut rng = rand::prelude::thread_rng();
+    // Use a random number generator keyed by the publidc keys, the
+    // inout and putput points, and the system randomn number gnerator.
+    let mut rng = {
+        let mut t = Transcript::new(b"VB-RNG");
+        for (pk,p) in public_keys.iter().zip(ps) {
+            t.commit_point(b"",pk.as_compressed());
+            p.commit(&mut t);
+        }
+        t.build_rng().finalize(&mut rand::prelude::thread_rng())
+    };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
