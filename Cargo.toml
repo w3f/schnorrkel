@@ -20,10 +20,9 @@ version = "1.0"
 default-features = false
 
 [dependencies.ed25519-dalek]
-# git = "https://github.com/dalek-cryptography/ed25519-dalek"
-# branch = "develop"
 version = "1.0.0-pre.1"
 default-features = false
+optional = true
 
 [dependencies.subtle]
 version = "2.1.0"

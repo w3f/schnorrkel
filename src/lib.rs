@@ -276,6 +276,7 @@ extern crate rand_chacha;
 
 extern crate failure;
 
+#[cfg(feature = "ed25519_dalek")]
 extern crate ed25519_dalek;
 
 #[cfg(test)]
