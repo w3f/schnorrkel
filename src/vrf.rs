@@ -24,6 +24,8 @@
 //! We note the V(X)EdDSA signature scheme by Trevor Perrin at
 //! https://www.signal.org/docs/specifications/xeddsa/#vxeddsa
 //! is almost identical to the NSEC5 construction.
+//! There is another even later variant at 
+//! https://datatracker.ietf.org/doc/draft-irtf-cfrg-vrf/
 //!
 //! We support individual signers merging numerous VRF outputs created
 //! with the same keypair, which follows the "DLEQ Proofs" and "Batching
@@ -84,7 +86,6 @@ use alloc::{boxed::Box, vec::Vec};
 use std::{boxed::Box, vec::Vec};
 
 use rand::prelude::*; // ThreadRng,thread_rng
-use rand_chacha::ChaChaRng;
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
@@ -338,8 +339,9 @@ impl VRFInOut {
     /// construction from Theorem 2 on page 32 in appendex C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
-    pub fn make_chacharng(&self, context: &[u8]) -> ChaChaRng {
-        self.make_rng::<ChaChaRng>(context)
+    #[cfg(feature = "rand_chacha")]
+    pub fn make_chacharng(&self, context: &[u8]) -> ::rand_chacha::ChaChaRng {
+        self.make_rng::<::rand_chacha::ChaChaRng>(context)
     }
 
     /// VRF output converted into Merlin's Keccek based `Rng`.

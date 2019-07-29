@@ -271,6 +271,7 @@ fn zeroize_hack<Z: Default>(z: &mut Z) {
 }
 
 extern crate rand;
+#[cfg(feature = "rand_chacha")]
 extern crate rand_chacha;
 
 extern crate failure;

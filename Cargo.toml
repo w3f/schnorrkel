@@ -42,6 +42,7 @@ features = ["i128_support"]
 [dependencies.rand_chacha]
 version = "0.1.0"
 default-features = false
+optional = true
 
 [dependencies.serde]
 version = "^1.0"
@@ -67,6 +68,7 @@ features = ["zeroize_derive"]
 
 [dev-dependencies]
 hex = "^0.3"
+rand_chacha = "0.1.0"
 sha2 = "^0.8"
 bincode = "^0.9"
 criterion = "0.2"
@@ -76,8 +78,9 @@ name = "schnorr_benchmarks"
 harness = false
 
 [features]
-default = ["std", "u64_backend"]
-std = ["curve25519-dalek/std", "rand/std"]
+default = ["std", "u64_backend", "chacha"]
+chacha = ["rand_chacha"]
+std = ["curve25519-dalek/std", "rand/std"] # "failure/std"
 alloc = ["curve25519-dalek/alloc"]
 nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
 asm = ["sha2/asm"]
