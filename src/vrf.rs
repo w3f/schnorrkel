@@ -812,19 +812,18 @@ impl PublicKey {
 /// seperate calls.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
-pub fn dleq_verify_batch<R>(
+pub fn dleq_verify_batch(
     ps: &[VRFInOut],
     proofs: &[VRFProofBatchable],
     public_keys: &[PublicKey],
-    mut rng: R,
-) -> SignatureResult<()>
-where R: RngCore+CryptoRng,
-{
+) -> SignatureResult<()> {
     use curve25519_dalek::traits::IsIdentity;
 
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), ASSERT_MESSAGE);
+
+    let mut rng = rand::prelude::thread_rng();
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
@@ -872,17 +871,15 @@ where R: RngCore+CryptoRng,
 ///
 ///
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub fn vrf_verify_batch<T,I,R>(
+pub fn vrf_verify_batch<T, I>(
     transcripts: I,
     outs: &[VRFOutput],
     proofs: &[VRFProofBatchable],
     publickeys: &[PublicKey],
-    rng: R,
 ) -> SignatureResult<Box<[VRFInOut]>>
 where
     T: VRFSigningTranscript,
     I: IntoIterator<Item = T>,
-    R: RngCore+CryptoRng,
 {
     let mut ts = transcripts.into_iter();
     let ps = ts.by_ref()
@@ -895,7 +892,7 @@ where
         ps.len() == outs.len(),
         "Too few VRF inputs for VRF outputs."
     );
-    if dleq_verify_batch(&ps[..], proofs, publickeys, rng).is_ok() {
+    if dleq_verify_batch(&ps[..], proofs, publickeys).is_ok() {
         Ok(ps.into_boxed_slice())
     } else {
         Err(SignatureError::EquationFalse)
@@ -1092,24 +1089,24 @@ mod tests {
             .collect::<Vec<PublicKey>>();
 
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys, thread_rng()).is_ok(),
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_ok(),
             "Batch verification failed!"
         );
         proofs.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys, thread_rng()).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect proofs passed!"
         );
         proofs.reverse();
         public_keys.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys, thread_rng()).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect public keys passed!"
         );
         public_keys.reverse();
         ios.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys, thread_rng()).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
             "Batch verification with incorrect points passed!"
         );
     }
