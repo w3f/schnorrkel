@@ -63,7 +63,6 @@ default-features = false
 features = ["zeroize_derive"]
 
 [dev-dependencies]
-hex = "^0.3"
 rand_chacha = "0.1.0"
 sha2 = "^0.8"
 sha3 = "^0.8"

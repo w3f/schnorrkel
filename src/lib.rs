@@ -283,9 +283,6 @@ extern crate sha3;
 
 extern crate sha2;
 
-// #[cfg(test)]
-// extern crate hex;
-
 #[cfg(feature = "serde")]
 extern crate serde;
 

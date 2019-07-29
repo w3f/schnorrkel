@@ -807,7 +807,6 @@ serde_boilerplate!(Keypair);
 #[cfg(test)]
 mod test {
     // use std::vec::Vec;
-    // use hex::FromHex;
     use super::*;
 
     /*
