@@ -74,7 +74,7 @@ name = "schnorr_benchmarks"
 harness = false
 
 [features]
-default = ["std", "u64_backend", "chacha"]
+default = ["std", "u64_backend"] # "chacha"
 chacha = ["rand_chacha"]
 ed25519_dalek = ["sha2"]
 std = ["curve25519-dalek/std", "rand/std"] # "failure/std"
