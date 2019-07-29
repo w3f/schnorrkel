@@ -260,7 +260,7 @@ impl PublicKey {
 pub fn verify_batch<T,I>(
     transcripts: I,
     signatures: &[Signature],
-    public_keys: &[PublicKey]
+    public_keys: &[PublicKey],
 ) -> SignatureResult<()>
 where
     T: SigningTranscript, 
@@ -278,7 +278,9 @@ where
 
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
-    
+
+    let mut rng = rand::prelude::thread_rng();
+
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
