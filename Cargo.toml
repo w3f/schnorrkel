@@ -30,12 +30,12 @@ version = "2.1.0"
 default-features = false
 
 [dependencies.merlin] 
-version = "1.1.0"
+version = "1.2.0"
 # features = ["debug-transcript"]
 default-features = false
 
 [dependencies.rand]
-version = "0.6.0"  # was "0.6.4"
+version = "0.6"
 default-features = false
 features = ["i128_support"]
 
@@ -61,7 +61,7 @@ default-features = false
 [dependencies.zeroize]
 version = "0.9.2"
 default-features = false
-features = ["zeroize_derive"]
+# features = ["zeroize_derive"]
 
 [dev-dependencies]
 rand_chacha = "0.1.0"
