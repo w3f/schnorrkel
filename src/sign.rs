@@ -220,6 +220,10 @@ impl PublicKey {
     pub fn verify_preaudit_deprecated<T: SigningTranscript>(&self, mut t: T, sig: &[u8])
      -> SignatureResult<()>
     {
+        if let Ok(signature) = Signature::from_bytes(sig) {
+            if self.verify(t.clone(),&signature).is_ok() { return Ok(()); }
+        }
+
         let signature = Signature::from_bytes_not_distinguished_from_ed25519(sig) ?;
 
         let A: &RistrettoPoint = self.as_point();
@@ -241,9 +245,6 @@ impl PublicKey {
      -> SignatureResult<()>
     {
         let t = SigningContext::new(ctx).bytes(msg);
-        if let Ok(signature) = Signature::from_bytes(sig) {
-            if self.verify(t.clone(),&signature).is_ok() { return Ok(()); }
-        }
         self.verify_preaudit_deprecated(t,sig)
     }
 
