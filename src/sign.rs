@@ -205,12 +205,23 @@ impl PublicKey {
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
     }
 
+    /// Verify a signature by this public key on a message.
+    pub fn verify_simple(&self, ctx: &[u8], msg: &[u8], signature: &Signature)
+     -> SignatureResult<()>
+    {
+        let t = SigningContext::new(ctx).bytes(msg);
+        self.verify(t,signature)
+    }
+
+
     /// A temporary verification routine for use in transitioning substrate testnets only.
     #[cfg(feature = "preaudit_deprecated")]
     #[allow(non_snake_case)]
-    pub fn verify_preaudit_deprecated<T: SigningTranscript>(&self, mut t: T, signature: &Signature)
+    pub fn verify_preaudit_deprecated<T: SigningTranscript>(&self, mut t: T, sig: &[u8])
      -> SignatureResult<()>
-    {    
+    {
+        let signature = Signature::from_bytes_not_distinguished_from_ed25519(sig) ?;
+
         let A: &RistrettoPoint = self.as_point();
 
         t.proto_name(b"Schnorr-sig");
@@ -223,18 +234,21 @@ impl PublicKey {
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
     }
 
-    /// Verify a signature by this public key on a message.
-    pub fn verify_simple(&self, ctx: &[u8], msg: &[u8], signature: &Signature)
+    /// A temporary verification routine for use in transitioning substrate testnets only.
+    #[cfg(feature = "preaudit_deprecated")]
+    #[allow(non_snake_case)]
+    pub fn verify_simple_preaudit_deprecated(&self, ctx: &[u8], msg: &[u8], sig: &[u8])
      -> SignatureResult<()>
     {
         let t = SigningContext::new(ctx).bytes(msg);
-
-        #[cfg(feature = "preaudit_deprecated")]
-        { if self.verify_preaudit_deprecated(t.clone(),signature).is_ok() { return Ok(()); } }
-
-        self.verify(t,signature)
+        if let Ok(signature) = Signature::from_bytes(sig) {
+            if self.verify(t.clone(),&signature).is_ok() { return Ok(()); }
+        }
+        self.verify_preaudit_deprecated(t,sig)
     }
+
 }
+
 
 
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
@@ -490,6 +504,8 @@ mod test {
     use sha3::Shake128;
     use curve25519_dalek::digest::{Input};
 
+	use hex_literal::hex;
+
     use super::super::*;
 
 
@@ -582,5 +598,16 @@ mod test {
 
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
     }
+
+    #[cfg(feature = "preaudit_deprecated")]
+    #[test]
+	fn can_verify_know_preaudit_deprecated_message() {
+        const SIGNING_CTX : &'static [u8] = b"substrate";
+		let message = b"Verifying that I am the owner of 5G9hQLdsKQswNPgB499DeA5PkFBbgkLPJWkkS6FAM6xGQ8xD. Hash: 221455a3\n";
+        let public = hex!("b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918");
+		let public = PublicKey::from_bytes(&public[..]).unwrap();
+		let signature = hex!("5a9755f069939f45d96aaf125cf5ce7ba1db998686f87f2fb3cbdea922078741a73891ba265f70c31436e18a9acd14d189d73c12317ab6c313285cd938453202");
+		assert!( public.verify_simple_preaudit_deprecated(SIGNING_CTX,message,&signature[..]).is_ok() );
+	}
 }
 
