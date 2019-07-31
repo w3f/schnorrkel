@@ -158,7 +158,6 @@ impl MiniSecretKey {
     /// let secret_key: SecretKey = mini_secret_key.expand_ed25519();
     /// # }
     /// ```
-    #[cfg(feature = "sha2")]
     pub fn expand_ed25519(&self) -> SecretKey {
         use sha2::{Sha512, digest::{Input,FixedOutput}};
 
@@ -185,13 +184,11 @@ impl MiniSecretKey {
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    #[cfg(feature = "sha2")]
     pub fn expand_ed25519_to_keypair(&self) -> Keypair {
         self.expand_ed25519().into()
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    #[cfg(feature = "sha2")]
     pub fn expand_ed25519_to_public(&self) -> PublicKey {
         self.expand_ed25519().to_public()
     }
@@ -379,7 +376,6 @@ impl ConstantTimeEq for SecretKey {
     }
 }
 
-#[cfg(feature = "sha2")]
 impl From<&MiniSecretKey> for SecretKey {
     /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
