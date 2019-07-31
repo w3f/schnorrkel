@@ -213,18 +213,22 @@ impl PublicKey {
         self.verify(t,signature)
     }
 
-
     /// A temporary verification routine for use in transitioning substrate testnets only.
     #[cfg(feature = "preaudit_deprecated")]
     #[allow(non_snake_case)]
-    pub fn verify_preaudit_deprecated<T: SigningTranscript>(&self, mut t: T, sig: &[u8])
+    pub fn verify_simple_preaudit_deprecated(&self, ctx: &'static [u8], msg: &[u8], sig: &[u8])
      -> SignatureResult<()>
     {
+        let t = SigningContext::new(ctx).bytes(msg);
+
         if let Ok(signature) = Signature::from_bytes(sig) {
-            if self.verify(t.clone(),&signature).is_ok() { return Ok(()); }
+            return self.verify(t,&signature);
         }
 
         let signature = Signature::from_bytes_not_distinguished_from_ed25519(sig) ?;
+
+        let mut t = merlin::Transcript::new(ctx);
+        t.append_message(b"sign-bytes", msg);
 
         let A: &RistrettoPoint = self.as_point();
 
@@ -236,16 +240,6 @@ impl PublicKey {
         let R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
-    }
-
-    /// A temporary verification routine for use in transitioning substrate testnets only.
-    #[cfg(feature = "preaudit_deprecated")]
-    #[allow(non_snake_case)]
-    pub fn verify_simple_preaudit_deprecated(&self, ctx: &[u8], msg: &[u8], sig: &[u8])
-     -> SignatureResult<()>
-    {
-        let t = SigningContext::new(ctx).bytes(msg);
-        self.verify_preaudit_deprecated(t,sig)
     }
 
 }
@@ -505,8 +499,6 @@ mod test {
     use sha3::Shake128;
     use curve25519_dalek::digest::{Input};
 
-	use hex_literal::hex;
-
     use super::super::*;
 
 
@@ -603,6 +595,7 @@ mod test {
     #[cfg(feature = "preaudit_deprecated")]
     #[test]
 	fn can_verify_know_preaudit_deprecated_message() {
+    	use hex_literal::hex;
         const SIGNING_CTX : &'static [u8] = b"substrate";
 		let message = b"Verifying that I am the owner of 5G9hQLdsKQswNPgB499DeA5PkFBbgkLPJWkkS6FAM6xGQ8xD. Hash: 221455a3\n";
         let public = hex!("b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918");

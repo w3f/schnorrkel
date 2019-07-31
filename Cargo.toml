@@ -64,6 +64,8 @@ default-features = false
 
 [dev-dependencies]
 rand_chacha = "0.1.0"
+# hex = "0.3.2"
+hex-literal = "0.2.0"
 sha2 = "^0.8"
 sha3 = "^0.8"
 bincode = "^0.9"
