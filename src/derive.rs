@@ -141,7 +141,7 @@ impl MiniSecretKey {
     pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
      -> (MiniSecretKey,ChainCode)
     {
-        self.expand().hard_derive_mini_secret_key(cc,i)
+        self.expand_uniform().hard_derive_mini_secret_key(cc,i)
     }
 }
 
@@ -275,7 +275,7 @@ impl ExtendedKey<SecretKey> {
     /// the secret key remains valid if the nonce is changed.
     pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<SecretKey> {
         let (key,chaincode) = self.key.hard_derive_mini_secret_key(Some(self.chaincode), i);
-		let key = key.expand();
+		let key = key.expand_uniform();
         ExtendedKey { key, chaincode }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "schnorrkel"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Jeff Burdges <jeff@web3.foundation>"]
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -75,7 +75,7 @@ name = "schnorr_benchmarks"
 harness = false
 
 [features]
-default = ["std", "u64_backend"] # "chacha"
+default = ["std", "u64_backend", "sha2"] # "chacha"
 chacha = ["rand_chacha"]
 ed25519_dalek = ["sha2"]
 std = ["curve25519-dalek/std", "rand/std"] # "failure/std"

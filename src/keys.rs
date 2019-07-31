@@ -46,7 +46,9 @@ pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LE
 pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
 
-/// An EdDSA compatabile "secret" key seed.
+
+
+/// An EdDSA-like "secret" key seed.
 ///
 /// These are seeds from which we produce a real `SecretKey`, which
 /// EdDSA itself calls an extended secret key by hashing.  We require
@@ -90,7 +92,11 @@ impl ConstantTimeEq for MiniSecretKey {
 impl MiniSecretKey {
     const DESCRIPTION : &'static str = "Analogous to ed25519 secret key as 32 bytes, see RFC8032.";
 
-    /// Expand this `MiniSecretKey` into a `SecretKey`.
+    /// Expand this `MiniSecretKey` into a `SecretKey`
+    ///
+    /// We preoduce a secret keys using merlin and more uniformly
+    /// with this method, which reduces binary size and benefits
+    /// some future protocols.
     ///
     /// # Examples
     ///
@@ -101,10 +107,10 @@ impl MiniSecretKey {
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
-    /// let secret_key: SecretKey = mini_secret_key.expand();
+    /// let secret_key: SecretKey = mini_secret_key.expand_uniform();
     /// # }
     /// ```
-    pub fn expand(&self) -> SecretKey {
+    pub fn expand_uniform(&self) -> SecretKey {
         let mut t = merlin::Transcript::new(b"ExpandSecretKeys");
         t.append_message(b"mini", &self.0[..]);
 
@@ -119,21 +125,17 @@ impl MiniSecretKey {
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_keypair(&self) -> Keypair {
-        self.expand().into()
+    pub fn expand_uniform_to_keypair(&self) -> Keypair {
+        self.expand_uniform().into()
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_to_public(&self) -> PublicKey {
-        self.expand().to_public()
+    pub fn expand_uniform_to_public(&self) -> PublicKey {
+        self.expand_uniform().to_public()
     }
 
     /// Expand this `MiniSecretKey` into a `SecretKey` using
     /// ed25519-style bit clamping.
-    ///
-    /// We recommend the `expand` method instead because it provides
-    /// a more uniformly distributed secret key, possibly benifiting 
-    /// some future protocols. 
     ///
     /// At present, there is no exposed mapping from Ristretto
     /// to the underlying Edwards curve because Ristretto invovles
@@ -143,6 +145,19 @@ impl MiniSecretKey {
     /// complex, and possibly harder to implement.  If anyone does
     /// standardize the mapping to the curve then this method permits
     /// compatable schnorrkel and ed25519 keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() {
+    /// use rand::{Rng, rngs::OsRng};
+    /// use schnorrkel::{MiniSecretKey, SecretKey};
+    ///
+    /// let mut csprng: OsRng = OsRng::new().unwrap();
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let secret_key: SecretKey = mini_secret_key.expand_ed25519();
+    /// # }
+    /// ```
     #[cfg(feature = "sha2")]
     pub fn expand_ed25519(&self) -> SecretKey {
         use sha2::{Sha512, digest::{Input,FixedOutput}};
@@ -167,6 +182,18 @@ impl MiniSecretKey {
         nonce.copy_from_slice(&r.as_slice()[32..64]);
 
         SecretKey{ key, nonce }
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    #[cfg(feature = "sha2")]
+    pub fn expand_ed25519_to_keypair(&self) -> Keypair {
+        self.expand_ed25519().into()
+    }
+
+    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
+    #[cfg(feature = "sha2")]
+    pub fn expand_ed25519_to_public(&self) -> PublicKey {
+        self.expand_ed25519().to_public()
     }
 
     /// Convert this secret key to a byte array.
@@ -285,7 +312,7 @@ impl MiniSecretKey {
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     ///
-    /// let public_key: PublicKey = secret_key.expand_to_public();
+    /// let public_key: PublicKey = secret_key.expand_ed25519_to_public();
     /// # }
     /// ```
     pub fn generate() -> MiniSecretKey {
@@ -352,6 +379,7 @@ impl ConstantTimeEq for SecretKey {
     }
 }
 
+#[cfg(feature = "sha2")]
 impl From<&MiniSecretKey> for SecretKey {
     /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
@@ -368,7 +396,7 @@ impl From<&MiniSecretKey> for SecretKey {
     /// # }
     /// ```
     fn from(msk: &MiniSecretKey) -> SecretKey {
-        msk.expand()
+        msk.expand_ed25519()
     }
 }
 
@@ -499,7 +527,8 @@ impl SecretKey {
     }
 
     /// Generate an "unbiased" `SecretKey` directly from a user
-    /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
+    /// suplied `csprng` uniformly, bypassing the `MiniSecretKey`
+    /// layer.
     pub fn generate_with<R>(mut csprng: R) -> SecretKey
     where R: CryptoRng + Rng,
     {
@@ -847,10 +876,13 @@ mod test {
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mini_secret: MiniSecretKey = MiniSecretKey::generate();
-        let secret: SecretKey = mini_secret.expand();
-        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public();
+        let secret: SecretKey = mini_secret.expand_ed25519();
+        let public_from_mini_secret: PublicKey = mini_secret.expand_ed25519_to_public();
         let public_from_secret: PublicKey = secret.to_public();
-
+        assert!(public_from_mini_secret == public_from_secret);
+        let secret: SecretKey = mini_secret.expand_uniform();
+        let public_from_mini_secret: PublicKey = mini_secret.expand_uniform_to_public();
+        let public_from_secret: PublicKey = secret.to_public();
         assert!(public_from_mini_secret == public_from_secret);
     }
 }
