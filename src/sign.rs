@@ -194,15 +194,31 @@ impl PublicKey {
      -> SignatureResult<()>
     {
         let A: &RistrettoPoint = self.as_point();
-        let R: RistrettoPoint;
-        let k: Scalar;
 
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"sign:pk",self.as_compressed());
         t.commit_point(b"sign:R",&signature.R);
 
-        k = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
-        R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
+        let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
+        let R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
+
+        if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
+    }
+
+    /// A temporary verification routine for use in transitioning substrate testnets only.
+    #[cfg(feature = "preaudit_deprecated")]
+    #[allow(non_snake_case)]
+    pub fn verify_preaudit_deprecated<T: SigningTranscript>(&self, mut t: T, signature: &Signature)
+     -> SignatureResult<()>
+    {    
+        let A: &RistrettoPoint = self.as_point();
+
+        t.proto_name(b"Schnorr-sig");
+        t.commit_point(b"pk",self.as_compressed());
+        t.commit_point(b"no",&signature.R);
+
+        let k: Scalar = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
+        let R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
 
         if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
     }
@@ -212,6 +228,10 @@ impl PublicKey {
      -> SignatureResult<()>
     {
         let t = SigningContext::new(ctx).bytes(msg);
+
+        #[cfg(feature = "preaudit_deprecated")]
+        { if self.verify_preaudit_deprecated(t.clone(),signature).is_ok() { return Ok(()); } }
+
         self.verify(t,signature)
     }
 }

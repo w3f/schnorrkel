@@ -1,6 +1,6 @@
 [package]
 name = "schnorrkel"
-version = "0.8.0"
+version = "0.8.1"
 authors = ["Jeff Burdges <jeff@web3.foundation>"]
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -75,6 +75,7 @@ harness = false
 
 [features]
 default = ["std", "u64_backend"] # "chacha"
+preaudit_deprecated = []
 chacha = ["rand_chacha"]
 std = ["curve25519-dalek/std", "rand/std"] # "failure/std"
 alloc = ["curve25519-dalek/alloc"]
