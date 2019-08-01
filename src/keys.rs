@@ -744,15 +744,13 @@ impl Keypair {
         ristretto point.";
     */
 
-    /// Convert this keypair to bytes.
+    /// Serialize `Keypair` to bytes.
     ///
     /// # Returns
     ///
-    /// An array of bytes, `[u8; KEYPAIR_LENGTH]`.  The first
-    /// `SECRET_KEY_LENGTH` of bytes is the serialized `SecretKey`, and the
-    /// next `PUBLIC_KEY_LENGTH` bytes is the `PublicKey` (the same as other
-    /// libraries, such as [Adam Langley's ed25519 Golang
-    /// implementation](https://github.com/agl/ed25519/)).
+    /// A byte array `[u8; KEYPAIR_LENGTH]` consisting of first a
+    /// `SecretKey` serialized cannonically, and next the Ristterro
+    /// `PublicKey`
     ///
     /// # Examples
     ///
@@ -772,12 +770,13 @@ impl Keypair {
         bytes
     }
 
-    /// Construct a `Keypair` from the bytes of a `PublicKey` and `MiniSecretKey`.
+    /// Deserialize a `Keypair` from bytes.
     ///
     /// # Inputs
     ///
-    /// * `bytes`: an `&[u8]` representing the scalar for the secret key, and a
-    ///   compressed Ristretto point, both as bytes.
+    /// * `bytes`: an `&[u8]` consisting of byte representations of
+    /// first a `SecretKey` and then the corresponding ristretto
+    /// `PublicKey`.
     ///
     /// # Examples
     ///
@@ -790,13 +789,6 @@ impl Keypair {
     /// // let keypair: Keypair = Keypair::from_bytes(&keypair_bytes[..]).unwrap();
     /// // assert_eq!(&keypair_bytes[..], & keypair.to_bytes()[..]);
     /// ```
-    ///
-    /// # Warning
-    ///
-    /// Absolutely no validation is done on the key.  If you give this function
-    /// bytes which do not represent a valid point, or which do not represent
-    /// corresponding parts of the key, then your `Keypair` will be broken and
-    /// it will be your fault.
     ///
     /// # Returns
     ///
@@ -816,7 +808,24 @@ impl Keypair {
         Ok(Keypair{ secret: secret, public: public })
     }
     
-    /// Construct a `Keypair` from the bytes of a `PublicKey` and `MiniSecretKey` previously edxpanded with ed25519.
+    /// Serialize `Keypair` to bytes with Ed25519 secret key format.
+    ///
+    /// # Returns
+    ///
+    /// A byte array `[u8; KEYPAIR_LENGTH]` consisting of first a
+    /// `SecretKey` serialized like Ed25519, and next the Ristterro
+    /// `PublicKey`
+    ///
+    /// 
+    pub fn to_half_ed25519_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
+        let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
+
+        bytes[..SECRET_KEY_LENGTH].copy_from_slice(& self.secret.to_ed25519_bytes());
+        bytes[SECRET_KEY_LENGTH..].copy_from_slice(& self.public.to_bytes());
+        bytes
+    }
+
+    /// Deserialize a `Keypair` from bytes with Ed25519 style `SecretKey` format.
     ///
     /// # Inputs
     ///
@@ -829,23 +838,16 @@ impl Keypair {
     /// use schnorrkel::{Keypair, KEYPAIR_LENGTH};
     /// use hex_literal::hex;
     ///
-    /// // let keypair_bytes = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca3446ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
-    /// // let keypair: Keypair = Keypair::from_ed25519_bytes(&keypair_bytes[..]).unwrap();
-    /// // assert_eq!(&keypair_bytes[..], & keypair.to_bytes()[..]);
+    /// let keypair_bytes = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca3446ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
+    /// let keypair: Keypair = Keypair::from_half_ed25519_bytes(&keypair_bytes[..]).unwrap();
+    /// assert_eq!(&keypair_bytes[..], & keypair.to_half_ed25519_bytes()[..]);
     /// ```
-    ///
-    /// # Warning
-    ///
-    /// Absolutely no validation is done on the key.  If you give this function
-    /// bytes which do not represent a valid point, or which do not represent
-    /// corresponding parts of the key, then your `Keypair` will be broken and
-    /// it will be your fault.
     ///
     /// # Returns
     ///
     /// A `Result` whose okay value is an EdDSA `Keypair` or whose error value
     /// is an `SignatureError` describing the error that occurred.
-    pub fn from_ed25519_bytes(bytes: &[u8]) -> SignatureResult<Keypair> {
+    pub fn from_half_ed25519_bytes(bytes: &[u8]) -> SignatureResult<Keypair> {
         if bytes.len() != KEYPAIR_LENGTH {
             return Err(SignatureError::BytesLengthError {
                 name: "Keypair",
