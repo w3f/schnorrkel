@@ -815,6 +815,49 @@ impl Keypair {
 
         Ok(Keypair{ secret: secret, public: public })
     }
+    
+    /// Construct a `Keypair` from the bytes of a `PublicKey` and `MiniSecretKey` previously edxpanded with ed25519.
+    ///
+    /// # Inputs
+    ///
+    /// * `bytes`: an `&[u8]` representing the scalar for the secret key, and a
+    ///   compressed Ristretto point, both as bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use schnorrkel::{Keypair, KEYPAIR_LENGTH};
+    /// use hex_literal::hex;
+    ///
+    /// // let keypair_bytes = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca3446ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
+    /// // let keypair: Keypair = Keypair::from_ed25519_bytes(&keypair_bytes[..]).unwrap();
+    /// // assert_eq!(&keypair_bytes[..], & keypair.to_bytes()[..]);
+    /// ```
+    ///
+    /// # Warning
+    ///
+    /// Absolutely no validation is done on the key.  If you give this function
+    /// bytes which do not represent a valid point, or which do not represent
+    /// corresponding parts of the key, then your `Keypair` will be broken and
+    /// it will be your fault.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` whose okay value is an EdDSA `Keypair` or whose error value
+    /// is an `SignatureError` describing the error that occurred.
+    pub fn from_ed25519_bytes(bytes: &[u8]) -> SignatureResult<Keypair> {
+        if bytes.len() != KEYPAIR_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "Keypair",
+                description: Keypair::DESCRIPTION,
+                length: KEYPAIR_LENGTH
+            });
+        }
+        let secret = SecretKey::from_ed25519_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
+        let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
+
+        Ok(Keypair{ secret: secret, public: public })
+    }
 
     /// Generate a Ristretto Schnorr `Keypair` directly,
     /// bypassing the `MiniSecretKey` layer.
