@@ -32,7 +32,7 @@ use curve25519_dalek::constants;
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
-use crate::context::{SigningTranscript,SigningContext};
+use crate::context::{SigningTranscript};
 
 /// Length in bytes of our chain codes.
 ///
@@ -63,7 +63,8 @@ pub trait Derivation : Sized {
     /// the reasons discussed in `lib.rs`, and 
     /// https://github.com/rust-lang/rust/issues/36887
     fn derived_key_simple<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
-        let t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
+        let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+        t.append_message(b"sign-bytes", i.as_ref());
         self.derived_key(t, cc)
     }
 }
@@ -109,7 +110,8 @@ impl SecretKey {
     pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
      -> (MiniSecretKey,ChainCode)
     {
-        let mut t = SigningContext::new(b"SchnorrRistrettoHDKD").bytes(i.as_ref());
+        let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+        t.append_message(b"sign-bytes", i.as_ref());
 
 		if let Some(c) = cc { t.append_message(b"chain-code", &c.0); }
         t.append_message(b"secret-key",& self.key.to_bytes() as &[u8]);
