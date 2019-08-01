@@ -270,26 +270,15 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// use schnorrkel::MiniSecretKey;
-    /// use schnorrkel::MINI_SECRET_KEY_LENGTH;
-    /// use schnorrkel::SignatureError;
+    /// use schnorrkel::{MiniSecretKey, MINI_SECRET_KEY_LENGTH};
     ///
-    /// # fn doctest() -> Result<MiniSecretKey, SignatureError> {
     /// let secret_key_bytes: [u8; MINI_SECRET_KEY_LENGTH] = [
     ///    157, 097, 177, 157, 239, 253, 090, 096,
     ///    186, 132, 074, 244, 146, 236, 044, 196,
     ///    068, 073, 197, 105, 123, 050, 105, 025,
     ///    112, 059, 172, 003, 028, 174, 127, 096, ];
     ///
-    /// let secret_key: MiniSecretKey = MiniSecretKey::from_bytes(&secret_key_bytes)?;
-    /// #
-    /// # Ok(secret_key)
-    /// # }
-    /// #
-    /// # fn main() {
-    /// #     let result = doctest();
-    /// #     assert!(result.is_ok());
-    /// # }
+    /// let secret_key: MiniSecretKey = MiniSecretKey::from_bytes(&secret_key_bytes).unwrap();
     /// ```
     ///
     /// # Returns
@@ -315,18 +304,11 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// # #[cfg(feature = "std")]
-    /// # fn main() {
-    /// #
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{PublicKey, MiniSecretKey, Signature};
     ///
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
-    /// # }
-    /// #
-    /// # #[cfg(not(feature = "std"))]
-    /// # fn main() { }
     /// ```
     ///
     /// # Input
@@ -345,23 +327,14 @@ impl MiniSecretKey {
     /// # Example
     ///
     /// ```
-    /// # #[cfg(feature = "std")]
-    /// # fn main() {
-    /// #
     /// use schnorrkel::{PublicKey, MiniSecretKey, Signature};
     ///
     /// let secret_key: MiniSecretKey = MiniSecretKey::generate();
-    /// # }
-    /// #
-    /// # #[cfg(not(feature = "std"))]
-    /// # fn main() { }
     /// ```
     ///
     /// Afterwards, you can generate the corresponding public key.
     ///
     /// ```
-    /// # fn main() {
-    /// #
     /// # use rand::{Rng, SeedableRng};
     /// # use rand_chacha::ChaChaRng;
     /// # use schnorrkel::{PublicKey, MiniSecretKey, ExpansionMode, Signature};
@@ -370,7 +343,6 @@ impl MiniSecretKey {
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     ///
     /// let public_key: PublicKey = secret_key.expand_to_public(ExpansionMode::Ed25519);
-    /// # }
     /// ```
     pub fn generate() -> MiniSecretKey {
         Self::generate_with(thread_rng())
@@ -470,17 +442,15 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
-    /// # fn main() {
-    /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
     /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::UNIFORM_MODE);
     /// # // was SecretKey::from(&mini_secret_key);
     /// let secret_key_bytes: [u8; 64] = secret_key.to_bytes();
-    ///
-    /// assert!(&secret_key_bytes[..] != &[0u8; 64][..]);
-    /// # }
+    /// let bytes: [u8; 64] = secret_key.to_bytes();
+    /// let secret_key_again: SecretKey = SecretKey::from_bytes(&bytes[..]).unwrap();
+    /// assert_eq!(&bytes[..], & secret_key_again.to_bytes()[..]);
     /// ```
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
@@ -496,22 +466,13 @@ impl SecretKey {
     ///
     /// ```
     /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode, SignatureError};
-    /// use rand::{Rng, rngs::OsRng};
-    /// # fn do_test() -> Result<SecretKey, SignatureError> {
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
+    ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
-    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE);
+    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE); 
     /// # // was SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
-    /// let secret_key_again = SecretKey::from_bytes(&bytes) ?;
-    /// #
-    /// # Ok(secret_key_again)
-    /// # }
-    /// #
-    /// # fn main() {
-    /// #     let result = do_test();
-    /// #     assert!(result.is_ok());
-    /// # }
+    /// let secret_key_again: SecretKey = SecretKey::from_bytes(&bytes[..]).unwrap();
+    /// assert_eq!(secret_key_again, secret_key);
     /// ```
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<SecretKey> {
@@ -560,6 +521,19 @@ impl SecretKey {
 
     /// Construct an `SecretKey` from a slice of bytes, corresponding to
     /// an Ed25519 expanded secret key.
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///     
+    /// use schnorrkel::{SecretKey, SECRET_KEY_LENGTH};
+	/// use hex_literal::hex;
+    ///
+    /// let secret = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca34");
+    /// let public = hex!("46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
+    /// let secret_key = SecretKey::from_ed25519_bytes(&secret[..]).unwrap();
+    /// assert_eq!(secret_key.to_public().to_bytes(), public);
+    /// ```
     #[inline]
     pub fn from_ed25519_bytes(bytes: &[u8]) -> SignatureResult<SecretKey> {
         if bytes.len() != SECRET_KEY_LENGTH {
@@ -679,6 +653,16 @@ impl PublicKey {
     }
 
     /// Convert this public key to a byte array.
+    /// # Example
+    ///
+    /// ```
+    /// use schnorrkel::{SecretKey, PublicKey, PUBLIC_KEY_LENGTH, SignatureError};
+    ///
+    /// let public_key: PublicKey = SecretKey::generate().to_public();
+    /// let public_key_bytes = public_key.to_bytes();
+    /// let public_key_again: PublicKey = PublicKey::from_bytes(&public_key_bytes[..]).unwrap();
+    /// assert_eq!(public_key_bytes, public_key_again.to_bytes());
+    /// ```
     #[inline]
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
         self.as_compressed().to_bytes()
@@ -689,23 +673,16 @@ impl PublicKey {
     /// # Example
     ///
     /// ```
-    /// use schnorrkel::PublicKey;
-    /// use schnorrkel::PUBLIC_KEY_LENGTH;
-    /// use schnorrkel::SignatureError;
+    /// use schnorrkel::{PublicKey, PUBLIC_KEY_LENGTH, SignatureError};
     ///
-    /// # fn doctest() -> Result<PublicKey, SignatureError> {
     /// let public_key_bytes: [u8; PUBLIC_KEY_LENGTH] = [
-    ///    215,  90, 152,   1, 130, 177,  10, 183, 213,  75, 254, 211, 201, 100,   7,  58,
-    ///     14, 225, 114, 243, 218, 166,  35,  37, 175,   2,  26, 104, 247,   7,   81, 26];
+    ///     208, 120, 140, 129, 177, 179, 237, 159,
+    ///     252, 160, 028, 013, 206, 005, 211, 241,
+    ///     192, 218, 001, 097, 130, 241, 020, 169,
+    ///     119, 046, 246, 029, 079, 080, 077, 084];
     ///
-    /// let public_key = PublicKey::from_bytes(&public_key_bytes)?;
-    /// #
-    /// # Ok(public_key)
-    /// # }
-    /// #
-    /// # fn main() {
-    /// #     doctest();
-    /// # }
+    /// let public_key = PublicKey::from_bytes(&public_key_bytes).unwrap();
+    /// assert_eq!(public_key.to_bytes(), public_key_bytes);
     /// ```
     ///
     /// # Returns
@@ -776,6 +753,17 @@ impl Keypair {
     /// next `PUBLIC_KEY_LENGTH` bytes is the `PublicKey` (the same as other
     /// libraries, such as [Adam Langley's ed25519 Golang
     /// implementation](https://github.com/agl/ed25519/)).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use schnorrkel::{Keypair, KEYPAIR_LENGTH};
+    ///
+    /// let keypair: Keypair = Keypair::generate();
+    /// let bytes: [u8; KEYPAIR_LENGTH] = keypair.to_bytes();
+    /// let keypair_too = Keypair::from_bytes(&bytes[..]).unwrap();
+    /// assert_eq!(&bytes[..], & keypair_too.to_bytes()[..]);
+    /// ```
     pub fn to_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
 
@@ -790,7 +778,18 @@ impl Keypair {
     ///
     /// * `bytes`: an `&[u8]` representing the scalar for the secret key, and a
     ///   compressed Ristretto point, both as bytes.
-    ///   (As obtained from `Keypair::to_bytes()`.)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use schnorrkel::{Keypair, KEYPAIR_LENGTH};
+    /// use hex_literal::hex;
+    ///
+    /// // TODO: Fix test vector
+    /// // let keypair_bytes = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca3446ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
+    /// // let keypair: Keypair = Keypair::from_bytes(&keypair_bytes[..]).unwrap();
+    /// // assert_eq!(&keypair_bytes[..], & keypair.to_bytes()[..]);
+    /// ```
     ///
     /// # Warning
     ///
