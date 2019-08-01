@@ -46,7 +46,46 @@ pub const SECRET_KEY_LENGTH: usize = SECRET_KEY_KEY_LENGTH + SECRET_KEY_NONCE_LE
 pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 
 
+/// Methods for expanding a `MiniSecretKey` into a `SecretKey`.
+///
+/// Our `SecretKey`s consist of a scalar and nonce seed, both 32 bytes,
+/// what EdDSA/Ed25519 calls an extended secret key.  We normally create 
+/// `SecretKey`s by expanding a `MiniSecretKey`, what Esd25519 calls
+/// a `SecretKey`.  We provide two such methods, our suggested approach
+/// produces uniformly distribted secret key scalars, but another
+/// approach retains the bit clamping form Ed25519.
+pub enum ExpansionMode {
+    /// Expand the `MiniSecretKey` into a uniformly distributed
+    /// `SecretKey`. 
+    ///
+    /// We preoduce the `SecretKey` using merlin and far more uniform
+    /// sampling, which might benefits some future protocols, and
+    /// might reduce binary size if used throughout.  
+    ///
+    /// We slightly prefer this method, but some existing code uses
+    /// `Ed25519` mode, so users cannot necessarily use this mode
+    /// if they require compatability with existing systems.
+    Uniform,
 
+    /// Expand this `MiniSecretKey` into a `SecretKey` using
+    /// ed25519-style bit clamping.
+    ///
+    /// Ristretto points are represented by Ed25519 points internally
+    /// so concievably some future standard might expose a mapping
+    /// from Ristretto to Ed25519, which makes this mode useful.
+    /// At present, there is no such exposed mapping however because
+    /// two such mappings actually exist, depending upon the branch of
+    /// the inverse square root chosen by a Ristretto implementation.
+    /// There is however a concern that such a mapping would remain
+    /// a second class citizen, meaning implementations differ and
+    /// create incompatability.
+    ///
+    /// We weakly recommend against emoloying this method.  We include
+    /// it primarily because early Ristretto documentation touted the 
+    /// relationship with Ed25519, which led to some deployments adopting
+    /// this expansion method.
+    Ed25519,
+}
 
 /// An EdDSA-like "secret" key seed.
 ///
@@ -92,6 +131,12 @@ impl ConstantTimeEq for MiniSecretKey {
 impl MiniSecretKey {
     const DESCRIPTION : &'static str = "Analogous to ed25519 secret key as 32 bytes, see RFC8032.";
 
+    /// Avoids importing `ExpansionMode`
+    pub const UNIFORM_MODE : ExpansionMode = ExpansionMode::Uniform;
+
+    /// Avoids importing `ExpansionMode`
+    pub const ED25519_MODE : ExpansionMode = ExpansionMode::Ed25519;
+
     /// Expand this `MiniSecretKey` into a `SecretKey`
     ///
     /// We preoduce a secret keys using merlin and more uniformly
@@ -100,7 +145,7 @@ impl MiniSecretKey {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```compile_fail
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -110,7 +155,7 @@ impl MiniSecretKey {
     /// let secret_key: SecretKey = mini_secret_key.expand_uniform();
     /// # }
     /// ```
-    pub fn expand_uniform(&self) -> SecretKey {
+    fn expand_uniform(&self) -> SecretKey {
         let mut t = merlin::Transcript::new(b"ExpandSecretKeys");
         t.append_message(b"mini", &self.0[..]);
 
@@ -122,16 +167,6 @@ impl MiniSecretKey {
         t.challenge_bytes(b"no", &mut nonce);
 
         SecretKey { key, nonce }
-    }
-
-    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_uniform_to_keypair(&self) -> Keypair {
-        self.expand_uniform().into()
-    }
-
-    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_uniform_to_public(&self) -> PublicKey {
-        self.expand_uniform().to_public()
     }
 
     /// Expand this `MiniSecretKey` into a `SecretKey` using
@@ -148,7 +183,7 @@ impl MiniSecretKey {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```compile_fail
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -158,7 +193,7 @@ impl MiniSecretKey {
     /// let secret_key: SecretKey = mini_secret_key.expand_ed25519();
     /// # }
     /// ```
-    pub fn expand_ed25519(&self) -> SecretKey {
+    fn expand_ed25519(&self) -> SecretKey {
         use sha2::{Sha512, digest::{Input,FixedOutput}};
 
         let mut h = Sha512::default();
@@ -183,14 +218,39 @@ impl MiniSecretKey {
         SecretKey{ key, nonce }
     }
 
-    /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_ed25519_to_keypair(&self) -> Keypair {
-        self.expand_ed25519().into()
+    /// Derive the `SecretKey` corresponding to this `MiniSecretKey`.
+    ///
+    /// We caution that `mode` must always be chosen consistently.
+    /// We slightly prefer `ExpansionMode::Uniform` here, but both
+    /// remain secure under almost all situations.  There exists
+    /// deployed code using `ExpansionMode::Ed25519`, so you might
+    /// require that for compatability. 
+    ///
+    /// ```
+    /// # fn main() {
+    /// use rand::{Rng, rngs::OsRng};
+    /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode};
+    ///
+    /// let mut csprng: OsRng = OsRng::new().unwrap();
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let secret_key: SecretKey = mini_secret_key.expand(ExpansionMode::Uniform);
+    /// # }
+    /// ```
+    pub fn expand(&self, mode: ExpansionMode) -> SecretKey {
+        match mode {
+            ExpansionMode::Uniform => self.expand_uniform(),
+            ExpansionMode::Ed25519 => self.expand_ed25519(),
+        }
+    }
+
+    /// Derive the `Keypair` corresponding to this `MiniSecretKey`.
+    pub fn expand_to_keypair(&self, mode: ExpansionMode) -> Keypair {
+        self.expand(mode).into()
     }
 
     /// Derive the `PublicKey` corresponding to this `MiniSecretKey`.
-    pub fn expand_ed25519_to_public(&self) -> PublicKey {
-        self.expand_ed25519().to_public()
+    pub fn expand_to_public(&self, mode: ExpansionMode) -> PublicKey {
+        self.expand(mode).to_public()
     }
 
     /// Convert this secret key to a byte array.
@@ -304,12 +364,12 @@ impl MiniSecretKey {
     /// #
     /// # use rand::{Rng, SeedableRng};
     /// # use rand_chacha::ChaChaRng;
-    /// # use schnorrkel::{PublicKey, MiniSecretKey, Signature};
+    /// # use schnorrkel::{PublicKey, MiniSecretKey, ExpansionMode, Signature};
     /// #
     /// # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
     /// # let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
     ///
-    /// let public_key: PublicKey = secret_key.expand_ed25519_to_public();
+    /// let public_key: PublicKey = secret_key.expand_to_public(ExpansionMode::Ed25519);
     /// # }
     /// ```
     pub fn generate() -> MiniSecretKey {
@@ -376,6 +436,7 @@ impl ConstantTimeEq for SecretKey {
     }
 }
 
+/*
 impl From<&MiniSecretKey> for SecretKey {
     /// Construct an `SecretKey` from a `MiniSecretKey`.
     ///
@@ -392,9 +453,10 @@ impl From<&MiniSecretKey> for SecretKey {
     /// # }
     /// ```
     fn from(msk: &MiniSecretKey) -> SecretKey {
-        msk.expand_ed25519()
+        msk.expand(ExpansionMode::Ed25519)
     }
 }
+*/
 
 impl SecretKey {
     const DESCRIPTION : &'static str = "An ed25519-like expanded secret key as 64 bytes, as specified in RFC8032.";
@@ -413,7 +475,8 @@ impl SecretKey {
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
-    /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
+    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::UNIFORM_MODE);
+    /// # // was SecretKey::from(&mini_secret_key);
     /// let secret_key_bytes: [u8; 64] = secret_key.to_bytes();
     ///
     /// assert!(&secret_key_bytes[..] != &[0u8; 64][..]);
@@ -432,12 +495,13 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
-    /// use schnorrkel::{MiniSecretKey, SecretKey, SignatureError};
+    /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode, SignatureError};
     /// use rand::{Rng, rngs::OsRng};
     /// # fn do_test() -> Result<SecretKey, SignatureError> {
     /// let mut csprng: OsRng = OsRng::new().unwrap();
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
-    /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
+    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE);
+    /// # // was SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
     /// let secret_key_again = SecretKey::from_bytes(&bytes) ?;
     /// #
@@ -872,12 +936,12 @@ mod test {
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mini_secret: MiniSecretKey = MiniSecretKey::generate();
-        let secret: SecretKey = mini_secret.expand_ed25519();
-        let public_from_mini_secret: PublicKey = mini_secret.expand_ed25519_to_public();
+        let secret: SecretKey = mini_secret.expand(ExpansionMode::Ed25519);
+        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public(ExpansionMode::Ed25519);
         let public_from_secret: PublicKey = secret.to_public();
         assert!(public_from_mini_secret == public_from_secret);
-        let secret: SecretKey = mini_secret.expand_uniform();
-        let public_from_mini_secret: PublicKey = mini_secret.expand_uniform_to_public();
+        let secret: SecretKey = mini_secret.expand(ExpansionMode::Uniform);
+        let public_from_mini_secret: PublicKey = mini_secret.expand_to_public(ExpansionMode::Uniform);
         let public_from_secret: PublicKey = secret.to_public();
         assert!(public_from_mini_secret == public_from_secret);
     }

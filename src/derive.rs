@@ -138,10 +138,10 @@ impl MiniSecretKey {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B)
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, cc: Option<ChainCode>, i: B, mode: ExpansionMode)
      -> (MiniSecretKey,ChainCode)
     {
-        self.expand_uniform().hard_derive_mini_secret_key(cc,i)
+        self.expand(mode).hard_derive_mini_secret_key(cc,i)
     }
 }
 
@@ -273,9 +273,11 @@ impl ExtendedKey<SecretKey> {
     /// permissible mutations of `SecretKey`.  This means only that
     /// we hash the `SecretKey`'s scalar, but not its nonce becuase
     /// the secret key remains valid if the nonce is changed.
-    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<SecretKey> {
+    pub fn hard_derive_mini_secret_key<B: AsRef<[u8]>>(&self, i: B, mode: ExpansionMode)
+     -> ExtendedKey<SecretKey> 
+     {
         let (key,chaincode) = self.key.hard_derive_mini_secret_key(Some(self.chaincode), i);
-		let key = key.expand_uniform();
+		let key = key.expand(mode);
         ExtendedKey { key, chaincode }
     }
 }

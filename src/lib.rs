@@ -246,7 +246,7 @@ pub mod errors;
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub mod musig;
 
-pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair}; + *_LENGTH
+pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair,ExpansionMode}; + *_LENGTH
 pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
