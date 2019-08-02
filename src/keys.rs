@@ -525,7 +525,6 @@ impl SecretKey {
     /// # Example
     ///
     /// ```
-    ///     
     /// use schnorrkel::{SecretKey, SECRET_KEY_LENGTH};
 	/// use hex_literal::hex;
     ///
