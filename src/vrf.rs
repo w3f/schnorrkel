@@ -142,7 +142,7 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
 /// to another soft subkey, gaining early knowledge of the VRF output.
 /// We think most VRF applicaitons for which HDKH soudns suitable
 /// benefit from using implicit certificates insead of HDKD anyways,
-/// which should also be secure in combination with HDKH.
+/// which should also be secure in combination with HDKD.
 /// We always use non-malleable VRF inputs in our convenience methods.
 #[derive(Clone)]
 pub struct Malleable<T: SigningTranscript>(pub T);
