@@ -394,6 +394,30 @@ where T: SigningTranscript, R: RngCore+CryptoRng
     }
 }
 
+/// Attach a fake `Rng` that returns all zeros, only for use in test vectors.
+/// You must never deploy this because some protocols like MuSig become insecure.
+#[cfg(test)]
+pub fn attach_test_vector_rng<T>(t: T) -> SigningTranscriptWithRng<T,impl RngCore+CryptoRng>
+where T: SigningTranscript
+{
+    // Very insecure hack except for our commit_witness_bytes below
+    struct ZeroFakeRng;
+    impl ::rand::RngCore for ZeroFakeRng {
+        fn next_u32(&mut self) -> u32 {  panic!()  }
+        fn next_u64(&mut self) -> u64 {  panic!()  }
+        fn fill_bytes(&mut self, dest: &mut [u8]) {
+            for i in dest.iter_mut() {  *i = 0;  }
+        }
+        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+            self.fill_bytes(dest);
+            Ok(())
+        }
+    }
+    impl ::rand::CryptoRng for ZeroFakeRng {}
+    attach_rng(t, ZeroFakeRng)
+}
+
+
 /*
 #[cfg(debug_assertions)]
 use rand_chacha::ChaChaRng;
