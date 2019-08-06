@@ -171,7 +171,7 @@ impl Keypair {
     /// We expect the trait methods of `Keypair as Derivation` to be
     /// more useful since signing anything requires the public key too.
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
-    where T: SigningTranscript+Clone
+    where T: SigningTranscript
     {
         let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(&mut t, cc);
 
@@ -179,16 +179,10 @@ impl Keypair {
         // the signature from bad random number generators.  It need not be
         // specified by any spcification or standard.  It must however be
         // independent from the mutating scalar and new chain code.
+        // We employ the witness mechanism here so that CSPRNG associated to our
+        // `SigningTranscript` makes our new nonce seed independent from everything.
         let mut nonce = [0u8; 32];
-        rand_hack().fill_bytes(&mut nonce);
-        // Ideally we'd use the witness mechanism from `merlin::transcript` here,
-        // instead of the commit and challenge machinery.  Yet, we lack access so
-        // long as we work behind the `SigningTranscript` trait, so we fork the
-        // transcript instead.
-        let mut t = t.clone(); 
-        t.commit_bytes(b"",& self.secret.to_bytes() as &[u8]);
-        t.commit_bytes(b"",& nonce);
-        t.challenge_bytes(b"",&mut nonce);
+        t.witness_bytes(b"HDKD-nonce", &mut nonce, &[&self.secret.nonce, &self.secret.to_bytes() as &[u8]]);
 
         (SecretKey {
             key: self.secret.key + scalar,
