@@ -13,7 +13,7 @@
 use core::convert::AsRef;
 use core::fmt::{Debug};
 
-use rand::prelude::*;  // {RngCore,thread_rng};
+use rand_core::{RngCore,CryptoRng};
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
@@ -315,7 +315,7 @@ impl MiniSecretKey {
     ///
     /// A CSPRNG with a `fill_bytes()` method, e.g. `rand_chacha::ChaChaRng`
     pub fn generate_with<R>(mut csprng: R) -> MiniSecretKey
-    where R: CryptoRng + Rng,
+    where R: CryptoRng + RngCore,
     {
         let mut sk: MiniSecretKey = MiniSecretKey([0u8; 32]);
         csprng.fill_bytes(&mut sk.0);
@@ -344,8 +344,9 @@ impl MiniSecretKey {
     ///
     /// let public_key: PublicKey = secret_key.expand_to_public(ExpansionMode::Ed25519);
     /// ```
+    #[cfg(feature = "std")]
     pub fn generate() -> MiniSecretKey {
-        Self::generate_with(thread_rng())
+        Self::generate_with(super::rand_hack())
     }
 }
 
@@ -563,7 +564,7 @@ impl SecretKey {
     /// suplied `csprng` uniformly, bypassing the `MiniSecretKey`
     /// layer.
     pub fn generate_with<R>(mut csprng: R) -> SecretKey
-    where R: CryptoRng + Rng,
+    where R: CryptoRng + RngCore,
     {
         let mut key: [u8; 64] = [0u8; 64];
         csprng.fill_bytes(&mut key);
@@ -574,8 +575,9 @@ impl SecretKey {
 
     /// Generate an "unbiased" `SecretKey` directly,
     /// bypassing the `MiniSecretKey` layer.
+    #[cfg(feature = "std")]
     pub fn generate() -> SecretKey {
-        Self::generate_with(thread_rng())
+        Self::generate_with(super::rand_hack())
     }
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
@@ -886,7 +888,7 @@ impl Keypair {
     /// so our secret keys do not satisfy the high bit "clamping"
     /// impoised on Ed25519 keys.
     pub fn generate_with<R>(csprng: R) -> Keypair
-    where R: CryptoRng + Rng,
+    where R: CryptoRng + RngCore,
     {
         let secret: SecretKey = SecretKey::generate_with(csprng);
         let public: PublicKey = secret.to_public();
@@ -896,8 +898,9 @@ impl Keypair {
 
     /// Generate a Ristretto Schnorr `Keypair` directly, from a user
     /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
+    #[cfg(feature = "std")]
     pub fn generate() -> Keypair {
-        Self::generate_with(thread_rng())
+        Self::generate_with(super::rand_hack())
     }
 }
 

@@ -229,6 +229,33 @@ fn zeroize_hack<Z: Default>(z: &mut Z) {
     atomic::compiler_fence(atomic::Ordering::SeqCst);
 }
 
+use rand_core::{RngCore,CryptoRng};
+
+#[cfg(feature = "std")]
+fn rand_hack() -> impl RngCore+CryptoRng {
+    #[cfg(feature = "rand")] 
+    { ::rand::thread_rng() }
+
+    #[cfg(not(feature = "rand"))] 
+    { ::rand_os::OsRng::new() }
+}
+
+#[cfg(not(feature = "std"))]
+fn rand_hack() -> impl RngCore+CryptoRng {
+    const PRM : &'static str = "Attempted to use functionality that requires system randomness!!";
+
+    struct PanicRng;
+    impl ::rand_core::RngCore for PanicRng {
+        fn next_u32(&mut self) -> u32 {  panic!(&PRM)  }
+        fn next_u64(&mut self) -> u64 {  panic!(&PRM)  }
+        fn fill_bytes(&mut self, _dest: &mut [u8]) {  panic!(&PRM)  }
+        fn try_fill_bytes(&mut self, _dest: &mut [u8]) -> Result<(), ::rand_core::Error> {  panic!(&PRM)  }
+    }
+    impl ::rand_core::CryptoRng for PanicRng {}
+
+    PanicRng
+}
+
 #[macro_use]
 mod serdey;
 
@@ -243,7 +270,8 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
-#[cfg(any(feature = "alloc", feature = "std"))]
+// Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "std")]
 pub mod musig;
 
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair,ExpansionMode}; + *_LENGTH

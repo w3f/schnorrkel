@@ -85,8 +85,6 @@ use alloc::{boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use std::{boxed::Box, vec::Vec};
 
-use rand::prelude::*; // ThreadRng,thread_rng
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -324,7 +322,7 @@ impl VRFInOut {
     /// If you are not the signer then you must verify the VRF before calling this method.
     ///
     /// We expect most users would prefer the less generic `VRFInOut::make_chacharng` method.
-    pub fn make_rng<R: SeedableRng>(&self, context: &[u8]) -> R {
+    pub fn make_rng<R: ::rand_core::SeedableRng>(&self, context: &[u8]) -> R {
         R::from_seed(self.make_bytes::<R::Seed>(context))
     }
 
@@ -356,18 +354,18 @@ impl VRFInOut {
     pub fn make_merlin_rng(&self, context: &[u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
-        impl ::rand::RngCore for ZeroFakeRng {
+        impl ::rand_core::RngCore for ZeroFakeRng {
             fn next_u32(&mut self) -> u32 {  panic!()  }
             fn next_u64(&mut self) -> u64 {  panic!()  }
             fn fill_bytes(&mut self, dest: &mut [u8]) {
                 for i in dest.iter_mut() {  *i = 0;  }
             }
-            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::rand_core::Error> {
                 self.fill_bytes(dest);
                 Ok(())
             }
         }
-        impl ::rand::CryptoRng for ZeroFakeRng {}
+        impl ::rand_core::CryptoRng for ZeroFakeRng {}
 
         let mut t = Transcript::new(b"VRFResult");
         t.append_message(b"",context);
@@ -823,21 +821,24 @@ pub fn dleq_verify_batch(
 
     // Use a random number generator keyed by the publidc keys, the
     // inout and putput points, and the system randomn number gnerator.
-    let mut rng = {
+    let mut csprng = {
         let mut t = Transcript::new(b"VB-RNG");
         for (pk,p) in public_keys.iter().zip(ps) {
             t.commit_point(b"",pk.as_compressed());
             p.commit(&mut t);
         }
-        t.build_rng().finalize(&mut rand::prelude::thread_rng())
+        t.build_rng().finalize(&mut rand_hack())
     };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below.
-    let zz: Vec<Scalar> = proofs.iter()
-        .map(|_| Scalar::from(rng.gen::<u128>()))
-        .collect();
+    let rnd_128bit_scalar = |_| {
+        let mut r = [0u8; 16];
+        csprng.fill_bytes(&mut r);
+        Scalar::from(u128::from_le_bytes(r))
+    };
+    let zz: Vec<Scalar> = proofs.iter().map(rnd_128bit_scalar).collect();
 
     let z_s: Vec<Scalar> = zz.iter().zip(proofs)
         .map(|(z, proof)| z * proof.s)
@@ -1030,7 +1031,7 @@ mod tests {
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn vrfs_merged_and_batched() {
-        let mut csprng = thread_rng();
+        let mut csprng = ::rand::thread_rng();
         let keypairs: Vec<Keypair> = (0..4)
             .map(|_| Keypair::generate_with(&mut csprng))
             .collect();

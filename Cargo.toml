@@ -37,7 +37,16 @@ default-features = false
 [dependencies.rand]
 version = "0.6"
 default-features = false
+optional = true
 features = ["i128_support"]
+
+[dependencies.rand_core]
+version = "0.4"
+default-features = false
+
+[dependencies.rand_os]
+version = "0.1.3"
+default-features = false
 
 [dependencies.rand_chacha]
 version = "0.2"
@@ -63,6 +72,7 @@ default-features = false
 # features = ["zeroize_derive"]
 
 [dev-dependencies]
+rand = "0.6"
 rand_chacha = "0.1.0"
 # hex = "0.3.2"
 hex-literal = "0.2.0"
@@ -76,7 +86,7 @@ name = "schnorr_benchmarks"
 harness = false
 
 [features]
-default = ["std", "u64_backend"] # "chacha"
+default = ["std", "u64_backend", "rand"] # "chacha"
 preaudit_deprecated = []
 chacha = ["rand_chacha"]
 std = ["curve25519-dalek/std", "rand/std"] # "failure/std"

@@ -12,8 +12,6 @@
 
 use core::fmt::{Debug};
 
-use rand::prelude::*;  // {RngCore,thread_rng};
-
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
@@ -310,20 +308,23 @@ where
 
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator 
-    let mut rng = {
+    let mut csprng = {
         let mut t = merlin::Transcript::new(b"V-RNG");
         for pk in public_keys {
             t.commit_point(b"",pk.as_compressed());
         }
-        t.build_rng().finalize(&mut rand::prelude::thread_rng())
+        t.build_rng().finalize(&mut rand_hack())
     };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
-    let zs: Vec<Scalar> = signatures.iter()
-        .map(|_| Scalar::from(rng.gen::<u128>()))
-        .collect();
+    let rnd_128bit_scalar = |_| {
+        let mut r = [0u8; 16];
+        csprng.fill_bytes(&mut r);
+        Scalar::from(u128::from_le_bytes(r))
+    };
+    let zs: Vec<Scalar> = signatures.iter().map(rnd_128bit_scalar).collect();
 
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
     let B_coefficient: Scalar = signatures.iter()

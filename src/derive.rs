@@ -173,8 +173,6 @@ impl Keypair {
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where T: SigningTranscript+Clone
     {
-        use ::rand::prelude::*;
-
         let (scalar, chaincode) = self.public.derive_scalar_and_chaincode(&mut t, cc);
 
         // We can define the nonce however we like here since it only protects
@@ -182,7 +180,7 @@ impl Keypair {
         // specified by any spcification or standard.  It must however be
         // independent from the mutating scalar and new chain code.
         let mut nonce = [0u8; 32];
-        thread_rng().fill_bytes(&mut nonce);
+        rand_hack().fill_bytes(&mut nonce);
         // Ideally we'd use the witness mechanism from `merlin::transcript` here,
         // instead of the commit and challenge machinery.  Yet, we lack access so
         // long as we work behind the `SigningTranscript` trait, so we fork the

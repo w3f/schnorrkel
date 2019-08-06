@@ -11,7 +11,7 @@
 
 use core::{cell::RefCell};
 
-use rand::prelude::*;  // {RngCore,thread_rng};
+use rand_core::{RngCore,CryptoRng};
 
 use merlin::{Transcript};
 
@@ -94,7 +94,7 @@ pub trait SigningTranscript {
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
     fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-    	self.witness_bytes_rng(label, dest, nonce_seeds, thread_rng())
+    	self.witness_bytes_rng(label, dest, nonce_seeds, super::rand_hack())
     }
 
     /// Produce secret witness bytes from the protocol transcript
@@ -408,7 +408,7 @@ where T: SigningTranscript
         fn fill_bytes(&mut self, dest: &mut [u8]) {
             for i in dest.iter_mut() {  *i = 0;  }
         }
-        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::rand_core::Error> {
             self.fill_bytes(dest);
             Ok(())
         }
@@ -419,11 +419,11 @@ where T: SigningTranscript
 
 
 /*
-#[cfg(debug_assertions)]
+#[cfg(feature = "rand_chacha")]
 use rand_chacha::ChaChaRng;
 
 /// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng`
-#[cfg(debug_assertions)]
+#[cfg(feature = "rand_chacha")]
 pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> SigningTranscriptWithRng<ChaChaRng> {
     attach_rng(t,ChaChaRng::from_seed(seed))
 }
@@ -433,7 +433,6 @@ pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> SigningTranscriptWithR
 /*
 #[cfg(test)]
 mod test {
-    use rand::prelude::*; // ThreadRng,thread_rng
     use sha3::Shake128;
     use curve25519_dalek::digest::{Input};
 
