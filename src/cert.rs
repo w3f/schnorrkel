@@ -178,9 +178,19 @@ impl Keypair {
     pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
     where T: SigningTranscript+Clone
     {
-        let key = t.witness_scalar(b"issue_self_ecqv_cert-secret_scalar",&[&self.secret.nonce]);
+        let mut t0 = t.clone();
+        t0.proto_name(b"issue_self_ecqv_cert");
+        t0.commit_bytes(b"in-scalar", &self.secret.to_bytes() as &[u8]);
+        t0.commit_bytes(b"in-nonce", &self.secret.nonce);
+
+        let mut r: [u8; 32] = [0u8; 32];
+        rand_hack().fill_bytes(&mut r);
+        t0.commit_bytes(b"randomness", &r);
+
+        let key = t0.challenge_scalar(b"out-scalar",);
         let mut nonce: [u8; 32] = [0u8; 32];
-        t.witness_bytes(b"issue_self_ecqv_cert-secret_nonce", &mut nonce, &[&self.secret.nonce]);
+        t0.challenge_bytes(b"out-nonce",&mut nonce);
+
         let seed = SecretKey { key, nonce }.to_keypair();
         let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
         self.public.accept_ecqv_cert(t, &seed.secret, cert_secret).expect("Cert issued above and known to produce signature errors; qed")
