@@ -180,7 +180,7 @@ impl Keypair {
         // specified by any spcification or standard.  It must however be
         // independent from the mutating scalar and new chain code.
         let mut nonce = [0u8; 32];
-        rand_hack().fill_bytes(&mut nonce);
+        t.witness_bytes(b"HDKD-nonce", &mut nonce, &[&self.secret.nonce]);
         // Ideally we'd use the witness mechanism from `merlin::transcript` here,
         // instead of the commit and challenge machinery.  Yet, we lack access so
         // long as we work behind the `SigningTranscript` trait, so we fork the
