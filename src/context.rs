@@ -418,16 +418,18 @@ where T: SigningTranscript
 }
 
 
-/*
 #[cfg(feature = "rand_chacha")]
 use rand_chacha::ChaChaRng;
 
 /// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng`
 #[cfg(feature = "rand_chacha")]
-pub fn attach_chacharng(t: Transcript, seed: [u8; 32]) -> SigningTranscriptWithRng<ChaChaRng> {
+pub fn attach_chacharng<T>(t: T, seed: [u8; 32]) -> SigningTranscriptWithRng<T,ChaChaRng> 
+where T: SigningTranscript
+{
+    use rand_core::SeedableRng;
     attach_rng(t,ChaChaRng::from_seed(seed))
 }
-*/
+
 
 
 /*
