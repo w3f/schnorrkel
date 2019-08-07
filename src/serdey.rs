@@ -148,9 +148,9 @@ mod test {
     #[test]
     fn serialize_secret_key_size() {
         assert_eq!(serialized_size(&ED25519_SECRET_KEY) as usize, 32+8);
-        let secret_key = ED25519_SECRET_KEY.expand_ed25519();
+        let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Ed25519);
         assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
-        let secret_key = ED25519_SECRET_KEY.expand_uniform();
+        let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Uniform);
         assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
     }
 }
