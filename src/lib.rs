@@ -231,7 +231,7 @@ fn zeroize_hack<Z: Default>(z: &mut Z) {
 
 use rand_core::{RngCore,CryptoRng};
 
-#[cfg(all(feature = "std", feature = "rand"))] 
+#[cfg(all(feature = "rand_os", feature = "rand"))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
     ::rand::thread_rng()
 }
