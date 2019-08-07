@@ -17,7 +17,7 @@ edition = "2018"
 
 [dependencies.curve25519-dalek]
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "1.0"
+version = "1.2"
 default-features = false
 
 [dependencies.ed25519-dalek]
