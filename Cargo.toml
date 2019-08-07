@@ -47,6 +47,7 @@ default-features = false
 [dependencies.rand_os]
 version = "0.1.3" # 0.2
 default-features = false
+optional = true
 
 [dependencies.rand_chacha]
 version = "0.1" # 0.2
@@ -88,10 +89,12 @@ harness = false
 [features]
 default = ["std", "u64_backend", "rand"] # "chacha"
 preaudit_deprecated = []
-chacha = ["rand_chacha"]
-std = ["curve25519-dalek/std", "rand/std"] # "failure/std"
-alloc = ["curve25519-dalek/alloc"]
 nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
+alloc = ["curve25519-dalek/alloc", "rand_core/alloc"]
+chacha = ["rand_chacha"]
+std = ["rand_os", "curve25519-dalek/std", "rand/std"] # "failure/std"
+stdweb = ["rand_os/stdweb"]
+wasm-bindgen = ["rand_os/wasm-bindgen"]
 asm = ["sha2/asm"]
 yolocrypto = ["curve25519-dalek/yolocrypto"]
 u64_backend = ["curve25519-dalek/u64_backend", "ed25519-dalek/u64_backend"]

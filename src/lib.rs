@@ -231,16 +231,17 @@ fn zeroize_hack<Z: Default>(z: &mut Z) {
 
 use rand_core::{RngCore,CryptoRng};
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "rand"))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
-    #[cfg(feature = "rand")] 
-    { ::rand::thread_rng() }
-
-    #[cfg(not(feature = "rand"))] 
-    { ::rand_os::OsRng::new() }
+    ::rand::thread_rng()
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(feature = "rand_os", not(feature = "rand")))] 
+fn rand_hack() -> impl RngCore+CryptoRng {
+    ::rand_os::OsRng::new().unwrap()
+}
+
+#[cfg(not(feature = "rand_os"))]
 fn rand_hack() -> impl RngCore+CryptoRng {
     const PRM : &'static str = "Attempted to use functionality that requires system randomness!!";
 
