@@ -178,18 +178,15 @@ impl Keypair {
     pub fn issue_self_ecqv_cert<T>(&self, t: T) -> (ECQVCertPublic, SecretKey)
     where T: SigningTranscript+Clone
     {
-        let mut t0 = t.clone();
-        t0.proto_name(b"issue_self_ecqv_cert");
-        t0.commit_bytes(b"in-scalar", &self.secret.to_bytes() as &[u8]);
-        t0.commit_bytes(b"in-nonce", &self.secret.nonce);
+        let mut bytes = [0u8; 96];
+        t.witness_bytes(b"issue_self_ecqv_cert", &mut bytes, &[&self.secret.nonce, &self.secret.to_bytes() as &[u8]]);
 
-        let mut r: [u8; 32] = [0u8; 32];
-        rand_hack().fill_bytes(&mut r);
-        t0.commit_bytes(b"randomness", &r);
+        let mut nonce = [0u8; 32];
+        nonce.copy_from_slice(&bytes[64..96]);
 
-        let key = t0.challenge_scalar(b"out-scalar",);
-        let mut nonce: [u8; 32] = [0u8; 32];
-        t0.challenge_bytes(b"out-nonce",&mut nonce);
+        let mut key = [0u8; 64];
+        key.copy_from_slice(&bytes[0..64]);
+        let key = Scalar::from_bytes_mod_order_wide(&key);
 
         let seed = SecretKey { key, nonce }.to_keypair();
         let cert_secret = self.issue_ecqv_cert(t.clone(), &seed.public);
