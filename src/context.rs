@@ -268,11 +268,11 @@ impl SigningContext {
 /// We strongly recommend agsint building XOFs from weaker hash
 /// functions like SHA1 with HKDF constructions or similar.
 ///
-/// In `SimpleTranscript` style, we never expose the hash function `H`
+/// In `XoFTranscript` style, we never expose the hash function `H`
 /// underlying this type, so that developers cannot circument the
 /// domain seperartion provided by our methods.  We do this to make
-/// `&mut SimpleTranscript : SigningTranscript` safe.
-pub struct SimpleTranscript<H>(H)
+/// `&mut XoFTranscript : SigningTranscript` safe.
+pub struct XoFTranscript<H>(H)
 where H: Input + ExtendableOutput + Clone;
 
 fn input_bytes<H: Input>(h: &mut H, bytes: &[u8]) {
@@ -281,19 +281,26 @@ fn input_bytes<H: Input>(h: &mut H, bytes: &[u8]) {
     h.input(bytes);
 }
 
-impl<H> SimpleTranscript<H>
+impl<H> XoFTranscript<H>
 where H: Input + ExtendableOutput + Clone
 {
-    /// Create a `SimpleTranscript` from a conventional hash functions with an extensible output mode.
+    /// Create a `XoFTranscript` from a conventional hash functions with an extensible output mode.
     ///
     /// We intentionally consume and never reexpose the hash function
     /// provided, so that our domain seperation works correctly even
-    /// when using `&mut SimpleTranscript : SigningTranscript`.
+    /// when using `&mut XoFTranscript : SigningTranscript`.
     #[inline(always)]
-    pub fn new(h: H) -> SimpleTranscript<H> { SimpleTranscript(h) }
+    pub fn new(h: H) -> XoFTranscript<H> { XoFTranscript(h) }
 }
 
-impl<H> SigningTranscript for SimpleTranscript<H>
+impl<H> From<H> for XoFTranscript<H>
+where H: Input + ExtendableOutput + Clone
+{
+    #[inline(always)]
+    fn from(h: H) -> XoFTranscript<H> { XoFTranscript(h) }
+}
+
+impl<H> SigningTranscript for XoFTranscript<H>
 where H: Input + ExtendableOutput + Clone
 {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
@@ -327,16 +334,6 @@ where H: Input + ExtendableOutput + Clone
         h.xof_result().read(dest);
     }
 }
-
-/*
-impl<H> SimpleTranscript<H>
-where H: Input + ExtendableOutput + Clone
-{
-    fn new(context: &'static [u8]) -> SimpleTranscript<H> {
-        SimpleTranscript(h)
-    }
-}
-*/
 
 
 /// Schnorr signing transcript with the default `ThreadRng` replaced
