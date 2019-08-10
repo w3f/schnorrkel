@@ -30,7 +30,7 @@
 //! We support individual signers merging numerous VRF outputs created
 //! with the same keypair, which follows the "DLEQ Proofs" and "Batching
 //! the Proofs" sections of "Privacy Pass - The Math" by Alex Davidson,
-//! https://blog.cloudflare.com/privacy-pass-the-math/#dleqproofs
+//! https://new.blog.cloudflare.com/privacy-pass-the-math/#dleqproofs
 //! and "Privacy Pass: Bypassing Internet Challenges Anonymously"
 //! by Alex Davidson, Ian Goldberg, Nick Sullivan, George Tankersley,
 //! and Filippo Valsorda.
