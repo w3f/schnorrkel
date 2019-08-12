@@ -287,7 +287,7 @@ impl VRFInOut {
     /// Commit VRF input and output to a transcript.
     ///
     /// We commit both the input and output to provide the 2Hash-DH
-    /// construction from Theorem 2 on page 32 in appendex C of
+    /// construction from Theorem 2 on page 32 in appendix C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     ///
@@ -596,8 +596,10 @@ serde_boilerplate!(VRFProofBatchable);
 impl Keypair {
     /// Produce DLEQ proof.
     ///
-    /// We mutate `points` by multiplying every point by `self.secret`
-    /// and produce a proof that this multiplication was done correctly.
+    /// We assume the `VRFInOut` paramater has been computed correctly
+    /// by multiplying every input point by `self.secret`, like by
+    /// using one of the `vrf_create_*` methods on `SecretKey`.
+    /// If so, we produce a proof that this multiplication was done correctly.
     #[allow(non_snake_case)]
     pub fn dleq_proove<T>(&self, mut t: T, p: &VRFInOut) -> (VRFProof, VRFProofBatchable)
     where
