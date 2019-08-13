@@ -150,14 +150,15 @@ impl SigningTranscript for Transcript {
         Transcript::challenge_bytes(self, label, dest)
     }
 
-    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
     where R: RngCore+CryptoRng
     {
+        use ::old_rand_core::RngCore;
         let mut br = self.build_rng();
         for ns in nonce_seeds {
             br = br.rekey_with_witness_bytes(label, ns);
         }
-        let mut r = br.finalize(&mut rng);
+        let mut r = br.finalize(&mut super::RngCore5As4(rng));
         r.fill_bytes(dest)
     }
 }

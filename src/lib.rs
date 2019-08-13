@@ -238,7 +238,7 @@ fn rand_hack() -> impl RngCore+CryptoRng {
 
 #[cfg(all(feature = "rand_os", not(feature = "rand")))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
-    ::rand_os::OsRng::new().unwrap()
+    ::rand_os::OsRng
 }
 
 #[cfg(not(feature = "rand_os"))]
@@ -256,6 +256,27 @@ fn rand_hack() -> impl RngCore+CryptoRng {
 
     PanicRng
 }
+
+struct RngCore5As4<R: RngCore>(pub  R);
+
+impl<R: RngCore> ::old_rand_core::RngCore for RngCore5As4<R> {
+    fn next_u32(&mut self) -> u32 { self.0.next_u32() }
+    fn next_u64(&mut self) -> u64  { self.0.next_u64() }
+    fn fill_bytes(&mut self, dest: &mut [u8])  { self.0.fill_bytes(dest) }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::old_rand_core::Error> {
+        self.0.try_fill_bytes(dest).map_err(|_err| {
+            let kind = ::old_rand_core::ErrorKind::Unavailable;
+            let msg = "Unknown error from another rand_core version";
+            // #[cfg(not(feature="std"))]
+            ::old_rand_core::Error::new(kind,msg)
+            // #[cfg(feature="std")]
+            // ::old_rand_core::Error::with_casue(kind,msg,_err.take_inner());
+        })
+    }
+}
+
+impl<R: RngCore+CryptoRng> ::old_rand_core::CryptoRng for RngCore5As4<R> {}
+
 
 #[macro_use]
 mod serdey;

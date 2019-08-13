@@ -354,18 +354,18 @@ impl VRFInOut {
     pub fn make_merlin_rng(&self, context: &[u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
-        impl ::rand_core::RngCore for ZeroFakeRng {
+        impl ::old_rand_core::RngCore for ZeroFakeRng {
             fn next_u32(&mut self) -> u32 {  panic!()  }
             fn next_u64(&mut self) -> u64 {  panic!()  }
             fn fill_bytes(&mut self, dest: &mut [u8]) {
                 for i in dest.iter_mut() {  *i = 0;  }
             }
-            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::rand_core::Error> {
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::old_rand_core::Error> {
                 self.fill_bytes(dest);
                 Ok(())
             }
         }
-        impl ::rand_core::CryptoRng for ZeroFakeRng {}
+        impl ::old_rand_core::CryptoRng for ZeroFakeRng {}
 
         let mut t = Transcript::new(b"VRFResult");
         t.append_message(b"",context);
@@ -829,13 +829,14 @@ pub fn dleq_verify_batch(
             t.commit_point(b"",pk.as_compressed());
             p.commit(&mut t);
         }
-        t.build_rng().finalize(&mut rand_hack())
+        t.build_rng().finalize(&mut RngCore5As4(rand_hack()))
     };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below.
     let rnd_128bit_scalar = |_| {
+        use ::old_rand_core::RngCore;
         let mut r = [0u8; 16];
         csprng.fill_bytes(&mut r);
         Scalar::from(u128::from_le_bytes(r))

@@ -313,13 +313,14 @@ where
         for pk in public_keys {
             t.commit_point(b"",pk.as_compressed());
         }
-        t.build_rng().finalize(&mut rand_hack())
+        t.build_rng().finalize(&mut RngCore5As4(rand_hack()))
     };
 
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
     let rnd_128bit_scalar = |_| {
+        use ::old_rand_core::RngCore;
         let mut r = [0u8; 16];
         csprng.fill_bytes(&mut r);
         Scalar::from(u128::from_le_bytes(r))
