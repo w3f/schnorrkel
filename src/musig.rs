@@ -298,7 +298,7 @@ impl<T: SigningTranscript,S> MuSig<T,S> {
     pub fn public_key(&self) -> PublicKey
         {  self.compute_public_key(true)  }
 
-	/// Aggregate public key expected if all currently committed nodes fully participate
+    /// Aggregate public key expected if all currently committed nodes fully participate
     pub fn expected_public_key(&self) -> PublicKey
         {  self.compute_public_key(false)  }
 
@@ -328,9 +328,9 @@ where T: SigningTranscript, S: TranscriptStages
 {
     /// We permit extending the transcript whenever you like, so
     /// that say the message may be agreed upon in parallel to the
-	/// commitments.  We advise against doing so however, as this
+    /// commitments.  We advise against doing so however, as this
     /// requires absolute faith in your random number generator,
-	/// usually `rand::thread_rng()`.
+    /// usually `rand::thread_rng()`.
     pub fn transcript(&mut self) -> &mut T { &mut self.t }
 }
 

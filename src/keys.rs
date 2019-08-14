@@ -527,7 +527,7 @@ impl SecretKey {
     ///
     /// ```
     /// use schnorrkel::{SecretKey, SECRET_KEY_LENGTH};
-	/// use hex_literal::hex;
+    /// use hex_literal::hex;
     ///
     /// let secret = hex!("28b0ae221c6bb06856b287f60d7ea0d98552ea5a16db16956849aa371db3eb51fd190cce74df356432b410bd64682309d6dedb27c76845daf388557cbac3ca34");
     /// let public = hex!("46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a");
@@ -913,7 +913,7 @@ mod test {
     use super::*;
 
     /*
-	TODO: Use some Ristretto point to do this test correctly.
+    TODO: Use some Ristretto point to do this test correctly.
     use curve25519_dalek::edwards::{CompressedEdwardsY};  // EdwardsPoint
     #[test]
     fn public_key_from_bytes() {
@@ -946,7 +946,7 @@ mod test {
             Err(SignatureError::PointDecompressionError)
         );
     }
-	*/
+    */
 
     #[test]
     fn derives_from_core() {

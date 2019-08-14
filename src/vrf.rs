@@ -229,7 +229,7 @@ impl VRFOutput {
 
     /// Pair a non-malleable VRF output with the hash of the given transcript.
     pub fn attach_input_hash<T>(&self, public: &PublicKey, t: T) -> SignatureResult<VRFInOut>
-	where T: VRFSigningTranscript {
+    where T: VRFSigningTranscript {
         let input = public.vrf_hash(t);
         let output = RistrettoBoth::from_bytes_ser("VRFOutput", VRFOutput::DESCRIPTION, &self.0)?;
         Ok(VRFInOut { input, output })
@@ -521,7 +521,7 @@ impl VRFProofBatchable {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr VRF proof that supports batch verification, which consists of two Ristretto compressed points and one scalar, making it 96 bytes.";
 
     /// Convert this `VRFProofBatchable` to a byte array.
-	#[allow(non_snake_case)]
+    #[allow(non_snake_case)]
     #[inline]
     pub fn to_bytes(&self) -> [u8; VRF_PROOF_BATCHABLE_LENGTH] {
         let mut bytes = [0u8; VRF_PROOF_BATCHABLE_LENGTH];
@@ -533,7 +533,7 @@ impl VRFProofBatchable {
     }
 
     /// Construct a `VRFProofBatchable` from a slice of bytes.
-	#[allow(non_snake_case)]
+    #[allow(non_snake_case)]
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<VRFProofBatchable> {
         if bytes.len() != VRF_PROOF_BATCHABLE_LENGTH {
@@ -584,7 +584,7 @@ impl VRFProofBatchable {
     pub fn shorten_vrf<T>( &self, public: &PublicKey, t: T, out: &VRFOutput)
      -> SignatureResult<VRFProof>
     where T: VRFSigningTranscript,
-	{
+    {
         let p = out.attach_input_hash(public,t) ?; // Avoidable errors if decompressed earlier
         let t0 = Transcript::new(b"VRF");  // We have context in t and another hear confuses batching
         Ok(self.shorten_dleq(t0, public, &p))
@@ -657,7 +657,7 @@ impl Keypair {
     /// proof.
     pub fn vrf_sign_after_check<T,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
-	where T: VRFSigningTranscript,
+    where T: VRFSigningTranscript,
           F: FnMut(&VRFInOut) -> bool
     {
         let p = self.vrf_create_hash(t);

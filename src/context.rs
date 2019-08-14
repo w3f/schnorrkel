@@ -94,7 +94,7 @@ pub trait SigningTranscript {
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
     fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-    	self.witness_bytes_rng(label, dest, nonce_seeds, super::rand_hack())
+        self.witness_bytes_rng(label, dest, nonce_seeds, super::rand_hack())
     }
 
     /// Produce secret witness bytes from the protocol transcript
@@ -354,8 +354,8 @@ where H: Input + ExtendableOutput + Clone
 pub struct SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: RngCore+CryptoRng
 {
-	t: T,
-	rng: RefCell<R>,
+    t: T,
+    rng: RefCell<R>,
 }
 
 impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>

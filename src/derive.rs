@@ -114,7 +114,7 @@ impl SecretKey {
         let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
         t.append_message(b"sign-bytes", i.as_ref());
 
-		if let Some(c) = cc { t.append_message(b"chain-code", &c.0); }
+        if let Some(c) = cc { t.append_message(b"chain-code", &c.0); }
         t.append_message(b"secret-key",& self.key.to_bytes() as &[u8]);
 
         let mut msk = [0u8; MINI_SECRET_KEY_LENGTH]; 
@@ -272,7 +272,7 @@ impl ExtendedKey<SecretKey> {
      -> ExtendedKey<SecretKey> 
      {
         let (key,chaincode) = self.key.hard_derive_mini_secret_key(Some(self.chaincode), i);
-		let key = key.expand(mode);
+        let key = key.expand(mode);
         ExtendedKey { key, chaincode }
     }
 }
