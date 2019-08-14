@@ -45,7 +45,8 @@ pub const CHAIN_CODE_LENGTH: usize = 32;
 /// chain codes fill this gap by being a high entropy secret shared
 /// between public and private key holders.  These are produced by
 /// key derivations and can be incorporated into subsequence key
-/// derivations.
+/// derivations. 
+/// See https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#extended-keys
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 
