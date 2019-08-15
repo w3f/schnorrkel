@@ -10,7 +10,7 @@ In the subsequent two sections, we discuss first how these modern primitives red
 
 ### Primitives
 
-As primitives, we adopt (1) the [Ristretto](https://doc.dalek.rs/curve25519_dalek/ristretto/index.html) implementation of section 7 of Mike Hamburg's [Decaf](https://eprint.iacr.org/2015/673.pdf) paper for our elliptic curve arithmetic, as well as the [merlin](https://doc.dalek.rs/merlin/index.html) limited implementation of Mike Hamberg's [STROBE](http://strobe.sourceforge.io/) for our hashing.
+As primitives, we adopt (1) the [Ristretto](https://doc.dalek.rs/curve25519_dalek/ristretto/index.html) implementation of section 7 of Mike Hamburg's [Decaf](https://eprint.iacr.org/2015/673.pdf) paper for our elliptic curve arithmetic, as well as (2) the [merlin](https://doc.dalek.rs/merlin/index.html) limited implementation of Mike Hamberg's [STROBE](http://strobe.sourceforge.io/) for our hashing.
 
 There are many cryptographic protocols that demand a group of large prime order $q$ (aka the number of points or group elements) in which the discrete logarithm problem is hard.  There are two competing design goals in implementing such groups, the [strongest](https://safecurves.cr.yp.to/) elliptic curve choices, like Edwards curves, come with a non-trivial cofactor $h$, meaning the elliptic curve actually has non-prime order $h q$. 
 
@@ -24,7 +24,7 @@ In 2015, Mike Hamburg resolved this conflict in his [Decaf](https://eprint.iacr.
 
 We employ Ristretto throughout schnorrkel, which reduces malleability, simplifies the analysis of our higher level protocols, and makes it safer to compose schnorrkel protocols with each other and with other similar protocols.
 
-Also, there are minor practical hiccups with the hash functions designed for NIST competitions, but most especially that they create a byte stream oriented interface over a block oriented permutation.  This improves performance of computing MACs on data that arrive in order but piecemeal, but weakens the permutation's natural domain seperation.  We need strong domain seperation in more complex protocols like signatures and NIZKs.  [STROBE](https://strobe.sourceforge.io/) is a strong general purpose symmetric cryptography construction based on Keccak-f(1600), the permutation driving the SHA3 competition winner.  [Merlin](https://doc.dalek.rs/merlin/index.html) is a STROBE scheme for NIZKs, which does almost perfect domain seperation.  
+Also, there are minor practical hiccups with the hash functions designed for NIST competitions, but most especially that they create a byte stream oriented interface over a block oriented permutation.  This improves performance of computing MACs on data that arrives in order but piecemeal, but weakens the permutation's natural domain seperation.  We need strong domain seperation in more complex protocols like signatures and NIZKs.  [STROBE](https://strobe.sourceforge.io/) is a strong general purpose symmetric cryptography construction based on Keccak-f(1600), the permutation driving the SHA3 competition winner.  [Merlin](https://doc.dalek.rs/merlin/index.html) is a STROBE scheme for NIZKs, which does almost perfect domain seperation.  
 
 In principle, ristretto and merlin together should let schnorrkel play nicely with other future dalek ecosystem crates, like [bulletproofs](https://github.com/dalek-cryptography/bulletproofs).  We've no current plans to exploit this, but this should simplify weak anonymity parachains analogous to Monero or Mimblewimble. 
 
