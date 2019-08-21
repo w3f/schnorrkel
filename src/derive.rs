@@ -55,7 +55,7 @@ pub trait Derivation : Sized {
     /// Derive key with subkey identified by a byte array
     /// presented via a `SigningTranscript`, and a chain code.
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
-    where T: SigningTranscript+Clone;
+    where T: SigningTranscript;
 
     /// Derive key with subkey identified by a byte array
     /// and a chain code.  We do not include a context here
@@ -194,7 +194,7 @@ impl Keypair {
 
 impl Derivation for Keypair {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Keypair, ChainCode)
-    where T: SigningTranscript+Clone
+    where T: SigningTranscript
     {
         let (secret, chaincode) = self.derive_secret_key(t, cc);
         let public = secret.to_public();
@@ -204,7 +204,7 @@ impl Derivation for Keypair {
 
 impl Derivation for SecretKey {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (SecretKey, ChainCode)
-    where T: SigningTranscript+Clone
+    where T: SigningTranscript
     {
         self.clone().to_keypair().derive_secret_key(t, cc)
     }
@@ -212,7 +212,7 @@ impl Derivation for SecretKey {
 
 impl Derivation for PublicKey {
     fn derived_key<T>(&self, mut t: T, cc: ChainCode) -> (PublicKey, ChainCode)
-    where T: SigningTranscript+Clone
+    where T: SigningTranscript
     {
         let (scalar, chaincode) = self.derive_scalar_and_chaincode(&mut t, cc);
         let point = self.as_point() + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
@@ -239,7 +239,7 @@ impl<K: Derivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
     pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
-    where T: SigningTranscript+Clone
+    where T: SigningTranscript
     {
         let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
         ExtendedKey { key, chaincode }
