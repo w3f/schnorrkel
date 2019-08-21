@@ -397,7 +397,7 @@ where T: SigningTranscript, R: RngCore+CryptoRng
 pub fn attach_test_vector_rng<T>(t: T) -> SigningTranscriptWithRng<T,impl RngCore+CryptoRng>
 where T: SigningTranscript
 {
-    // Very insecure hack except for our commit_witness_bytes below
+    // Very insecure hack except this fn only exists in tests
     struct ZeroFakeRng;
     impl ::rand::RngCore for ZeroFakeRng {
         fn next_u32(&mut self) -> u32 {  panic!()  }
