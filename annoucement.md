@@ -2,7 +2,11 @@
 
 We are pleased to announce the wire format stabilisation of the primary feature set of our [schnorrkel](https://github.com/w3f/schnorrkel) crate ([docs](https://docs.rs/schnorrkel)), which provides safer access to basic functionality now expected from signatures on blockchains.  In particular, schnorrkel provides Schnorr signatures, a fast Schnorr DLEQ proof based VRF, hierarchical deterministic key derivation (HDKD), and the safest currently known three round trip Schnorr multi-signature variant.
 
-We want more diverse functionality from signatures used in blockchain applications than from signaturtes used only in TLS, PGP, etc.  Schnorr signatures support more [functionality](https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) than ECDSA, and do so far more simply, while providing stronger security arguments.  In particular, multi-signatures and threshold signatures are vastly simpler with Schnorr signatures.  We use Schnorr-like signature schemes in schnorrkel for these reason.
+We want more diverse functionality from signatures used in blockchain applications than from signaturtes used only in TLS, PGP, etc.  Schnorr signatures support more [functionality](https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) than ECDSA, and do so far more simply.  In particular, multi-signatures and threshold signatures are vastly simpler with Schnorr signatures.  
+
+Also, the security arguments for Schnorr signatures require only standard assumptions plus the hash function being a random oracle.  By comparison, ECDSA arguments employ adhoc dubious assumptions like an elliptic curve point compression function being a random oracle.  The simpler arguments ror Schnorr more often provide clear answers about the security of Schnorr composed with other protocols.
+
+We use Schnorr-like signature schemes in schnorrkel for the reason above.
 
 We believe schnorrkel strikes an optimal balance between security concerns, including defense-in-depth and miss-use resistance, and the flexibility and diverse functionality wanted from signature schemes in blockchain protocols.   We achieve this balance in basically two ways:  First, we select modern safer cryptographic primitives which actually extend the strongest primitives in widespread use.  Second, we assess the security of the protocols we provide as one cohesive whole, not piecemeal. 
 
