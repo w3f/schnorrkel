@@ -9,16 +9,16 @@
 
 //! ### Schnorr signature contexts and configuration, adaptable to most Schnorr signature schemes.
 
-use core::{cell::RefCell};
+use core::cell::RefCell;
 
 use rand_core::{RngCore,CryptoRng};
 
-use merlin::{Transcript};
+use merlin::Transcript;
 
 use curve25519_dalek::digest::{Input,FixedOutput,ExtendableOutput,XofReader};
 use curve25519_dalek::digest::generic_array::typenum::{U32,U64};
 
-use curve25519_dalek::ristretto::{CompressedRistretto}; // RistrettoPoint
+use curve25519_dalek::ristretto::CompressedRistretto; // RistrettoPoint
 use curve25519_dalek::scalar::Scalar;
 
 
