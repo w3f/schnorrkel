@@ -61,6 +61,22 @@ impl Debug for Signature {
     }
 }
 
+fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
+    // Since this is only used in signature deserialisation (i.e. upon
+    // verification), we can do a "succeed fast" trick by checking that the most
+    // significant 4 bits are unset.  If they are unset, we can succeed fast
+    // because we are guaranteed that the scalar is fully reduced.  However, if
+    // the 4th most significant bit is set, we must do the full reduction check,
+    // as the order of the basepoint is roughly a 2^(252.5) bit number.
+    //
+    // This succeed-fast trick should succeed for roughly half of all scalars.
+    if bytes[31] & 240 == 0 {
+        return Ok(Scalar::from_bits(bytes))
+    }
+
+    Scalar::from_canonical_bytes(bytes).ok_or(SignatureError::ScalarFormatError)
+}
+
 impl Signature {
     const DESCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
     /*
@@ -113,8 +129,7 @@ impl Signature {
         }
         upper[31] &= 127;
 
-        let s = Scalar::from_canonical_bytes(upper).ok_or(SignatureError::ScalarFormatError) ?;
-        Ok(Signature{ R: CompressedRistretto(lower), s })
+        Ok(Signature{ R: CompressedRistretto(lower), s: check_scalar(upper) ? })
     }
 
     /// Depricated construction of a `Signature` from a slice of bytes
