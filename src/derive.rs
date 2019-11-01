@@ -57,16 +57,23 @@ pub trait Derivation : Sized {
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
     where T: SigningTranscript;
 
-    /// Derive key with subkey identified by a byte array
+    /// Derive key with subkey identified by a byte array 
     /// and a chain code.  We do not include a context here
     /// becuase the chain code could serve this purpose.
-    /// We support only Shake256 here for simplicity, and
-    /// the reasons discussed in `lib.rs`, and 
-    /// https://github.com/rust-lang/rust/issues/36887
     fn derived_key_simple<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
         let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
         t.append_message(b"sign-bytes", i.as_ref());
         self.derived_key(t, cc)
+    }
+
+    /// Derive key with subkey identified by a byte array
+    /// and a chain code, and with external ranodmnesses.
+    fn derived_key_simple_rng<B,R>(&self, cc: ChainCode, i: B, rng: R) -> (Self, ChainCode)
+    where B: AsRef<[u8]>, R: RngCore+CryptoRng
+    {
+        let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+        t.append_message(b"sign-bytes", i.as_ref());
+        self.derived_key(super::context::attach_rng(t,rng), cc)
     }
 }
 
