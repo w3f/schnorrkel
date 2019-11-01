@@ -65,6 +65,7 @@ default-features = false
 [dependencies.failure]
 version = "0.1.6"
 default-features = false
+optional = true
 
 [dependencies.zeroize]
 version = "1.0.0"

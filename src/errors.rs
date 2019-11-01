@@ -151,6 +151,7 @@ impl Display for SignatureError {
     }
 }
 
+#[cfg(feature = "failure")]
 impl ::failure::Fail for SignatureError {}
 
 /// Convert `SignatureError` into `::serde::de::Error` aka `SerdeError`
