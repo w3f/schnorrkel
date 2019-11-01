@@ -17,7 +17,7 @@ edition = "2018"
 
 [dependencies.curve25519-dalek]
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "1.2.3"
+version = "2.0.0-alpha.1"
 default-features = false
 
 [dependencies.ed25519-dalek]
@@ -95,7 +95,6 @@ std = ["rand_os", "curve25519-dalek/std", "rand/std"] # "failure/std"
 stdweb = ["rand_os/stdweb"]
 wasm-bindgen = ["rand_os/wasm-bindgen"]
 asm = ["sha2/asm"]
-yolocrypto = ["curve25519-dalek/yolocrypto"]
 u64_backend = ["curve25519-dalek/u64_backend"]
 u32_backend = ["curve25519-dalek/u32_backend"]
 avx2_backend = ["curve25519-dalek/avx2_backend"]
