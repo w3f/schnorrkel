@@ -641,11 +641,21 @@ impl Keypair {
     pub fn vrf_sign<T>(&self, t: T) -> (VRFInOut, VRFProof, VRFProofBatchable)
     where T: VRFSigningTranscript,
     {
+        self.vrf_sign_extra(t,Transcript::new(b"VRF"))
+        // We have context in t and another hear confuses batching
+    }
+
+    /// Run VRF on one single input transcript and an extra message transcript, 
+    /// producing the outpus and correspodning short proof.
+    pub fn vrf_sign_extra<T,E>(&self, t: T, extra: E) -> (VRFInOut, VRFProof, VRFProofBatchable)
+    where T: VRFSigningTranscript,
+          E: SigningTranscript,
+    {
         let p = self.vrf_create_hash(t);
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
-        let (proof, proof_batchable) = self.dleq_proove(t0, &p);
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
         (p, proof, proof_batchable)
     }
+
 
     /// Run VRF on one single input transcript, producing the outpus
     /// and correspodning short proof only if the result first passes
@@ -658,12 +668,25 @@ impl Keypair {
     pub fn vrf_sign_after_check<T,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
     where T: VRFSigningTranscript,
-          F: FnMut(&VRFInOut) -> bool
+          F: FnMut(&VRFInOut) -> bool,
+    {
+        self.vrf_sign_extra_after_check(t,
+            |io| if check(io) { Some(Transcript::new(b"VRF")) } else { None }
+        )
+    }
+
+    /// Run VRF on one single input transcript, producing the outpus
+    /// and correspodning short proof only if the result first passes
+    /// some check, which itself returns an extra message transcript.
+    pub fn vrf_sign_extra_after_check<T,E,F>(&self, t: T, mut check: F)
+     -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
+    where T: VRFSigningTranscript,
+          E: SigningTranscript,
+          F: FnMut(&VRFInOut) -> Option<E>,
     {
         let p = self.vrf_create_hash(t);
-        if ! check(&p) { return None; }
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear confuses batching
-        let (proof, proof_batchable) = self.dleq_proove(t0, &p);
+        let extra = check(&p) ?;
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
         Some((p, proof, proof_batchable))
     }
 
@@ -679,12 +702,27 @@ impl Keypair {
         T: VRFSigningTranscript,
         I: IntoIterator<Item = T>,
     {
+        self.vrfs_sign_extra(ts, Transcript::new(b"VRF"))
+    }
+
+    /// Run VRF on several input transcripts and an extra message transcript,
+    /// producing their outputs and a common short proof.
+    ///
+    /// We merge the VRF outputs using variable time arithmetic, so
+    /// if even the hash of the message being signed is sensitive then
+    /// you might reimplement some constant time variant.
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    pub fn vrfs_sign_extra<T,E,I>(&self, ts: I, extra: E) -> (Box<[VRFInOut]>, VRFProof, VRFProofBatchable)
+    where
+        T: VRFSigningTranscript,
+        E: SigningTranscript,
+        I: IntoIterator<Item = T>,
+    {
         let ps = ts.into_iter()
             .map(|t| self.vrf_create_hash(t))
             .collect::<Vec<VRFInOut>>();
         let p = self.public.vrfs_merge_vartime(&ps);
-        let t0 = Transcript::new(b"VRF");
-        let (proof, proof_batchable) = self.dleq_proove(t0, &p);
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
         (ps.into_boxed_slice(), proof, proof_batchable)
     }
 }
@@ -757,15 +795,28 @@ impl PublicKey {
         out: &VRFOutput,
         proof: &VRFProof,
     ) -> SignatureResult<(VRFInOut, VRFProofBatchable)> {
+        self.vrf_verify_extra(t,out,proof,Transcript::new(b"VRF"))
+    }
+
+    /// Verify VRF proof for one single input transcript and corresponding output.
+    pub fn vrf_verify_extra<T,E>(
+        &self,
+        t: T,
+        out: &VRFOutput,
+        proof: &VRFProof,
+        extra: E,
+    ) -> SignatureResult<(VRFInOut, VRFProofBatchable)> 
+    where T: VRFSigningTranscript,
+          E: SigningTranscript,
+    {
         let p = out.attach_input_hash(self,t)?;
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear breaks batching
-        let proof_batchable = self.dleq_verify(t0, &p, proof)?;
+        let proof_batchable = self.dleq_verify(extra, &p, proof)?;
         Ok((p, proof_batchable))
     } 
 
     /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
     #[cfg(any(feature = "alloc", feature = "std"))]
-    pub fn vrfs_verify<T, I, O>(
+    pub fn vrfs_verify<T,I,O>(
         &self,
         transcripts: I,
         outs: &[O],
@@ -773,6 +824,24 @@ impl PublicKey {
     ) -> SignatureResult<(Box<[VRFInOut]>, VRFProofBatchable)>
     where
         T: VRFSigningTranscript,
+        I: IntoIterator<Item = T>,
+        O: Borrow<VRFOutput>,
+    {
+        self.vrfs_verify_extra(transcripts,outs,proof,Transcript::new(b"VRF"))
+    }
+
+    /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
+    #[cfg(any(feature = "alloc", feature = "std"))]
+    pub fn vrfs_verify_extra<T,E,I,O>(
+        &self,
+        transcripts: I,
+        outs: &[O],
+        proof: &VRFProof,
+        extra: E,
+    ) -> SignatureResult<(Box<[VRFInOut]>, VRFProofBatchable)>
+    where
+        T: VRFSigningTranscript,
+        E: SigningTranscript,
         I: IntoIterator<Item = T>,
         O: Borrow<VRFOutput>,
     {
@@ -786,8 +855,7 @@ impl PublicKey {
             "Too few VRF inputs for VRF outputs."
         );
         let p = self.vrfs_merge_vartime(&ps[..]);
-        let t0 = Transcript::new(b"VRF"); // We have context in t and another hear breaks batching
-        let proof_batchable = self.dleq_verify(t0, &p, proof)?;
+        let proof_batchable = self.dleq_verify(extra, &p, proof)?;
         Ok((ps.into_boxed_slice(), proof_batchable))
     }
 }
