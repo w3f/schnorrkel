@@ -238,6 +238,7 @@ fn rand_hack() -> impl RngCore+CryptoRng {
 
 #[cfg(all(feature = "rand_os", not(feature = "rand")))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
+    // https://github.com/dalek-cryptography/ed25519-dalek/issues/104
     ::rand_os::OsRng::new().unwrap()
 }
 
