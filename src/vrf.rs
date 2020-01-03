@@ -396,15 +396,17 @@ impl PublicKey {
     where
         B: Borrow<VRFInOut>,
     {
+        use curve25519_dalek::traits::Identity;
+        
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
             p.borrow().commit(&mut t);
         }
 
-        let mut input = ps[0].borrow().input.as_point().clone();
-        let mut output = ps[0].borrow().output.as_point().clone();
-        for p in ps.iter().skip(1).map(|p| p.borrow()) {
+        let mut input = RistrettoPoint::identity();
+        let mut output = RistrettoPoint::identity();
+        for p in ps.iter().map(|p| p.borrow()) {
             let mut t0 = t.clone();
             p.commit(&mut t0);
             let z = challenge_scalar_128(t0);
@@ -812,7 +814,7 @@ impl PublicKey {
         let p = out.attach_input_hash(self,t)?;
         let proof_batchable = self.dleq_verify(extra, &p, proof)?;
         Ok((p, proof_batchable))
-    } 
+    }
 
     /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
     #[cfg(any(feature = "alloc", feature = "std"))]
