@@ -23,8 +23,9 @@
 //! https://eprint.iacr.org/2017/099.pdf
 //! We note the V(X)EdDSA signature scheme by Trevor Perrin at
 //! https://www.signal.org/docs/specifications/xeddsa/#vxeddsa
-//! is almost identical to the NSEC5 construction.
-//! There is another even later variant at 
+//! is almost identical to the NSEC5 construction, except that
+//! V(X)Ed25519 fails to be a VRF by giving signers multiple
+//! outputs per input.  There is another even later variant at
 //! https://datatracker.ietf.org/doc/draft-irtf-cfrg-vrf/
 //!
 //! We support individual signers merging numerous VRF outputs created
@@ -88,9 +89,7 @@ use std::{boxed::Box, vec::Vec};
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-
-#[cfg(any(feature = "alloc", feature = "std"))]
-use curve25519_dalek::traits::VartimeMultiscalarMul;
+use curve25519_dalek::traits::{IsIdentity,MultiscalarMul,VartimeMultiscalarMul}; // Identity
 
 use merlin::Transcript;
 
@@ -231,7 +230,8 @@ impl VRFOutput {
     pub fn attach_input_hash<T>(&self, public: &PublicKey, t: T) -> SignatureResult<VRFInOut>
     where T: VRFSigningTranscript {
         let input = public.vrf_hash(t);
-        let output = RistrettoBoth::from_bytes_ser("VRFOutput", VRFOutput::DESCRIPTION, &self.0)?;
+        let output = RistrettoBoth::from_bytes_ser("VRFOutput", VRFOutput::DESCRIPTION, &self.0) ?;
+        if output.as_point().is_identity() { return Err(SignatureError::PointDecompressionError); }
         Ok(VRFInOut { input, output })
     }
 }
@@ -260,6 +260,10 @@ impl SecretKey {
 
     /// Evaluate the VRF-like multiplication on a compressed point,
     /// useful for proving key exchanges, OPRFs, or sequential VRFs.
+    ///
+    /// We caution that such protocols could provide signing oracles
+    /// and note that `vrf_create_from_point` cannot check for
+    /// problematic inputs like `attach_input_hash` does.
     pub fn vrf_create_from_compressed_point(&self, input: &VRFOutput) -> SignatureResult<VRFInOut> {
         let input = RistrettoBoth::from_compressed(CompressedRistretto(input.0)) ?;
         Ok(self.vrf_create_from_point(input))
@@ -382,80 +386,60 @@ fn challenge_scalar_128<T: SigningTranscript>(mut t: T) -> Scalar {
 
 impl PublicKey {
     /// Merge VRF input and output pairs from the same signer,
-    /// using constant time arithmetic.
+    /// using variable time arithmetic
+    ///
+    /// You should use `vartime=true` when verifying VRF proofs batched
+    /// by the singer.  You could usually use `vartime=true` even when
+    /// producing proofs, provided the set being signed is not secret.
     ///
     /// There is sadly no constant time 128 bit multiplication in dalek,
-    /// making this variant somewhat slower than necessary.  It should
-    /// only impact signers in niche scenarios however, so this slower
+    /// making `vartime=false` somewhat slower than necessary.  It should
+    /// only impact signers in niche scenarios however, so the slower
     /// variant should normally be unnecessary.
+    ///
+    /// Panics if given an empty points list.
     ///
     /// TODO: Add constant time 128 bit batched multiplication to dalek.
     /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
     /// prefer it over merlin for the output?  
-    pub fn vrfs_merge<B>(&self, ps: &[B]) -> VRFInOut
+    pub fn vrfs_merge<B>(&self, ps: &[B], vartime: bool) -> VRFInOut
     where
         B: Borrow<VRFInOut>,
     {
-        use curve25519_dalek::traits::Identity;
-        
+        assert!( ps.len() > 0);
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
             p.borrow().commit(&mut t);
         }
 
-        let mut input = RistrettoPoint::identity();
-        let mut output = RistrettoPoint::identity();
-        for p in ps.iter().map(|p| p.borrow()) {
+        let zf = || ps.iter().map(|p| {
             let mut t0 = t.clone();
-            p.commit(&mut t0);
-            let z = challenge_scalar_128(t0);
-            input += &z * p.input.as_point();
-            output += &z * p.output.as_point();
-        }
+            p.borrow().commit(&mut t0);
+            challenge_scalar_128(t0)
+        });
+        #[cfg(any(feature = "alloc", feature = "std"))]
+        let zs: Vec<Scalar> = zf().collect();
+        #[cfg(any(feature = "alloc", feature = "std"))]
+        let zf = || zs.iter();
 
-        VRFInOut {
-            input: RistrettoBoth::from_point(input),
-            output: RistrettoBoth::from_point(output),
-        }
-    }
+        // We need actual fns here because closures cannot easily take
+        // closures as arguments, due to Rust lacking polymorphic
+        // closures but giving all closures unique types.
+        fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
+        fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
+        let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
+            let ps = ps.iter().map( |p| io(p.borrow()) );
+            RistrettoBoth::from_point(if vartime {
+                RistrettoPoint::vartime_multiscalar_mul(zf(), ps)
+            } else {
+                RistrettoPoint::multiscalar_mul(zf(), ps)
+            })
+        };
 
-    /// Merge VRF input and output pairs from the same signer,
-    /// using variable time arithmetic
-    ///
-    /// You should use this variant when verifying VRF proofs batched
-    /// by the singer.  You could usually use this variant even when
-    /// producing proofs, provided the set being signed is not secret.
-    #[cfg(any(feature = "alloc", feature = "std"))]
-    pub fn vrfs_merge_vartime<B>(&self, ps: &[B]) -> VRFInOut
-    where
-        B: Borrow<VRFInOut>,
-    {
-        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
-        t.commit_point(b"vrf:pk", self.as_compressed());
-        for p in ps.iter() {
-            p.borrow().commit(&mut t);
-        }
-
-        let zs: Vec<Scalar> = ps.iter().skip(1)
-            .map(|p| {
-                let mut t0 = t.clone();
-                p.borrow().commit(&mut t0);
-                challenge_scalar_128(t0)
-            }).collect();
-        let one = Scalar::one();
-        let zf = || once(&one).chain(zs.iter());
-
-        VRFInOut {
-            input: RistrettoBoth::from_point(RistrettoPoint::vartime_multiscalar_mul(
-                zf(),
-                ps.iter().map(|p| p.borrow().input.as_point()),
-            )),
-            output: RistrettoBoth::from_point(RistrettoPoint::vartime_multiscalar_mul(
-                zf(),
-                ps.iter().map(|p| p.borrow().output.as_point()),
-            )),
-        }
+        let input = go( get_input );
+        let output = go( get_output );
+        VRFInOut { input, output }
     }
 }
 
@@ -723,7 +707,7 @@ impl Keypair {
         let ps = ts.into_iter()
             .map(|t| self.vrf_create_hash(t))
             .collect::<Vec<VRFInOut>>();
-        let p = self.public.vrfs_merge_vartime(&ps);
+        let p = self.public.vrfs_merge(&ps,true);
         let (proof, proof_batchable) = self.dleq_proove(extra, &p);
         (ps.into_boxed_slice(), proof, proof_batchable)
     }
@@ -856,7 +840,7 @@ impl PublicKey {
             ps.len() == outs.len(),
             "Too few VRF inputs for VRF outputs."
         );
-        let p = self.vrfs_merge_vartime(&ps[..]);
+        let p = self.vrfs_merge(&ps[..],true);
         let proof_batchable = self.dleq_verify(extra, &p, proof)?;
         Ok((ps.into_boxed_slice(), proof_batchable))
     }
@@ -885,8 +869,6 @@ pub fn dleq_verify_batch(
     proofs: &[VRFProofBatchable],
     public_keys: &[PublicKey],
 ) -> SignatureResult<()> {
-    use curve25519_dalek::traits::IsIdentity;
-
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), ASSERT_MESSAGE);
@@ -1157,7 +1139,7 @@ mod tests {
         }
 
         let mut ios = keypairs.iter().enumerate()
-            .map(|(i, keypair)| keypair.public.vrfs_merge_vartime(&ios_n_proofs[i].0))
+            .map(|(i, keypair)| keypair.public.vrfs_merge(&ios_n_proofs[i].0,true))
             .collect::<Vec<VRFInOut>>();
 
         let mut proofs = ios_n_proofs.iter()
