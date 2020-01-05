@@ -272,6 +272,8 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
+pub mod aead;
+
 // Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
 #[cfg(feature = "std")]
 pub mod musig;

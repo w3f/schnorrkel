@@ -15,6 +15,11 @@ edition = "2018"
 # [badges]
 # travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
 
+[dependencies.aead]
+version = "0.2.0"
+default-features = false
+optional = true
+
 [dependencies.curve25519-dalek]
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
 version = "2.0.0-alpha.1"
