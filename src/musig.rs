@@ -301,19 +301,26 @@ impl<T: SigningTranscript,S> MuSig<T,S> {
     /// Aggregate public key expected if all currently committed nodes fully participate
     pub fn expected_public_key(&self) -> PublicKey
         {  self.compute_public_key(false)  }
-
+    
+    /// Iterator over the Rs values we actually use.
+    ///
+    /// Only compatable with `compute_public_key` when calling it with `require_reveal=true`
+    #[allow(non_snake_case)]
+    fn iter_Rs(&self) -> impl Iterator<Item = &RistrettoPoint> {
+        self.Rs.iter().filter_map( |(_pk,cor)| match cor {
+            CoR::Commit(_) => None,
+            CoR::Reveal { R } => Some(R),
+            CoR::Cosigned { .. } => panic!("Internal error, compute_R called during cosigning phase."),
+            CoR::Collect { R, .. } => Some(R),
+        } )
+    }
+    
     /// Sums revealed `R` values.
     ///
     /// Only compatable with `compute_public_key` when calling it with `require_reveal=true`
     #[allow(non_snake_case)]
     fn compute_R(&self) -> CompressedRistretto {
-        let R: RistrettoPoint = self.Rs.iter().filter_map( |(_pk,cor)| match cor {
-            CoR::Commit(_) => None,
-            CoR::Reveal { R } => Some(R),
-            CoR::Cosigned { .. } => panic!("Internal error, compute_R called during cosigning phase."),
-            CoR::Collect { R, .. } => Some(R),
-        } ).sum();
-        R.compress()
+        self.iter_Rs().sum::<RistrettoPoint>().compress()
     }
 }
 
