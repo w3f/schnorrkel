@@ -20,6 +20,10 @@ version = "0.2.0"
 default-features = false
 optional = true
 
+[dependencies.arrayref]
+version = "0.3.5"
+default-features = false
+
 [dependencies.curve25519-dalek]
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
 version = "2.0.0-alpha.1"

@@ -259,6 +259,9 @@ fn rand_hack() -> impl RngCore+CryptoRng {
 }
 
 #[macro_use]
+extern crate arrayref;
+
+#[macro_use]
 mod serdey;
 
 pub mod points;
