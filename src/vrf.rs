@@ -38,7 +38,7 @@
 //! https://www.petsymposium.org/2018/files/papers/issue3/popets-2018-0026.pdf
 //!
 //! As noted there, our merging technique's soundness appeals to
-//! Theorem 3.17 on page 74 of Ryqan Henry's PhD thesis
+//! Theorem 3.17 on page 74 of Ryan Henry's PhD thesis
 //! "Efficient Zero-Knowledge Proofs and Applications"
 //! https://uwspace.uwaterloo.ca/bitstream/handle/10012/8621/Henry_Ryan.pdf
 //! See also the attack on Peng and Bao’s batch proof protocol in
