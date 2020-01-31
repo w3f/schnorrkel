@@ -98,6 +98,25 @@ use crate::context::SigningTranscript;
 use crate::points::RistrettoBoth;
 // use crate::errors::SignatureError;
 
+/// Value for `kusama` paramater to `*dleq*` methods that yields the VRF for kusama.
+/// 
+/// Greg Maxwell argue that nonce generation should hash all parameters
+/// that challenge generation does in https://moderncrypto.org/mail-archive/curves/2020/001012.html
+/// We support this position in prionciple as a defense in depth against
+/// attacks that cause missalignment between the public and secret keys.
+///
+/// We did this for signatures but not for the VRF deployed in Kusama.
+/// We cannot justify add this defense to the deployed VRF because
+/// several layers already address this attack, including merlin's
+/// witnesses and that signers normally only sign VRF outputs once.
+/// 
+/// We suggest using Greg Maxwell's trick if you use a stand alone DLEQ
+/// proof though, meaning call `*dleq*` methods with `kusama: false`.
+///
+/// see: https://github.com/w3f/schnorrkel/issues/53
+// We currently lack tests for the case when this is false, but you can
+// rerun cargo test with this set to false for that.
+pub const KUSAMA_VRF : bool = true;
 
 /// Length of VRF output.
 pub const VRF_OUTPUT_LENGTH : usize = 32;
@@ -543,17 +562,18 @@ impl VRFProofBatchable {
 
     /// Return the shortened `VRFProof` for retransmitting in not batched situations
     #[allow(non_snake_case)]
-    pub fn shorten_dleq<T>(&self, mut t: T, public: &PublicKey, p: &VRFInOut) -> VRFProof
+    pub fn shorten_dleq<T>(&self, mut t: T, public: &PublicKey, p: &VRFInOut, kusama: bool) -> VRFProof
     where T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
+        if !kusama {  t.commit_point(b"vrf:pk", public.as_compressed());  }
 
         t.commit_point(b"vrf:R=g^r", &self.R);
         t.commit_point(b"vrf:h^r", &self.Hr);
 
-        t.commit_point(b"vrf:pk", public.as_compressed());
+        if kusama {  t.commit_point(b"vrf:pk", public.as_compressed());  }
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         VRFProof {
@@ -573,7 +593,7 @@ impl VRFProofBatchable {
     {
         let p = out.attach_input_hash(public,t) ?; // Avoidable errors if decompressed earlier
         let t0 = Transcript::new(b"VRF");  // We have context in t and another hear confuses batching
-        Ok(self.shorten_dleq(t0, public, &p))
+        Ok(self.shorten_dleq(t0, public, &p, KUSAMA_VRF))
     }
 }
 
@@ -587,13 +607,14 @@ impl Keypair {
     /// using one of the `vrf_create_*` methods on `SecretKey`.
     /// If so, we produce a proof that this multiplication was done correctly.
     #[allow(non_snake_case)]
-    pub fn dleq_proove<T>(&self, mut t: T, p: &VRFInOut) -> (VRFProof, VRFProofBatchable)
+    pub fn dleq_proove<T>(&self, mut t: T, p: &VRFInOut, kusama: bool) -> (VRFProof, VRFProofBatchable)
     where
         T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
+        if !kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
 
         // We compute R after adding pk and all h.
         let mut r = t.witness_scalar(b"proving\00",&[&self.secret.nonce]);
@@ -603,7 +624,7 @@ impl Keypair {
         let Hr = (&r * p.input.as_point()).compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
-        t.commit_point(b"vrf:pk", self.public.as_compressed());
+        if kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
@@ -638,7 +659,7 @@ impl Keypair {
           E: SigningTranscript,
     {
         let p = self.vrf_create_hash(t);
-        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p, KUSAMA_VRF);
         (p, proof, proof_batchable)
     }
 
@@ -672,7 +693,7 @@ impl Keypair {
     {
         let p = self.vrf_create_hash(t);
         let extra = check(&p) ?;
-        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p, KUSAMA_VRF);
         Some((p, proof, proof_batchable))
     }
 
@@ -708,7 +729,7 @@ impl Keypair {
             .map(|t| self.vrf_create_hash(t))
             .collect::<Vec<VRFInOut>>();
         let p = self.public.vrfs_merge(&ps,true);
-        let (proof, proof_batchable) = self.dleq_proove(extra, &p);
+        let (proof, proof_batchable) = self.dleq_proove(extra, &p, KUSAMA_VRF);
         (ps.into_boxed_slice(), proof, proof_batchable)
     }
 }
@@ -730,6 +751,7 @@ impl PublicKey {
         mut t: T,
         p: &VRFInOut,
         proof: &VRFProof,
+        kusama: bool,
     ) -> SignatureResult<VRFProofBatchable>
     where
         T: SigningTranscript,
@@ -737,6 +759,7 @@ impl PublicKey {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
+        if !kusama {  t.commit_point(b"vrf:pk", self.as_compressed());  }
 
         // We recompute R aka u from the proof
         // let R = (&proof.c * self.as_point()) + (&proof.s * &constants::RISTRETTO_BASEPOINT_TABLE);
@@ -761,7 +784,7 @@ impl PublicKey {
         let Hr = Hr.compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
-        t.commit_point(b"vrf:pk", self.as_compressed());
+        if kusama {  t.commit_point(b"vrf:pk", self.as_compressed());  }
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
@@ -796,7 +819,7 @@ impl PublicKey {
           E: SigningTranscript,
     {
         let p = out.attach_input_hash(self,t)?;
-        let proof_batchable = self.dleq_verify(extra, &p, proof)?;
+        let proof_batchable = self.dleq_verify(extra, &p, proof, KUSAMA_VRF)?;
         Ok((p, proof_batchable))
     }
 
@@ -841,7 +864,7 @@ impl PublicKey {
             "Too few VRF inputs for VRF outputs."
         );
         let p = self.vrfs_merge(&ps[..],true);
-        let proof_batchable = self.dleq_verify(extra, &p, proof)?;
+        let proof_batchable = self.dleq_verify(extra, &p, proof, KUSAMA_VRF)?;
         Ok((ps.into_boxed_slice(), proof_batchable))
     }
 }
@@ -868,6 +891,7 @@ pub fn dleq_verify_batch(
     ps: &[VRFInOut],
     proofs: &[VRFProofBatchable],
     public_keys: &[PublicKey],
+    kusama: bool,
 ) -> SignatureResult<()> {
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
@@ -898,12 +922,12 @@ pub fn dleq_verify_batch(
         .map(|(z, proof)| z * proof.s)
         .collect();
 
-    // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
+    // Compute the basepoint coefficient, ∑ s[i] z[i] (mod l)
     let B_coefficient: Scalar = z_s.iter().sum();
 
     let t0 = Transcript::new(b"VRF");
     let z_c: Vec<Scalar> = zz.iter().enumerate()
-        .map( |(i, z)| z * proofs[i].shorten_dleq(t0.clone(), &public_keys[i], &ps[i]).c )
+        .map( |(i, z)| z * proofs[i].shorten_dleq(t0.clone(), &public_keys[i], &ps[i], kusama).c )
         .collect();
 
     // Compute (∑ z[i] s[i] (mod l)) B + ∑ (z[i] c[i] (mod l)) A[i] - ∑ z[i] R[i] = 0
@@ -954,7 +978,7 @@ where
         ps.len() == outs.len(),
         "Too few VRF inputs for VRF outputs."
     );
-    if dleq_verify_batch(&ps[..], proofs, publickeys).is_ok() {
+    if dleq_verify_batch(&ps[..], proofs, publickeys, KUSAMA_VRF).is_ok() {
         Ok(ps.into_boxed_slice())
     } else {
         Err(SignatureError::EquationFalse)
@@ -1058,27 +1082,27 @@ mod tests {
         // Verified key exchange, aka sequential two party VRF.
         let t0 = Transcript::new(b"VRF");
         let io21 = keypair2.secret.vrf_create_from_compressed_point(out1).unwrap();
-        let proofs21 = keypair2.dleq_proove(t0.clone(), &io21);
+        let proofs21 = keypair2.dleq_proove(t0.clone(), &io21, KUSAMA_VRF);
         let io12 = keypair1.secret.vrf_create_from_compressed_point(out2).unwrap();
-        let proofs12 = keypair1.dleq_proove(t0.clone(), &io12);
+        let proofs12 = keypair1.dleq_proove(t0.clone(), &io12, KUSAMA_VRF);
         assert_eq!(io12.output, io21.output, "Sequential two-party VRF failed");
         assert_eq!(
             proofs21.0,
-            proofs21.1.shorten_dleq(t0.clone(), &keypair2.public, &io21),
+            proofs21.1.shorten_dleq(t0.clone(), &keypair2.public, &io21, KUSAMA_VRF),
             "Oops `shorten_dleq` failed"
         );
         assert_eq!(
             proofs12.0,
-            proofs12.1.shorten_dleq(t0.clone(), &keypair1.public, &io12),
+            proofs12.1.shorten_dleq(t0.clone(), &keypair1.public, &io12, KUSAMA_VRF),
             "Oops `shorten_dleq` failed"
         );
         assert!(keypair1
             .public
-            .dleq_verify(t0.clone(), &io12, &proofs12.0)
+            .dleq_verify(t0.clone(), &io12, &proofs12.0, KUSAMA_VRF)
             .is_ok());
         assert!(keypair2
             .public
-            .dleq_verify(t0.clone(), &io21, &proofs21.0)
+            .dleq_verify(t0.clone(), &io21, &proofs21.0, KUSAMA_VRF)
             .is_ok());
     }
 
@@ -1151,24 +1175,24 @@ mod tests {
             .collect::<Vec<PublicKey>>();
 
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys).is_ok(),
+            dleq_verify_batch(&ios, &proofs, &public_keys, KUSAMA_VRF).is_ok(),
             "Batch verification failed!"
         );
         proofs.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys, KUSAMA_VRF).is_err(),
             "Batch verification with incorrect proofs passed!"
         );
         proofs.reverse();
         public_keys.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys, KUSAMA_VRF).is_err(),
             "Batch verification with incorrect public keys passed!"
         );
         public_keys.reverse();
         ios.reverse();
         assert!(
-            dleq_verify_batch(&ios, &proofs, &public_keys).is_err(),
+            dleq_verify_batch(&ios, &proofs, &public_keys, KUSAMA_VRF).is_err(),
             "Batch verification with incorrect points passed!"
         );
     }
