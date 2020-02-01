@@ -223,18 +223,17 @@ extern crate alloc;
 
 use rand_core::{RngCore,CryptoRng};
 
-#[cfg(all(feature = "rand_os", feature = "rand"))] 
+#[cfg(all(feature = "getrandom", feature = "rand"))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
     ::rand::thread_rng()
 }
 
-#[cfg(all(feature = "rand_os", not(feature = "rand")))] 
+#[cfg(all(feature = "getrandom", not(feature = "rand")))] 
 fn rand_hack() -> impl RngCore+CryptoRng {
-    // https://github.com/dalek-cryptography/ed25519-dalek/issues/104
-    ::rand_os::OsRng::new().unwrap()
+    ::rand_core::os::OsRng
 }
 
-#[cfg(not(feature = "rand_os"))]
+#[cfg(not(feature = "getrandom"))]
 fn rand_hack() -> impl RngCore+CryptoRng {
     const PRM : &'static str = "Attempted to use functionality that requires system randomness!!";
 

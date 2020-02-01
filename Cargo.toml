@@ -52,8 +52,8 @@ optional = true
 version = "0.5.1"
 default-features = false
 
-[dependencies.rand_os]
-version = "0.2.2"
+[dependencies.getrandom]
+version = "0.1.14"
 default-features = false
 optional = true
 
@@ -96,14 +96,14 @@ name = "schnorr_benchmarks"
 harness = false
 
 [features]
-default = ["std", "u64_backend", "rand"] # "chacha"
+default = ["std", "u64_backend", "rand", "getrandom"] # "chacha"
 preaudit_deprecated = []
 nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
 alloc = ["curve25519-dalek/alloc", "rand_core/alloc"]
 chacha = ["rand_chacha"]
-std = ["rand_os", "curve25519-dalek/std", "rand/std"] # "failure/std"
-stdweb = ["rand_os/stdweb"]
-wasm-bindgen = ["rand_os/wasm-bindgen"]
+std = ["getrandom", "curve25519-dalek/std", "rand/std"] # "failure/std"
+stdweb = ["getrandom/stdweb"]
+wasm-bindgen = ["getrandom/wasm-bindgen"]
 asm = ["sha2/asm"]
 u64_backend = ["curve25519-dalek/u64_backend"]
 u32_backend = ["curve25519-dalek/u32_backend"]
