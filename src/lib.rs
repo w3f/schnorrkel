@@ -24,8 +24,7 @@
 //! use rand::{Rng, rngs::OsRng};
 //! use schnorrkel::{Keypair,Signature};
 //!
-//! let mut csprng: OsRng = OsRng::new().unwrap();
-//! let keypair: Keypair = Keypair::generate_with(&mut csprng);
+//! let keypair: Keypair = Keypair::generate_with(OsRng);
 //! # }
 //! #
 //! # #[cfg(any(not(feature = "std")))]

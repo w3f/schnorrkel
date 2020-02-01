@@ -94,25 +94,13 @@ pub enum ExpansionMode {
 /// homomorphic properties unavailable from these seeds, so we renamed
 /// these and reserve `SecretKey` for what EdDSA calls an extended
 /// secret key.
-#[derive(Default,Clone)] // we derive Default for zeroize_hack
-// #[derive(Clone,Zeroize)]
-// #[zeroize(drop)]
+#[derive(Clone,Zeroize)]
+#[zeroize(drop)]
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
 impl Debug for MiniSecretKey {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "MiniSecretKey: {:?}", &self.0[..])
-    }
-}
-
-impl Zeroize for MiniSecretKey {
-    fn zeroize(&mut self) {
-        super::zeroize_hack(self);
-    }
-}
-impl Drop for MiniSecretKey {
-    fn drop(&mut self) {
-        self.zeroize();
     }
 }
 
@@ -150,8 +138,7 @@ impl MiniSecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// let secret_key: SecretKey = mini_secret_key.expand_uniform();
     /// # }
     /// ```
@@ -188,8 +175,7 @@ impl MiniSecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// let secret_key: SecretKey = mini_secret_key.expand_ed25519();
     /// # }
     /// ```
@@ -231,8 +217,7 @@ impl MiniSecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// let secret_key: SecretKey = mini_secret_key.expand(ExpansionMode::Uniform);
     /// # }
     /// ```
@@ -307,8 +292,7 @@ impl MiniSecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{PublicKey, MiniSecretKey, Signature};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// ```
     ///
     /// # Input
@@ -379,12 +363,6 @@ pub struct SecretKey {
     pub (crate) nonce: [u8; 32],
 }
 
-impl Debug for SecretKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        write!(f, "SecretKey {{ key: {:?} nonce: {:?} }}", &self.key, &self.nonce)
-    }
-}
-
 impl Zeroize for SecretKey {
     fn zeroize(&mut self) {
         super::zeroize_hack(&mut self.key);
@@ -394,6 +372,12 @@ impl Zeroize for SecretKey {
 impl Drop for SecretKey {
     fn drop(&mut self) {
         self.zeroize();
+    }
+}
+
+impl Debug for SecretKey {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        write!(f, "SecretKey {{ key: {:?} nonce: {:?} }}", &self.key, &self.nonce)
     }
 }
 
@@ -420,8 +404,7 @@ impl From<&MiniSecretKey> for SecretKey {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
+    /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// let secret_key: SecretKey = SecretKey::from(&mini_secret_key);
     /// # }
     /// ```
@@ -706,7 +689,7 @@ serde_boilerplate!(PublicKey);
 
 
 /// A Ristretto Schnorr keypair.
-#[derive(Default,Debug)] // we derive Default for zeroize_hack
+#[derive(Clone,Debug)]
 // #[derive(Clone,Zeroize)]
 // #[zeroize(drop)]
 pub struct Keypair {
@@ -874,8 +857,7 @@ impl Keypair {
     /// use schnorrkel::Keypair;
     /// use schnorrkel::Signature;
     ///
-    /// let mut csprng: OsRng = OsRng::new().unwrap();
-    /// let keypair: Keypair = Keypair::generate_with(&mut csprng);
+    /// let keypair: Keypair = Keypair::generate_with(OsRng);
     ///
     /// # }
     /// ```
