@@ -46,12 +46,21 @@ impl Debug for RistrettoBoth {
     }
 }
 
+/*
+#[inline(always)]
+fn zeroize_hack<Z: Default>(z: &mut Z) {
+    use core::{ptr, sync::atomic};
+    unsafe { ptr::write_volatile(z, Z::default()); }
+    atomic::compiler_fence(atomic::Ordering::SeqCst);
+}
+
 impl ::zeroize::Zeroize for RistrettoBoth {
     fn zeroize(&mut self) {
-        super::zeroize_hack(&mut self.compressed);
-        super::zeroize_hack(&mut self.point);
+        zeroize_hack(&mut self.compressed);
+        zeroize_hack(&mut self.point);
     }
 }
+*/
 
 impl RistrettoBoth {
     const DESCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";

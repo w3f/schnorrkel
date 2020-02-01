@@ -30,7 +30,7 @@ version = "2.0"
 default-features = false
 
 [dependencies.ed25519-dalek]
-version = "1.0.0-pre.2"
+version = "1.0.0-pre.3"
 default-features = false
 optional = true
 

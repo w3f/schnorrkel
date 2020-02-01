@@ -631,8 +631,7 @@ impl Keypair {
         let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
 
-        // ::zeroize::Zeroize::zeroize(&mut r);
-        super::zeroize_hack(&mut r);
+        ::zeroize::Zeroize::zeroize(&mut r);
 
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }

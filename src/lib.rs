@@ -221,13 +221,6 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
-#[inline(always)]
-fn zeroize_hack<Z: Default>(z: &mut Z) {
-    use core::{ptr, sync::atomic};
-    unsafe { ptr::write_volatile(z, Z::default()); }
-    atomic::compiler_fence(atomic::Ordering::SeqCst);
-}
-
 use rand_core::{RngCore,CryptoRng};
 
 #[cfg(all(feature = "rand_os", feature = "rand"))] 

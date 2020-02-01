@@ -181,8 +181,7 @@ impl SecretKey {
         let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
 
-        // ::zeroize::Zeroize::zeroize(&mut r);
-        super::zeroize_hack(&mut r);
+        ::zeroize::Zeroize::zeroize(&mut r);
 
         Signature{ R, s }
     }

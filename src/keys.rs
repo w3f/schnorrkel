@@ -350,9 +350,8 @@ serde_boilerplate!(MiniSecretKey);
 /// We do not however attempt to keep the scalar's high bit set, especially
 /// not during hierarchical deterministic key derivations, so some Ed25519
 /// libraries might compute the public key incorrectly from our secret key.
-#[derive(Default,Clone)] // we derive Default for zeroize_hack
-// #[derive(Clone,Zeroize)]
-// #[zeroize(drop)]
+#[derive(Clone,Zeroize)]
+#[zeroize(drop)]
 pub struct SecretKey {
     /// Actual public key represented as a scalar.
     pub (crate) key: Scalar,
@@ -361,18 +360,6 @@ pub struct SecretKey {
     /// We require this be random and secret or else key compromise attacks will ensue.
     /// Any modificaiton here may dirupt some non-public key derivation techniques.
     pub (crate) nonce: [u8; 32],
-}
-
-impl Zeroize for SecretKey {
-    fn zeroize(&mut self) {
-        super::zeroize_hack(&mut self.key);
-        super::zeroize_hack(&mut self.nonce);
-    }
-}
-impl Drop for SecretKey {
-    fn drop(&mut self) {
-        self.zeroize();
-    }
 }
 
 impl Debug for SecretKey {
@@ -596,11 +583,13 @@ impl Debug for PublicKey {
     }
 }
 
+/*
 impl Zeroize for PublicKey {
     fn zeroize(&mut self) {
         self.0.zeroize()
     }
 }
+*/
 
 // We should imho drop this impl but it benifits users who start with ring.
 impl AsRef<[u8]> for PublicKey {
