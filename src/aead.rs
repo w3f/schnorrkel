@@ -27,6 +27,14 @@ use crate::context::SigningTranscript;
 use crate::cert::ECQVCertPublic;
 
 
+fn make_aead<T,AEAD>(mut t: T) -> AEAD 
+where T: SigningTranscript,AEAD: NewAead
+{
+    let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
+    t.challenge_bytes(b"",key.as_mut_slice());
+    AEAD::new(key)
+}
+
 impl SecretKey {
     /// Commit the results of a key exchange into a transcript
     #[inline(always)]
@@ -58,9 +66,36 @@ impl SecretKey {
         let mut t = merlin::Transcript::new(b"KEX");
         t.append_message(b"ctx",ctx);
         self.commit_key_exchange(&mut t,b"kex",public);
-        let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
-        t.challenge_bytes(b"",key.as_mut_slice());
-        AEAD::new(key)
+        make_aead(t)
+    }
+
+    /// Reciever's 2DH AEAD
+    pub fn reciever_aead<T,AEAD>(
+        &self,
+        mut t: T,
+        ephemeral_pk: &PublicKey, 
+        static_pk: &PublicKey,
+    ) -> AEAD
+    where T: SigningTranscript, AEAD: NewAead
+    {
+        self.commit_key_exchange(&mut t,b"epk",ephemeral_pk);
+        self.commit_key_exchange(&mut t,b"epk",static_pk);
+        make_aead(t)
+    }
+
+    /// Sender's 2DH AEAD
+    pub fn sender_aead<T,AEAD>(
+        &self,
+        mut t: T,
+        public: &PublicKey,
+    ) -> (CompressedRistretto,AEAD)
+    where T: SigningTranscript, AEAD: NewAead
+    {
+        let key = t.witness_scalar(b"make_esk", &[&self.nonce]);
+        let esk = SecretKey { key, nonce: self.nonce.clone() };
+        esk.commit_key_exchange(&mut t,b"epk",public);
+        self.commit_key_exchange(&mut t,b"epk",public);
+        (esk.to_public().into_compressed(), make_aead(t))
     }
 
     /// Reciever's AEAD with ECQV certificate.
