@@ -266,6 +266,7 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
+#[cfg(feature = "aead")]
 pub mod aead;
 
 // Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
