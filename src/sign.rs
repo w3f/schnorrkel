@@ -554,10 +554,19 @@ mod test {
             signatures.push(keypair.sign(ctx.bytes(messages[i])));
             keypairs.push(keypair);
         }
-        let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
-        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        let mut public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
+        public_keys.swap(1,2);
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_err() );
+
+        public_keys.swap(1,2);
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
+
+        signatures.swap(1,2);
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_err() );
     }
 }
 
