@@ -24,7 +24,7 @@ mod schnorr_benches {
 
     fn sign(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let keypair: Keypair = Keypair::generate();
         let msg: &[u8] = b"";
 
 		let ctx = signing_context(b"this signature does this thing");
@@ -35,7 +35,7 @@ mod schnorr_benches {
 
     fn verify(c: &mut Criterion) {
         let mut csprng: ThreadRng = thread_rng();
-        let keypair: Keypair = Keypair::generate(&mut csprng);
+        let keypair: Keypair = Keypair::generate();
         let msg: &[u8] = b"";
 		let ctx = signing_context(b"this signature does this thing");
         let sig: Signature = keypair.sign(ctx.bytes(msg));
@@ -52,7 +52,7 @@ mod schnorr_benches {
             "Schnorr batch signature verification",
             |b, &&size| {
                 let mut csprng: ThreadRng = thread_rng();
-                let keypairs: Vec<Keypair> = (0..size).map(|_| Keypair::generate(&mut csprng)).collect();
+                let keypairs: Vec<Keypair> = (0..size).map(|_| Keypair::generate()).collect();
                 let msg: &[u8] = b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 				let ctx = signing_context(b"this signature does this thing");
                 let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(msg))).collect();
@@ -71,7 +71,7 @@ mod schnorr_benches {
         let mut csprng: ThreadRng = thread_rng();
 
         c.bench_function("Schnorr keypair generation", move |b| {
-                         b.iter(| | Keypair::generate(&mut csprng))
+                         b.iter(| | Keypair::generate())
         });
     }
 
