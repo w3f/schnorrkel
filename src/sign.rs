@@ -210,7 +210,6 @@ impl PublicKey {
 }
 
 
-
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
 /// # Inputs
@@ -218,6 +217,7 @@ impl PublicKey {
 /// * `messages` is a slice of byte slices, one per signed message.
 /// * `signatures` is a slice of `Signature`s.
 /// * `public_keys` is a slice of `PublicKey`s.
+/// * `deduplicate_public_keys` 
 /// * `csprng` is an implementation of `RngCore+CryptoRng`, such as `rand::ThreadRng`.
 ///
 /// # Panics
@@ -255,11 +255,65 @@ pub fn verify_batch<T,I>(
     transcripts: I,
     signatures: &[Signature],
     public_keys: &[PublicKey],
-    pack_public_keys: bool,
+    deduplicate_public_keys: bool,
 ) -> SignatureResult<()>
 where
     T: SigningTranscript, 
     I: IntoIterator<Item=T>,
+{
+    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, rand_hack())  
+}
+
+struct NotAnRng;
+impl rand_core::RngCore for NotAnRng {
+    fn next_u32(&mut self) -> u32 { rand_core::impls::next_u32_via_fill(self) }
+
+    fn next_u64(&mut self) -> u64 { rand_core::impls::next_u64_via_fill(self) }
+
+    /// A no-op function which leaves the destination bytes for randomness unchanged.
+    fn fill_bytes(&mut self, dest: &mut [u8]) { ::zeroize::Zeroize::zeroize(dest) }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+impl rand_core::CryptoRng for NotAnRng {}
+
+/// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
+///
+/// Avoids using system randomness and instead depends entirely upon delinearization.
+#[cfg(any(feature = "alloc", feature = "std"))]
+#[allow(non_snake_case)]
+pub fn verify_batch_derandomized<T,I>(
+    transcripts: I,
+    signatures: &[Signature],
+    public_keys: &[PublicKey],
+    deduplicate_public_keys: bool,
+) -> SignatureResult<()>
+where
+    T: SigningTranscript, 
+    I: IntoIterator<Item=T>,
+{
+    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, NotAnRng)  
+}
+
+/// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
+/// 
+/// Inputs and return agree with `verify_batch` except the user supplies their own random number generator.
+#[cfg(any(feature = "alloc", feature = "std"))]
+#[allow(non_snake_case)]
+pub fn verify_batch_rng<T,I,R>(
+    transcripts: I,
+    signatures: &[Signature],
+    public_keys: &[PublicKey],
+    deduplicate_public_keys: bool,
+    mut rng: R,
+) -> SignatureResult<()>
+where
+    T: SigningTranscript, 
+    I: IntoIterator<Item=T>,
+    R: RngCore+CryptoRng,
 {
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
     assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
@@ -292,7 +346,7 @@ where
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             let mut d = [0u8; 16];
-            t.witness_bytes(b"", &mut d, &[&[]]);  // Could speed this up using ZeroRng
+            t.witness_bytes_rng(b"", &mut d, &[&[]], NotAnRng);  // Could speed this up using ZeroRng
             zs_t.append_message(b"",&d);
 
             t.proto_name(b"Schnorr-sig");
@@ -305,7 +359,7 @@ where
 
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator 
-    let mut csprng = zs_t.build_rng().finalize(&mut rand_hack());
+    let mut csprng = zs_t.build_rng().finalize(&mut rng);
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
@@ -327,13 +381,14 @@ where
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
 
     let mut ppks = Vec::new();
-    let As = if ! pack_public_keys {
+    let As = if ! deduplicate_public_keys {
         // Multiply each H(R || A || M) by the random value
         for (hram, z) in hrams.iter_mut().zip(zs.iter()) {
             *hram = &*hram * z; 
         }
         public_keys
     } else {
+        // TODO: Actually deduplicate all if deduplicate_public_keys is set?
         ppks.reserve( public_keys.len() );
         // Multiply each H(R || A || M) by the random value
         for i in 0..public_keys.len() {
