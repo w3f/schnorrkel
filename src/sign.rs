@@ -269,43 +269,40 @@ where
     use std::vec::Vec;
 
     use core::iter::once;
-    use core::cell::RefCell;
 
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
-    let mut delinearization = merlin::Transcript::new(b"V-RNG");
+    // Assumulate public keys, signatures, and transcripts for pseudo-random delinearization scalars
+    let mut zs_t = merlin::Transcript::new(b"V-RNG");
     for pk in public_keys {
-        delinearization.commit_point(b"",pk.as_compressed());
+        zs_t.commit_point(b"",pk.as_compressed());
     }
     for sig in signatures {
-        delinearization.append_message(b"",& sig.to_bytes());
+        zs_t.append_message(b"",& sig.to_bytes());
     }
-    let delinearization = RefCell::new(delinearization);
 
     // We might collect here anyways, but right now you cannot have
     //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
     // Begin NLL hack
     let mut transcripts = transcripts.into_iter();
     // Compute H(R || A || M) for each (signature, public_key, message) triplet
-    let hrams = { // NLL hack
-        transcripts.by_ref()
+    let mut hrams: Vec<Scalar> = transcripts.by_ref()
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             let mut d = [0u8; 16];
             t.witness_bytes(b"", &mut d, &[&[]]);
-            delinearization.borrow_mut().append_message(b"",&d);
+            zs_t.append_message(b"",&d);
 
             t.proto_name(b"Schnorr-sig");
             t.commit_point(b"sign:pk",public_keys[i].as_compressed());
             t.commit_point(b"sign:R",&signatures[i].R);
             t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
-        } )
-    };  // End NLL hack
+        } ).collect();
 
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator 
-    let mut csprng = delinearization.borrow_mut().build_rng().finalize(&mut rand_hack());
+    let mut csprng = zs_t.build_rng().finalize(&mut rand_hack());
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
@@ -314,15 +311,13 @@ where
         csprng.fill_bytes(&mut r);
         Scalar::from(u128::from_le_bytes(r))
     };
-
     let zs: Vec<Scalar> = signatures.iter().map(rnd_128bit_scalar).collect();
-    
-    let zhrams: Vec<Scalar> = {// NLL hack
-        // Multiply each H(R || A || M) by the random value
-        hrams.zip(zs.iter()).map(|(hram, z)| hram * z).collect()
-    };  // End NLL hack
+
+    // Multiply each H(R || A || M) by the random value
+    for (hram, z) in hrams.iter_mut().zip(zs.iter())  { *hram = &*hram * z; }
+
     assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
-    assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
+    assert!(hrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
     let B_coefficient: Scalar = signatures.iter()
@@ -337,7 +332,7 @@ where
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
-        once(-B_coefficient).chain(zs.iter().cloned()).chain(zhrams),
+        once(-B_coefficient).chain(zs.iter().cloned()).chain(hrams),
         B.chain(Rs).chain(As),
     ).map(|id| id.is_identity()).unwrap_or(false);
     // We need not return SigenatureError::PointDecompressionError because
