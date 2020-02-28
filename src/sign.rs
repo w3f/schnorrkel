@@ -291,7 +291,7 @@ where
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             let mut d = [0u8; 16];
-            t.witness_bytes(b"", &mut d, &[&[]]);
+            t.witness_bytes(b"", &mut d, &[&[]]);  // Could speed this up using ZeroRng
             zs_t.append_message(b"",&d);
 
             t.proto_name(b"Schnorr-sig");
