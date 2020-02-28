@@ -246,7 +246,7 @@ impl PublicKey {
 ///
 /// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
 ///
-/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
+/// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_ok() );
 /// # }
 /// ```
 #[cfg(any(feature = "alloc", feature = "std"))]
@@ -255,6 +255,7 @@ pub fn verify_batch<T,I>(
     transcripts: I,
     signatures: &[Signature],
     public_keys: &[PublicKey],
+    pack_public_keys: bool,
 ) -> SignatureResult<()>
 where
     T: SigningTranscript, 
@@ -325,11 +326,29 @@ where
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
 
-    // Multiply each H(R || A || M) by the random value
-    for (hram, z) in hrams.iter_mut().zip(zs.iter())  {
-        *hram = &*hram * z; 
-    }
-    let As = public_keys.iter().map(|pk| Some(pk.as_point().clone()));
+    let mut ppks = Vec::new();
+    let As = if ! pack_public_keys {
+        // Multiply each H(R || A || M) by the random value
+        for (hram, z) in hrams.iter_mut().zip(zs.iter()) {
+            *hram = &*hram * z; 
+        }
+        public_keys
+    } else {
+        ppks.reserve( public_keys.len() );
+        // Multiply each H(R || A || M) by the random value
+        for i in 0..public_keys.len() {
+            let zhram = &hrams[i] * zs[i];
+            let j = ppks.len().checked_sub(1);
+            if j.is_none() || ppks[j.unwrap()] != public_keys[i] {
+                ppks.push(public_keys[i]);
+                hrams[ppks.len()-1] = zhram;
+            } else {
+                hrams[ppks.len()-1] = &hrams[ppks.len()-1] + zhram;                
+            }
+        }
+        hrams.truncate(ppks.len());
+        ppks.as_slice()
+   }.iter().map(|pk| Some(pk.as_point().clone()));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
@@ -546,23 +565,30 @@ mod test {
         let mut signatures: Vec<Signature> = Vec::new();
 
         for i in 0..messages.len() {
-            let keypair: Keypair = Keypair::generate_with(&mut csprng);
+            let mut keypair: Keypair = Keypair::generate_with(&mut csprng);
+            if i == 3 || i == 4 { keypair = keypairs[0].clone(); }
             signatures.push(keypair.sign(ctx.bytes(messages[i])));
-            keypairs.push(keypair);
+            keypairs.push(keypair);            
         }
         let mut public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
         public_keys.swap(1,2);
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
-        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_err() );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_err() );
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], true).is_err() );
 
         public_keys.swap(1,2);
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
-        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_ok() );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_ok() );
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], true).is_ok() );
 
         signatures.swap(1,2);
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
-        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..]).is_err() );
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_err() );
+        let transcripts = messages.iter().map(|m| ctx.bytes(m));
+        assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], true).is_err() );
     }
 }
 
