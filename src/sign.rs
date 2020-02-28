@@ -269,20 +269,43 @@ where
     use std::vec::Vec;
 
     use core::iter::once;
+    use core::cell::RefCell;
 
     use curve25519_dalek::traits::IsIdentity;
     use curve25519_dalek::traits::VartimeMultiscalarMul;
 
+    let mut delinearization = merlin::Transcript::new(b"V-RNG");
+    for pk in public_keys {
+        delinearization.commit_point(b"",pk.as_compressed());
+    }
+    for sig in signatures {
+        delinearization.append_message(b"",& sig.to_bytes());
+    }
+    let delinearization = RefCell::new(delinearization);
+
+    // We might collect here anyways, but right now you cannot have
+    //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
+    // Begin NLL hack
+    let mut transcripts = transcripts.into_iter();
+    // Compute H(R || A || M) for each (signature, public_key, message) triplet
+    let hrams = { // NLL hack
+        transcripts.by_ref()
+        .zip(0..signatures.len())
+        .map( |(mut t,i)| {
+            let mut d = [0u8; 16];
+            t.witness_bytes(b"", &mut d, &[&[]]);
+            delinearization.borrow_mut().append_message(b"",&d);
+
+            t.proto_name(b"Schnorr-sig");
+            t.commit_point(b"sign:pk",public_keys[i].as_compressed());
+            t.commit_point(b"sign:R",&signatures[i].R);
+            t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
+        } )
+    };  // End NLL hack
+
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator 
-    let mut csprng = {
-        let mut t = merlin::Transcript::new(b"V-RNG");
-        for pk in public_keys {
-            t.commit_point(b"",pk.as_compressed());
-        }
-        t.build_rng().finalize(&mut rand_hack())
-    };
-
+    let mut csprng = delinearization.borrow_mut().build_rng().finalize(&mut rand_hack());
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
     // variable time 256 bit multiplication below. 
@@ -291,7 +314,15 @@ where
         csprng.fill_bytes(&mut r);
         Scalar::from(u128::from_le_bytes(r))
     };
+
     let zs: Vec<Scalar> = signatures.iter().map(rnd_128bit_scalar).collect();
+    
+    let zhrams: Vec<Scalar> = {// NLL hack
+        // Multiply each H(R || A || M) by the random value
+        hrams.zip(zs.iter()).map(|(hram, z)| hram * z).collect()
+    };  // End NLL hack
+    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
+    assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
     let B_coefficient: Scalar = signatures.iter()
@@ -299,37 +330,6 @@ where
         .zip(zs.iter())
         .map(|(s, z)| z * s)
         .sum();
-
-    /*
-    let hrams = (0..signatures.len()).map(|i| {
-        let mut t = transcripts[i].borrow().clone();
-        t.proto_name(b"Schnorr-sig");
-        t.commit_point(b"sign:pk",public_keys[i].as_compressed());
-        t.commit_point(b"sign:R",&signatures[i].R);
-        t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
-    });
-    */
-    // We might collect here anyways, but right now you cannot have
-    //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
-    // Begin NLL hack
-    let mut transcripts = transcripts.into_iter();
-    let zhrams: Vec<Scalar> = {// NLL hack
-    // Compute H(R || A || M) for each (signature, public_key, message) triplet
-    let hrams = transcripts.by_ref()
-        .zip(0..signatures.len())
-        .map( |(mut t,i)| {
-            t.proto_name(b"Schnorr-sig");
-            t.commit_point(b"sign:pk",public_keys[i].as_compressed());
-            t.commit_point(b"sign:R",&signatures[i].R);
-            t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
-        } );
-
-    // Multiply each H(R || A || M) by the random value
-    hrams.zip(zs.iter()).map(|(hram, z)| hram * z).collect()
-    }; 
-    // End NLL hack
-    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
-    assert!(zhrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
     let As = public_keys.iter().map(|pk| Some(pk.as_point().clone()));
