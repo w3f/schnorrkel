@@ -299,6 +299,8 @@ where
             t.commit_point(b"sign:R",&signatures[i].R);
             t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
         } ).collect();
+    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
+    assert!(hrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator 
@@ -313,22 +315,21 @@ where
     };
     let zs: Vec<Scalar> = signatures.iter().map(rnd_128bit_scalar).collect();
 
-    // Multiply each H(R || A || M) by the random value
-    for (hram, z) in hrams.iter_mut().zip(zs.iter())  { *hram = &*hram * z; }
-
-    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
-    assert!(hrams.len() == public_keys.len(), ASSERT_MESSAGE);
-
     // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
     let B_coefficient: Scalar = signatures.iter()
         .map(|sig| sig.s)
         .zip(zs.iter())
         .map(|(s, z)| z * s)
         .sum();
+    let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     let Rs = signatures.iter().map(|sig| sig.R.decompress());
+
+    // Multiply each H(R || A || M) by the random value
+    for (hram, z) in hrams.iter_mut().zip(zs.iter())  {
+        *hram = &*hram * z; 
+    }
     let As = public_keys.iter().map(|pk| Some(pk.as_point().clone()));
-    let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
