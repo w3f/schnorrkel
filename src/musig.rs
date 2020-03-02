@@ -202,9 +202,8 @@ pub struct Reveal(pub [u8; 32*REWINDS]);
 // TODO: serde_boilerplate!(Reveal);
 
 impl Clone for Reveal {
-    fn clone(&self) -> Reveal { *self }
+    fn clone(&self) -> Reveal { Reveal(self.0.clone()) }
 }
-impl Copy for Reveal { }
 impl PartialEq<Reveal> for Reveal {
     #[inline]
     fn eq(&self, other: &Reveal) -> bool {
@@ -753,7 +752,7 @@ mod tests {
         for i in 0..reveals.len() {
             let r = reveals[i].our_reveal();
             for j in reveals.iter_mut() {
-                j.add_their_reveal(keypairs[i].public.clone(),r).unwrap();
+                j.add_their_reveal(keypairs[i].public.clone(),r.clone()).unwrap();
             }
             reveal_msgs.push(r);
         }
