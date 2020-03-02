@@ -183,11 +183,11 @@ pub struct Commitment(pub [u8; COMMITMENT_SIZE]);
 
 impl Commitment {
     #[allow(non_snake_case)]
-    fn for_R<'a,I>(R: I) -> Commitment
-    where I: IntoIterator<Item = &'a CompressedRistretto>
+    fn for_R<I>(R: I) -> Commitment
+    where I: IntoIterator<Item=CompressedRistretto>
     {
         let mut t = Transcript::new(b"MuSig-commitment");
-        for R0 in R.into_iter() { t.commit_point(b"sign:R",R0); }
+        for R0 in R.into_iter() { t.commit_point(b"sign:R",&R0); }
         let mut commit = [0u8; COMMITMENT_SIZE];
         t.challenge_bytes(b"commitment",&mut commit[..]);
         Commitment(commit)
@@ -195,6 +195,29 @@ impl Commitment {
 }
 // TODO: serde_boilerplate!(Commitment);
 
+// TODO: serde_boilerplate!(Commitment);
+
+
+/// Internal representation of revealed points 
+#[derive(Debug,Clone,PartialEq,Eq)]
+struct RevealedPoints([RistrettoPoint; REWINDS]);
+
+impl RevealedPoints {
+    #[allow(non_snake_case)]
+    fn to_commitment(&self) -> Commitment {
+        // self.check_length() ?;
+        Commitment::for_R( self.0.iter().map(|R| R.compress()) )
+    }
+
+    fn to_reveal(&self) -> Reveal {
+        // self.check_length() ?;
+        let mut reveal = [0u8; 32*REWINDS];
+        for (o,i) in reveal.chunks_mut(32).zip(&self.0) {
+            o.copy_from_slice(i.compress().as_bytes()); 
+        }
+        Reveal(reveal)
+    }
+}
 
 /// Revealed `R_i` values shared between cosigners during signing
 // #[derive(Debug,Clone,Copy,PartialEq,Eq)]
@@ -217,66 +240,78 @@ impl PartialEq<Reveal> for Reveal {
 impl Eq for Reveal { }
 
 impl Reveal {
+    fn check_length(&self) -> SignatureResult<()> {
+        if self.0.len() % 32 == 0 { Ok(()) } else { Err(SignatureError::PointDecompressionError) }
+    }
+
     #[allow(non_snake_case)]
-    fn into_points(&self) -> SignatureResult<(Commitment,[RistrettoPoint; REWINDS])> {
-        let R = array_refs![&self.0,32,32];
-        let R = [CompressedRistretto(*R.0), CompressedRistretto(*R.1)];
-        let commitment = Commitment::for_R(&R);
+    fn to_commitment(&self) -> SignatureResult<Commitment> {
+        self.check_length() ?;
+        Ok(Commitment::for_R( (&self.0).windows(32).map(
+            |R| CompressedRistretto( array_ref![R,0,32].clone() )
+        ) ))
+    }
+
+    #[allow(non_snake_case)]
+    fn into_points(&self) -> SignatureResult<RevealedPoints> {
+        self.check_length() ?;
+        let Rs = array_refs![&self.0,32,32];
+        let Rs = [CompressedRistretto(*Rs.0), CompressedRistretto(*Rs.1)];
         fn dc(x: CompressedRistretto) -> SignatureResult<RistrettoPoint> {
             x.decompress().ok_or(SignatureError::PointDecompressionError) 
         }
-        Ok(( commitment, [dc(R[0])?, dc(R[1])?] ))
+        Ok( RevealedPoints( [dc(Rs[0])?, dc(Rs[1])?] ) )
     }
 }
 
 
 #[allow(non_snake_case)]
-#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+#[derive(Debug,Clone,PartialEq,Eq)]
 enum CoR {
-    Commit(Commitment),                        // H(R_i)
-    Reveal { R: [RistrettoPoint; REWINDS] },   // R_i
-    Cosigned { s: Scalar },                    // s_i extracted from Cosignature type
-    Collect { R: [RistrettoPoint; REWINDS], s: Scalar },
+    Commit(Commitment),       // H(R_i)
+    Reveal(RevealedPoints),   // R_i
+    Cosigned { s: Scalar },   // s_i extracted from Cosignature type
+    Collect { reveal: RevealedPoints, s: Scalar },
 }
 
 impl CoR {
     /*
     #[allow(non_snake_case)]
-    fn get_R(&self) -> Option<&RistrettoPoint> {
+    fn get_reveal(&self) -> Option<&Reveal> {
         match self {
             CoR::Commit(_) => None,
-            CoR::Reveal { R } => Some(R),
+            CoR::Reveal(R) => Some(R),
             CoR::Cosigned { .. } => None,  // panic! ???
-            CoR::Collect { R, .. } => Some(R),
+            CoR::Collect { reveal, .. } => Some(reveal),
         }
     }
 
     fn get_s(&self) -> Option<&RistrettoPoint> {
         match self {
             CoR::Commit(_) => None,
-            CoR::Reveal { .. } => None,
+            CoR::Reveal(_) => None,
             CoR::Cosigned { s } => Some(s),
             CoR::Collect { s, .. } => Some(s),
         }
     }
     */
 
-    #[allow(non_snake_case)]
     fn set_revealed(&mut self, reveal: Reveal) -> SignatureResult<()> {
-        let(commitment, R) = reveal.into_points() ?;
+        let commitment = reveal.to_commitment() ?;
+        let reveal = reveal.into_points() ?;
         match self.clone() {  // TODO: Remove .clone() here with #![feature(nll)]
             CoR::Collect { .. } => panic!("Internal error, set_reveal during collection phase."),
             CoR::Cosigned { .. } => panic!("Internal error, cosigning during reveal phase."),
             CoR::Commit(c_old) =>
                 if c_old==commitment {  // TODO: Restore *c_old here with #![feature(nll)]
-                    *self = CoR::Reveal { R };
+                    *self = CoR::Reveal(reveal);
                     Ok(())
                 } else {
                     let musig_stage = MultiSignatureStage::Commitment;
                     Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: false, })
                 },
-            CoR::Reveal { R: R_old } =>
-                if R_old == R { Ok(()) } else {  // TODO: Restore *R_old here with #![feature(nll)]
+            CoR::Reveal(reveal_old) =>
+                if reveal_old == reveal { Ok(()) } else {  // TODO: Restore *R_old here with #![feature(nll)]
                     let musig_stage = MultiSignatureStage::Reveal;
                     Err(SignatureError::MuSigInconsistent { musig_stage, duplicate: true, })
                 },  // Should we have a general duplicate reveal error for this case?
@@ -291,7 +326,7 @@ impl CoR {
                     let musig_stage = MultiSignatureStage::Reveal;
                     Err(SignatureError::MuSigAbsent { musig_stage, })
                 },
-            CoR::Reveal { .. } => {
+            CoR::Reveal(_) => {
                     *self = CoR::Cosigned { s };
                     Ok(())
                 },
@@ -320,7 +355,7 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
     pub fn public_keys(&self, require_reveal: bool) -> impl Iterator<Item=&PublicKey> {
         self.Rs.iter().filter_map( move |(pk,cor)| match cor {
             CoR::Commit(_) => if require_reveal { None } else { Some(pk) },
-            CoR::Reveal { .. } => Some(pk),
+            CoR::Reveal(_) => Some(pk),
             CoR::Cosigned { .. } => Some(pk),
             CoR::Collect { .. } => Some(pk),
         } )
@@ -349,12 +384,12 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
     ///
     /// Only compatable with `compute_public_key` when calling it with `require_reveal=true`
     #[allow(non_snake_case)]
-    fn iter_Rs(&self) -> impl Iterator<Item = (&PublicKey,&[RistrettoPoint; REWINDS])> {
+    fn iter_Rs(&self) -> impl Iterator<Item = (&PublicKey,&RevealedPoints)> {
         self.Rs.iter().filter_map( |(pk,cor)| match cor {
             CoR::Commit(_) => None,
-            CoR::Reveal { R } => Some((pk,R)),
+            CoR::Reveal(reveal) => Some((pk,reveal)),
             CoR::Cosigned { .. } => panic!("Internal error, compute_R called during cosigning phase."),
-            CoR::Collect { R, .. } => Some((pk,R)),
+            CoR::Collect { reveal, .. } => Some((pk,reveal)),
         } )
     }
 
@@ -367,7 +402,7 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
         let mut t0 = self.t.clone();
         for (pk,R) in self.iter_Rs() {
             t0.commit_point(b"pk-set", pk.as_compressed() );
-            for anR in R.iter() {
+            for anR in R.0.iter() {
                 t0.commit_point(b"R",& anR.compress());
             }
         }
@@ -387,7 +422,7 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
     where F: Fn(&PublicKey) -> [Scalar; REWINDS]
     {
         self.iter_Rs().map( |(pk,R)|
-            R.iter().zip(&rewinder(pk)).map(|(y,x)| x*y).sum::<RistrettoPoint>()
+            R.0.iter().zip(&rewinder(pk)).map(|(y,x)| x*y).sum::<RistrettoPoint>()
         ).sum::<RistrettoPoint>().compress()
     }
 }
@@ -427,7 +462,7 @@ impl Keypair {
 pub struct CommitStage<K: Borrow<Keypair>> {
     keypair: K,
     r_me: [Scalar; REWINDS],
-    R_me: [CompressedRistretto; REWINDS],
+    R_me: Reveal,
 }
 
 impl<K,T> MuSig<T,CommitStage<K>>
@@ -446,19 +481,19 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
         let r_me = [t.witness_scalar(labels[0],&[nonce]),t.witness_scalar(labels[1],&[nonce])];
           // context, message, nonce, but not &self.public.compressed
         let B = &constants::RISTRETTO_BASEPOINT_TABLE;
-        let R_me = [&r_me[0] * B, &r_me[1] * B];
+        let R_me_points = RevealedPoints([&r_me[0] * B, &r_me[1] * B]);
+        let R_me = R_me_points.to_reveal();
 
         let mut Rs = BTreeMap::new();
-        Rs.insert(keypair.borrow().public, CoR::Reveal { R: R_me.clone() });
+        Rs.insert(keypair.borrow().public, CoR::Reveal( R_me_points ));
 
-        let R_me = [R_me[0].compress(), R_me[1].compress()];
         let stage = CommitStage { keypair, r_me, R_me };
         MuSig { t, Rs, stage, }
     }
 
     /// Our commitment to our `R` to send to all other cosigners
     pub fn our_commitment(&self) -> Commitment {
-        Commitment::for_R(&self.stage.R_me)
+        self.stage.R_me.to_commitment().unwrap()
     }
 
     /// Add a new cosigner's public key and associated `R` bypassing our commitmewnt phase.
@@ -490,20 +525,14 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
 pub struct RevealStage<K: Borrow<Keypair>> {
     keypair: K,
     r_me: [Scalar; REWINDS],
-    R_me: [CompressedRistretto; REWINDS],
+    R_me: Reveal,
 }
 
 impl<K,T> MuSig<T,RevealStage<K>> 
 where K: Borrow<Keypair>, T: SigningTranscript+Clone
 {
     /// Reveal our `R` contribution to send to all other cosigners
-    pub fn our_reveal(&self) -> Reveal {
-        let mut reveal = [0u8; 32*REWINDS];
-        for (o,i) in reveal.chunks_mut(32).zip(&self.stage.R_me) {
-            o.copy_from_slice(i.as_bytes()); 
-        }
-        Reveal(reveal)
-    }
+    pub fn our_reveal(&self) -> &Reveal { &self.stage.R_me }
 
     // TODO: Permit `add_their_reveal` and `add_trusted` in `CommitStage`
     // using const generics, const fn, and replacing the `*Stage` types
@@ -545,12 +574,11 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     /// with the middle ground being only something like Pairty Signer.
     /// Also, any public keys controlled by an organization likely
     /// fail (c) too, making this only useful for individuals.
-    #[allow(non_snake_case)]
     pub fn add_trusted(&mut self, them: PublicKey, theirs: Reveal)
      -> SignatureResult<()>
     {
-        let (_,R) = theirs.into_points() ?;
-        let theirs = CoR::Reveal { R };
+        let reveal = theirs.into_points() ?;
+        let theirs = CoR::Reveal(reveal);
         match self.Rs.entry(them) {
             Entry::Vacant(v) => { v.insert(theirs); () },
             Entry::Occupied(o) =>
@@ -629,7 +657,7 @@ impl<T: SigningTranscript+Clone> MuSig<T,CosignStage> {
     pub fn cosigned(&self) -> impl Iterator<Item=&PublicKey> {
         self.Rs.iter().filter_map( |(pk,cor)| match cor {
             CoR::Commit(_) => None,
-            CoR::Reveal { .. } => None,
+            CoR::Reveal(_) => None,
             CoR::Cosigned { .. } => Some(pk),
             CoR::Collect { .. } => panic!("Collect found in Cosign phase.")
         } )
@@ -640,7 +668,7 @@ impl<T: SigningTranscript+Clone> MuSig<T,CosignStage> {
     pub fn uncosigned(&self) -> impl Iterator<Item=&PublicKey> {
         self.Rs.iter().filter_map( |(pk,cor)| match cor {
             CoR::Commit(_) => None,
-            CoR::Reveal { .. } => Some(pk),
+            CoR::Reveal(_) => Some(pk),
             CoR::Cosigned { .. } => None,
             CoR::Collect { .. } => panic!("Collect found in Cosign phase."),
         } )
@@ -654,7 +682,7 @@ impl<T: SigningTranscript+Clone> MuSig<T,CosignStage> {
         let s: Scalar = self.Rs.iter()
             .filter_map( |(_pk,cor)| match cor {
                 CoR::Commit(_) => None,
-                CoR::Reveal { .. } => panic!("Internal error, MuSig<T,CosignStage>::uncosigned broken."),
+                CoR::Reveal(_) => panic!("Internal error, MuSig<T,CosignStage>::uncosigned broken."),
                 CoR::Cosigned { s, .. } => Some(s),
                 CoR::Collect { .. } => panic!("Collect found in Cosign phase."),
             } ).sum();
@@ -679,10 +707,10 @@ impl<T: SigningTranscript+Clone> MuSig<T,CollectStage> {
     pub fn add(&mut self, them: PublicKey, their_reveal: Reveal, their_cosignature: Cosignature)
      -> SignatureResult<()>
     {
-        let (_,R) = their_reveal.into_points() ?;
+        let reveal = their_reveal.into_points() ?;
         let s = Scalar::from_canonical_bytes(their_cosignature.0)
             .ok_or(SignatureError::ScalarFormatError) ?;
-        let cor = CoR::Collect { R, s };
+        let cor = CoR::Collect { reveal, s };
 
         match self.Rs.entry(them) {
             Entry::Vacant(v) => { v.insert(cor); () },
@@ -750,7 +778,7 @@ mod tests {
         let mut reveal_msgs: Vec<Reveal> = Vec::with_capacity(commits.len());
         let mut reveals: Vec<_> = commits.drain(..).map( |c| c.reveal_stage() ).collect();
         for i in 0..reveals.len() {
-            let r = reveals[i].our_reveal();
+            let r = reveals[i].our_reveal().clone();
             for j in reveals.iter_mut() {
                 j.add_their_reveal(keypairs[i].public.clone(),r.clone()).unwrap();
             }
