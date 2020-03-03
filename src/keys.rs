@@ -934,7 +934,10 @@ mod test {
 
     #[test]
     fn keypair_zeroize() {
-        let mut keypair: Keypair = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+        
+        let mut keypair = Keypair::generate_with(&mut csprng);
 
         keypair.zeroize();
 
@@ -952,7 +955,10 @@ mod test {
 
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
-        let mini_secret: MiniSecretKey = MiniSecretKey::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+
+        let mini_secret: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
         let secret: SecretKey = mini_secret.expand(ExpansionMode::Ed25519);
         let public_from_mini_secret: PublicKey = mini_secret.expand_to_public(ExpansionMode::Ed25519);
         let public_from_secret: PublicKey = secret.to_public();

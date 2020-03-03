@@ -218,7 +218,11 @@ mod tests {
     #[test]
     fn ecqv_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
-        let issuer = Keypair::generate();
+
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+        let issuer = Keypair::generate_with(&mut csprng);
+
         let (cert_public,secret_key) = issuer.issue_self_ecqv_cert(t.clone());
         let public_key = issuer.public.open_ecqv_cert(t,&cert_public).unwrap();
         assert_eq!(secret_key.to_public(), public_key);

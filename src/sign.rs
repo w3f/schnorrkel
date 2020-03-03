@@ -542,7 +542,6 @@ mod test {
 
     #[test]
     fn sign_verify_bytes() {
-        let keypair: Keypair;
         let good_sig: Signature;
         let bad_sig:  Signature;
 
@@ -551,7 +550,10 @@ mod test {
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
-        keypair  = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+        
+        let keypair = Keypair::generate_with(&mut csprng);
         good_sig = keypair.sign(ctx.bytes(&good));
         bad_sig  = keypair.sign(ctx.bytes(&bad));
 
@@ -570,7 +572,6 @@ mod test {
 
     #[test]
     fn sign_verify_xof() {
-        let keypair: Keypair;
         let good_sig: Signature;
         let bad_sig:  Signature;
 
@@ -583,7 +584,10 @@ mod test {
         let prehashed_bad: Shake128 = Shake128::default().chain(bad);
         // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
-        keypair  = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+
+        let keypair = Keypair::generate_with(&mut csprng);
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));
         bad_sig  = keypair.sign(ctx.xof(prehashed_bad.clone()));
 

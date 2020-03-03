@@ -447,7 +447,7 @@ impl PublicKey {
         // closures but giving all closures unique types.
         fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
         fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
-        #[cfg(feature = "alloc")]
+        #[cfg(any(feature = "alloc", feature = "std"))]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
             let ps = ps.iter().map( |p| io(p.borrow()) );
             RistrettoBoth::from_point(if vartime {
@@ -456,7 +456,7 @@ impl PublicKey {
                 RistrettoPoint::multiscalar_mul(zf(), ps)
             })
         };
-        #[cfg(not(feature = "alloc"))]
+        #[cfg(not(any(feature = "alloc", feature = "std")))]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
             use curve25519_dalek::traits::Identity;
             let mut acc = RistrettoPoint::identity();
@@ -1005,7 +1005,10 @@ mod tests {
 
     #[test]
     fn vrf_single() {
-        let keypair1 = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+
+        let keypair1 = Keypair::generate_with(&mut csprng);
 
         let ctx = signing_context(b"yo!");
         let msg = b"meow";
@@ -1039,7 +1042,7 @@ mod tests {
             "VRF verification with incorrect message passed!"
         );
 
-        let keypair2 = Keypair::generate();
+        let keypair2 = Keypair::generate_with(&mut csprng);
         assert!(
             keypair2.public.vrf_verify(ctx.bytes(msg), &out1, &proof1).is_err(),
             "VRF verification with incorrect signer passed!"
@@ -1048,7 +1051,10 @@ mod tests {
 
     #[test]
     fn vrf_malleable() {
-        let keypair1 = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+
+        let keypair1 = Keypair::generate_with(&mut csprng);
 
         let ctx = signing_context(b"yo!");
         let msg = b"meow";
@@ -1080,7 +1086,7 @@ mod tests {
             "VRF verification with incorrect message passed!"
         );
 
-        let keypair2 = Keypair::generate();
+        let keypair2 = Keypair::generate_with(&mut csprng);
         assert!(
             keypair2.public.vrf_verify(Malleable(ctx.bytes(msg)), &out1, &proof1).is_err(),
             "VRF verification with incorrect signer passed!"
@@ -1118,7 +1124,7 @@ mod tests {
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn vrfs_merged_and_batched() {
-        let mut csprng = ::rand::thread_rng();
+        let mut csprng = ::rand_core::OsRng;
         let keypairs: Vec<Keypair> = (0..4)
             .map(|_| Keypair::generate_with(&mut csprng))
             .collect();

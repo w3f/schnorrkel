@@ -297,7 +297,10 @@ mod tests {
         let msg : &'static [u8] = b"Just some test message!";
         let mut h = Shake128::default().chain(msg);
 
-        let key = Keypair::generate();
+        // #[cfg(feature = "getrandom")]
+        let mut csprng = ::rand_core::OsRng;
+        let key = Keypair::generate_with(&mut csprng);
+
         let mut extended_public_key = ExtendedKey {
             key: key.public.clone(),
             chaincode,
