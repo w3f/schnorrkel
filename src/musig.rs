@@ -260,30 +260,11 @@ impl Reveal {
 
     fn into_points(&self) -> SignatureResult<RevealedPoints> {
         self.check_length() ?;
-        // fn dc(x: CompressedRistretto) -> SignatureResult<RistrettoPoint> {
-        //     x.decompress().ok_or(SignatureError::PointDecompressionError) 
-        // }
-        // let a = self.iter_points().map(dc).collect::<SignatureResult<ArrayVec<[RistrettoPoint; REWINDS]>>>() ?;
-        //
-        let mut a = ArrayVec::<[RistrettoPoint; REWINDS]>::new();
-        for x in self.iter_points() {
-            a.push( x.decompress().ok_or(SignatureError::PointDecompressionError) ? );
-        }
+        let a = self.iter_points().map(
+            |x| x.decompress().ok_or(SignatureError::PointDecompressionError)
+        ).collect::<SignatureResult<ArrayVec<[RistrettoPoint; REWINDS]>>>() ?;
         Ok( RevealedPoints( a.into_inner().unwrap() ) )
     }
-
-    /*
-    #[allow(non_snake_case)]
-    fn into_points(&self) -> SignatureResult<RevealedPoints> {
-        self.check_length() ?;
-        let Rs = array_refs![&self.0,32,32];
-        let Rs = [CompressedRistretto(*Rs.0), CompressedRistretto(*Rs.1)];
-        fn dc(x: CompressedRistretto) -> SignatureResult<RistrettoPoint> {
-            x.decompress().ok_or(SignatureError::PointDecompressionError) 
-        }
-        Ok( RevealedPoints( [dc(Rs[0])?, dc(Rs[1])?] ) )
-    }
-    */
 }
 
 
