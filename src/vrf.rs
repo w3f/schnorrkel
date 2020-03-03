@@ -447,6 +447,7 @@ impl PublicKey {
         // closures but giving all closures unique types.
         fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
         fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
+        #[cfg(feature = "alloc")]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
             let ps = ps.iter().map( |p| io(p.borrow()) );
             RistrettoBoth::from_point(if vartime {
@@ -454,6 +455,15 @@ impl PublicKey {
             } else {
                 RistrettoPoint::multiscalar_mul(zf(), ps)
             })
+        };
+        #[cfg(not(feature = "alloc"))]
+        let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
+            use curve25519_dalek::traits::Identity;
+            let mut acc = RistrettoPoint::identity();
+            for (z,p) in zf().zip(ps) {
+                acc += z * io(p.borrow());
+            }
+            RistrettoBoth::from_point(acc)
         };
 
         let input = go( get_input );

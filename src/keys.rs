@@ -328,7 +328,7 @@ impl MiniSecretKey {
     ///
     /// let public_key: PublicKey = secret_key.expand_to_public(ExpansionMode::Ed25519);
     /// ```
-    #[cfg(feature = "std")]
+    #[cfg(feature = "getrandom")]
     pub fn generate() -> MiniSecretKey {
         Self::generate_with(super::rand_hack())
     }
@@ -545,7 +545,7 @@ impl SecretKey {
 
     /// Generate an "unbiased" `SecretKey` directly,
     /// bypassing the `MiniSecretKey` layer.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "getrandom")]
     pub fn generate() -> SecretKey {
         Self::generate_with(super::rand_hack())
     }
@@ -869,7 +869,7 @@ impl Keypair {
 
     /// Generate a Ristretto Schnorr `Keypair` directly, from a user
     /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
-    #[cfg(feature = "std")]
+    #[cfg(feature = "getrandom")]
     pub fn generate() -> Keypair {
         Self::generate_with(super::rand_hack())
     }
