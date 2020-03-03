@@ -56,7 +56,7 @@ use crate::errors::MultiSignatureStage;
 /// At least two so that our 2-round escape hatch `add_trusted`
 /// provides some protection against the Wagner's k-sum attacks on
 /// 2-round multi-signatures.
-const REWINDS: usize = 2;
+const REWINDS: usize = 4;
 
 
 // === Agagregate public keys for multi-signatures === //
