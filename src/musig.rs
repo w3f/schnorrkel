@@ -249,11 +249,13 @@ impl Reveal {
     }
 
     #[allow(non_snake_case)]
+    fn iter_points<'a>(&'a self) -> impl Iterator<Item=CompressedRistretto> + 'a {
+        (&self.0).windows(32).map( |R| CompressedRistretto( array_ref![R,0,32].clone() ) )
+    }
+
     fn to_commitment(&self) -> SignatureResult<Commitment> {
         self.check_length() ?;
-        Ok(Commitment::for_R( (&self.0).windows(32).map(
-            |R| CompressedRistretto( array_ref![R,0,32].clone() )
-        ) ))
+        Ok(Commitment::for_R( self.iter_points() )) 
     }
 
     #[allow(non_snake_case)]
