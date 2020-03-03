@@ -38,6 +38,8 @@ use alloc::{collections::btree_map::{BTreeMap, Entry}};
 #[cfg(feature = "std")]
 use std::{collections::btree_map::{BTreeMap, Entry}};
 
+use arrayvec::ArrayVec;
+
 use merlin::Transcript;
 
 use curve25519_dalek::constants;
@@ -478,8 +480,6 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     /// with this `MuSig::new` method, or even pass in an owned copy.
     #[allow(non_snake_case)]
     pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
-        use arrayvec::ArrayVec;
-
         let nonce = &keypair.borrow().secret.nonce;
 
         let mut r_me = ArrayVec::<[Scalar; REWINDS]>::new();
