@@ -203,11 +203,13 @@ impl Commitment {
 struct RevealedPoints([RistrettoPoint; REWINDS]);
 
 impl RevealedPoints {
+    /*
     #[allow(non_snake_case)]
     fn to_commitment(&self) -> Commitment {
         // self.check_length() ?;
         Commitment::for_R( self.0.iter().map(|R| R.compress()) )
     }
+    */
 
     fn to_reveal(&self) -> Reveal {
         // self.check_length() ?;
