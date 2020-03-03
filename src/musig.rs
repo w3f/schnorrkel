@@ -413,7 +413,11 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
         move |pk| {
             let mut t1 = t0.clone();
             t1.commit_point(b"pk-choice", pk.as_compressed() );
-            [t1.challenge_scalar(b"R"), t1.challenge_scalar(b"R")]
+            let mut a = ArrayVec::<[Scalar; REWINDS]>::new();
+            while !a.is_full() {
+                a.push( t1.challenge_scalar(b"R") );
+            }
+            a.into_inner().unwrap()
         }
     }
 
