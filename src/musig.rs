@@ -478,12 +478,21 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     /// with this `MuSig::new` method, or even pass in an owned copy.
     #[allow(non_snake_case)]
     pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
-        let labels: [&'static [u8]; REWINDS] = [b"signing1",b"signing2"];
+        use arrayvec::ArrayVec;
+
         let nonce = &keypair.borrow().secret.nonce;
-        let r_me = [t.witness_scalar(labels[0],&[nonce]),t.witness_scalar(labels[1],&[nonce])];
-          // context, message, nonce, but not &self.public.compressed
+
+        let mut r_me = ArrayVec::<[Scalar; REWINDS]>::new();
+        for i in 0..REWINDS {
+            r_me.push( t.witness_scalar(b"MuSigWitness",&[nonce,&i.to_le_bytes()]) );
+        }
+        let r_me = r_me.into_inner().unwrap();
+        // context, message, nonce, but not &self.public.compressed
+
         let B = &constants::RISTRETTO_BASEPOINT_TABLE;
-        let R_me_points = RevealedPoints([&r_me[0] * B, &r_me[1] * B]);
+        let R_me_points: ArrayVec<[RistrettoPoint; REWINDS]> = r_me.iter()
+            .map(|r_me_i| r_me_i * B).collect();
+        let R_me_points = RevealedPoints(R_me_points.into_inner().unwrap());
         let R_me = R_me_points.to_reveal();
 
         let mut Rs = BTreeMap::new();
