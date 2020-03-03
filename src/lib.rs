@@ -159,7 +159,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
-//! use bincode::{serialize, Infinite};
+//! use bincode::{serialize};
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
@@ -168,8 +168,8 @@
 //! # let public_key: PublicKey = keypair.public;
 //! # assert!( public_key.verify(context.bytes(message), &signature).is_ok() );
 //!
-//! let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
-//! let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
+//! let encoded_public_key: Vec<u8> = serialize(&public_key).unwrap();
+//! let encoded_signature: Vec<u8> = serialize(&signature).unwrap();
 //! # }
 //! # #[cfg(not(feature = "serde"))]
 //! # fn main() {}
@@ -184,7 +184,7 @@
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{Keypair, Signature, PublicKey, signing_context};
-//! # use bincode::{serialize, Infinite};
+//! # use bincode::{serialize};
 //! use bincode::{deserialize};
 //!
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
@@ -193,8 +193,8 @@
 //! # let context = signing_context(b"this signature does this thing");
 //! # let signature: Signature = keypair.sign(context.bytes(message));
 //! # let public_key: PublicKey = keypair.public;
-//! # let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
-//! # let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
+//! # let encoded_public_key: Vec<u8> = serialize(&public_key).unwrap();
+//! # let encoded_signature: Vec<u8> = serialize(&signature).unwrap();
 //! let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
 //! let decoded_signature: Signature = deserialize(&encoded_signature).unwrap();
 //!

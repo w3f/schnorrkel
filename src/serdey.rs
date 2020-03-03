@@ -55,7 +55,7 @@ macro_rules! serde_boilerplate { ($t:ty) => { } }
 mod test {
     use std::vec::Vec;
 
-    use bincode::{serialize, serialized_size, deserialize, Infinite};
+    use bincode::{serialize, serialized_size, deserialize};
 
     use curve25519_dalek::ristretto::{CompressedRistretto};
 
@@ -96,7 +96,7 @@ mod test {
     #[test]
     fn serialize_deserialize_signature() {
         let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
-        let encoded_signature: Vec<u8> = serialize(&signature, Infinite).unwrap();
+        let encoded_signature: Vec<u8> = serialize(&signature).unwrap();
         let decoded_signature: Signature = deserialize(&encoded_signature).unwrap();
 
         assert_eq!(signature, decoded_signature);
@@ -105,7 +105,7 @@ mod test {
     #[test]
     fn serialize_deserialize_public_key() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
-        let encoded_public_key: Vec<u8> = serialize(&public_key, Infinite).unwrap();
+        let encoded_public_key: Vec<u8> = serialize(&public_key).unwrap();
         let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
 
         assert_eq!(public_key, decoded_public_key);
@@ -125,7 +125,7 @@ mod test {
 
     #[test]
     fn serialize_deserialize_mini_secret_key() {
-        let encoded_secret_key: Vec<u8> = serialize(&ED25519_SECRET_KEY, Infinite).unwrap();
+        let encoded_secret_key: Vec<u8> = serialize(&ED25519_SECRET_KEY).unwrap();
         let decoded_secret_key: MiniSecretKey = deserialize(&encoded_secret_key).unwrap();
 
         for i in 0..32 {
@@ -136,21 +136,21 @@ mod test {
     #[test]
     fn serialize_public_key_size() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
-        assert_eq!(serialized_size(&public_key) as usize, 32+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&public_key).unwrap(), 32+8);  // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_signature_size() {
         let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
-        assert_eq!(serialized_size(&signature) as usize, 64+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&signature).unwrap(), 64+8);  // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_secret_key_size() {
-        assert_eq!(serialized_size(&ED25519_SECRET_KEY) as usize, 32+8);
+        assert_eq!(serialized_size(&ED25519_SECRET_KEY).unwrap(), 32+8);
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Ed25519);
-        assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Uniform);
-        assert_eq!(serialized_size(&secret_key) as usize, 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
     }
 }
