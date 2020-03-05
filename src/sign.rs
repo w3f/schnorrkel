@@ -131,6 +131,23 @@ impl Signature {
 
         Ok(Signature{ R: CompressedRistretto(lower), s: check_scalar(upper) ? })
     }
+
+    /// Depricated construction of a `Signature` from a slice of bytes
+    /// without checking the bit distinguishing from ed25519.  Deprecated.
+    #[inline]
+    pub fn from_bytes_not_distinguished_from_ed25519(bytes: &[u8]) -> SignatureResult<Signature> {
+        if bytes.len() != SIGNATURE_LENGTH {
+            return Err(SignatureError::BytesLengthError {
+                name: "Signature",
+                description: Signature::DESCRIPTION,
+                length: SIGNATURE_LENGTH
+            });
+        }
+        let mut bytes0: [u8; SIGNATURE_LENGTH] = [0u8; SIGNATURE_LENGTH];
+        bytes0.copy_from_slice(bytes);
+        bytes0[63] |= 128;
+        Signature::from_bytes(&bytes0[..])
+    }
 }
 
 serde_boilerplate!(Signature);
@@ -207,6 +224,36 @@ impl PublicKey {
         let t = SigningContext::new(ctx).bytes(msg);
         self.verify(t,signature)
     }
+
+    /// A temporary verification routine for use in transitioning substrate testnets only.
+    #[cfg(feature = "preaudit_deprecated")]
+    #[allow(non_snake_case)]
+    pub fn verify_simple_preaudit_deprecated(&self, ctx: &'static [u8], msg: &[u8], sig: &[u8])
+     -> SignatureResult<()>
+    {
+        let t = SigningContext::new(ctx).bytes(msg);
+
+        if let Ok(signature) = Signature::from_bytes(sig) {
+            return self.verify(t,&signature);
+        }
+
+        let signature = Signature::from_bytes_not_distinguished_from_ed25519(sig) ?;
+
+        let mut t = merlin::Transcript::new(ctx);
+        t.append_message(b"sign-bytes", msg);
+
+        let A: &RistrettoPoint = self.as_point();
+
+        t.proto_name(b"Schnorr-sig");
+        t.commit_point(b"pk",self.as_compressed());
+        t.commit_point(b"no",&signature.R);
+
+        let k: Scalar = t.challenge_scalar(b"");  // context, message, A/public_key, R=rG
+        let R = RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &(-A), &signature.s);
+
+        if R.compress() == signature.R { Ok(()) } else { Err(SignatureError::EquationFalse) }
+    }
+
 }
 
 
@@ -648,6 +695,18 @@ mod test {
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_err() );
         let transcripts = messages.iter().map(|m| ctx.bytes(m));
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], true).is_err() );
+    }
+
+    #[cfg(feature = "preaudit_deprecated")]
+    #[test]
+    fn can_verify_know_preaudit_deprecated_message() {
+        use hex_literal::hex;
+        const SIGNING_CTX : &'static [u8] = b"substrate";
+        let message = b"Verifying that I am the owner of 5G9hQLdsKQswNPgB499DeA5PkFBbgkLPJWkkS6FAM6xGQ8xD. Hash: 221455a3\n";
+        let public = hex!("b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918");
+        let public = PublicKey::from_bytes(&public[..]).unwrap();
+        let signature = hex!("5a9755f069939f45d96aaf125cf5ce7ba1db998686f87f2fb3cbdea922078741a73891ba265f70c31436e18a9acd14d189d73c12317ab6c313285cd938453202");
+        assert!( public.verify_simple_preaudit_deprecated(SIGNING_CTX,message,&signature[..]).is_ok() );
     }
 }
 
