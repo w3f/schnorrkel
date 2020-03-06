@@ -353,7 +353,7 @@ impl rand_core::CryptoRng for NotAnRng {}
 /// Avoids using system randomness and instead depends entirely upon delinearization.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
-pub fn verify_batch_derandomized<T,I>(
+pub fn verify_batch_deterministic<T,I>(
     transcripts: I,
     signatures: &[Signature],
     public_keys: &[PublicKey],
