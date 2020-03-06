@@ -192,6 +192,15 @@ impl SecretKey {
         let t = SigningContext::new(ctx).bytes(msg);
         self.sign(t,public_key)
     }
+
+    /// Sign a message with this `SecretKey`, but doublecheck the result.
+    pub fn sign_simple_doublecheck(&self, ctx: &[u8], msg: &[u8], public_key: &PublicKey)
+     -> SignatureResult<Signature>
+    {
+        let t = SigningContext::new(ctx).bytes(msg);
+        let sig = self.sign(t,public_key);
+        public_key.verify_simple(ctx,msg,&sig).map(|()| sig)
+    }
 }
 
 
