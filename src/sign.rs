@@ -192,7 +192,8 @@ impl SecretKey {
     {
         let sig = self.sign(t.clone(),public_key);
         let sig = Signature::from_bytes(& sig.to_bytes()) ?;
-        public_key.verify(t,&sig).map(|()| sig)
+        PublicKey::from_bytes(& public_key.to_bytes()) ?
+        .verify(t,&sig).map(|()| sig)
     }
 
     /// Sign a message with this `SecretKey`.
@@ -209,7 +210,8 @@ impl SecretKey {
         let t = SigningContext::new(ctx).bytes(msg);
         let sig = self.sign(t,public_key);
         let sig = Signature::from_bytes(& sig.to_bytes()) ?;
-        public_key.verify_simple(ctx,msg,&sig).map(|()| sig)
+        PublicKey::from_bytes(& public_key.to_bytes()) ?
+        .verify_simple(ctx,msg,&sig).map(|()| sig)
     }
 }
 
@@ -597,7 +599,8 @@ impl Keypair {
     {
         let sig = self.sign(t.clone());
         let sig = Signature::from_bytes(& sig.to_bytes()) ?;
-        self.verify(t,&sig).map(|()| sig)
+        PublicKey::from_bytes(& self.public.to_bytes()) ?
+        .verify(t,&sig).map(|()| sig)
     }
 
     /// Sign a message with this `SecretKey`, but doublecheck the result.
@@ -607,7 +610,8 @@ impl Keypair {
         let t = SigningContext::new(ctx).bytes(msg);
         let sig = self.sign(t);
         let sig = Signature::from_bytes(& sig.to_bytes()) ?;
-        self.verify_simple(ctx,msg,&sig).map(|()| sig)
+        PublicKey::from_bytes(& self.public.to_bytes()) ?
+        .verify_simple(ctx,msg,&sig).map(|()| sig)
     }
 
 }
