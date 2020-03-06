@@ -269,6 +269,9 @@ pub mod errors;
 #[cfg(feature = "aead")]
 pub mod aead;
 
+#[cfg(any(feature = "alloc", feature = "std"))]
+mod batch;
+
 // Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
 #[cfg(feature = "std")]
 pub mod musig;
@@ -279,4 +282,4 @@ pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub use crate::sign::{verify_batch};
+pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic};
