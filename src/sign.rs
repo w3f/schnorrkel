@@ -191,6 +191,7 @@ impl SecretKey {
     where T: SigningTranscript+Clone
     {
         let sig = self.sign(t.clone(),public_key);
+        let sig = Signature::from_bytes(& sig.to_bytes()) ?;
         public_key.verify(t,&sig).map(|()| sig)
     }
 
@@ -207,6 +208,7 @@ impl SecretKey {
     {
         let t = SigningContext::new(ctx).bytes(msg);
         let sig = self.sign(t,public_key);
+        let sig = Signature::from_bytes(& sig.to_bytes()) ?;
         public_key.verify_simple(ctx,msg,&sig).map(|()| sig)
     }
 }
@@ -594,6 +596,7 @@ impl Keypair {
     where T: SigningTranscript+Clone
     {
         let sig = self.sign(t.clone());
+        let sig = Signature::from_bytes(& sig.to_bytes()) ?;
         self.verify(t,&sig).map(|()| sig)
     }
 
@@ -603,6 +606,7 @@ impl Keypair {
     {
         let t = SigningContext::new(ctx).bytes(msg);
         let sig = self.sign(t);
+        let sig = Signature::from_bytes(& sig.to_bytes()) ?;
         self.verify_simple(ctx,msg,&sig).map(|()| sig)
     }
 
