@@ -186,6 +186,14 @@ impl SecretKey {
         Signature{ R, s }
     }
 
+    /// Sign a message with this `SecretKey`, but doublecheck the result.
+    pub fn sign_doublecheck<T>(&self, t: T, public_key: &PublicKey) -> SignatureResult<Signature>
+    where T: SigningTranscript+Clone
+    {
+        let sig = self.sign(t.clone(),public_key);
+        public_key.verify(t,&sig).map(|()| sig)
+    }
+
     /// Sign a message with this `SecretKey`.
     pub fn sign_simple(&self, ctx: &[u8], msg: &[u8], public_key: &PublicKey) -> Signature
     {
@@ -579,6 +587,25 @@ impl Keypair {
     {
         self.public.verify_simple(ctx, msg, signature)
     }
+
+
+    /// Sign a message with this `SecretKey`, but doublecheck the result.
+    pub fn sign_doublecheck<T>(&self, t: T) -> SignatureResult<Signature>
+    where T: SigningTranscript+Clone
+    {
+        let sig = self.sign(t.clone());
+        self.verify(t,&sig).map(|()| sig)
+    }
+
+    /// Sign a message with this `SecretKey`, but doublecheck the result.
+    pub fn sign_simple_doublecheck(&self, ctx: &[u8], msg: &[u8])
+     -> SignatureResult<Signature>
+    {
+        let t = SigningContext::new(ctx).bytes(msg);
+        let sig = self.sign(t);
+        self.verify_simple(ctx,msg,&sig).map(|()| sig)
+    }
+
 }
 
 
