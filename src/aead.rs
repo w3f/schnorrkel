@@ -42,6 +42,14 @@ impl SecretKey {
         (&self.key * public.as_point()).compress()
     }
 
+    /// Commit the results of a raw key exchange into a transcript
+    pub fn commit_raw_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
+    where T: SigningTranscript
+    {
+        let p = self.raw_key_exchange(public);
+        t.commit_point(ctx, &p);
+    }
+
     /// An AEAD from a key exchange with the specified public key.
     ///
     /// Requires the AEAD have a 32 byte public key and does not support a context.
@@ -80,14 +88,14 @@ impl PublicKey {
 
 impl Keypair {
     /// Commit the results of a key exchange into a transcript
+    /// including the public keys in sorted order.
     pub fn commit_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
     where T: SigningTranscript
     {
         let mut pks = [self.public.as_compressed(), public.as_compressed()];
         pks.sort_unstable_by_key( |pk| pk.as_bytes() );
         for pk in &pks { t.commit_point(b"pk",pk); }
-        let p = self.secret.raw_key_exchange(public);
-        t.commit_point(ctx, &p);
+        self.secret.commit_raw_key_exchange(t,ctx,public);
     }
 
     /// An AEAD from a key exchange with the specified public key.
