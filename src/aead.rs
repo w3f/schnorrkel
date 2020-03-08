@@ -42,14 +42,6 @@ impl SecretKey {
         (&self.key * public.as_point()).compress()
     }
 
-    /// Commit the results of a key exchange into a transcript
-    pub fn commit_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
-    where T: SigningTranscript
-    {
-        let p = self.raw_key_exchange(public);
-        t.commit_point(ctx, &p);
-    }
-
     /// An AEAD from a key exchange with the specified public key.
     ///
     /// Requires the AEAD have a 32 byte public key and does not support a context.
@@ -59,6 +51,43 @@ impl SecretKey {
         let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
         key.clone_from_slice( self.raw_key_exchange(public).as_bytes() );
         AEAD::new(key)
+    }
+}
+
+impl PublicKey {
+    /// Initalize an AEAD to the public key `self` using an ephemeral key exchange.
+    ///
+    /// Returns the ephemeral public key and AEAD.
+    pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD) 
+    {
+        let ephemeral = Keypair::generate();
+        let aead = ephemeral.aead_unauthenticated(ctx,self);
+        (ephemeral.public.into_compressed(), aead)
+    }
+
+    /// Initalize an AEAD to the public key `self` using an ephemeral key exchange.
+    ///
+    /// Returns the ephemeral public key and AEAD.
+    /// Requires the AEAD have a 32 byte public key and does not support a context.
+    pub fn init_aead32_unauthenticated<AEAD>(&self) -> (CompressedRistretto,AEAD) 
+    where AEAD: NewAead<KeySize=U32>
+    {
+        let secret = SecretKey::generate();
+        let aead = secret.aead32_unauthenticated(self);
+        (secret.to_public().into_compressed(), aead)
+    }
+}
+
+impl Keypair {
+    /// Commit the results of a key exchange into a transcript
+    pub fn commit_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
+    where T: SigningTranscript
+    {
+        let mut pks = [self.public.as_compressed(), public.as_compressed()];
+        pks.sort_unstable_by_key( |pk| pk.as_bytes() );
+        for pk in &pks { t.commit_point(b"pk",pk); }
+        let p = self.secret.raw_key_exchange(public);
+        t.commit_point(ctx, &p);
     }
 
     /// An AEAD from a key exchange with the specified public key.
@@ -91,11 +120,11 @@ impl SecretKey {
     ) -> (CompressedRistretto,AEAD)
     where T: SigningTranscript, AEAD: NewAead
     {
-        let key = t.witness_scalar(b"make_esk", &[&self.nonce]);
-        let esk = SecretKey { key, nonce: self.nonce.clone() };
-        esk.commit_key_exchange(&mut t,b"epk",public);
+        let key = t.witness_scalar(b"make_esk", &[&self.secret.nonce]);
+        let ekey = SecretKey { key, nonce: self.secret.nonce.clone() }.to_keypair();
+        ekey.commit_key_exchange(&mut t,b"epk",public);
         self.commit_key_exchange(&mut t,b"epk",public);
-        (esk.to_public().into_compressed(), make_aead(t))
+        (ekey.public.into_compressed(), make_aead(t))
     }
 
     /// Reciever's AEAD with ECQV certificate.
@@ -114,32 +143,7 @@ impl SecretKey {
         let epk = public.open_ecqv_cert(t,cert_public) ?;
         Ok(self.aead_unauthenticated(b"",&epk))
     }
-}
 
-impl PublicKey {
-    /// Initalize an AEAD from an ephemeral key exchange with the public key `self`.
-    ///
-    /// Returns the ephemeral public key and AEAD.
-    pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD) 
-    {
-        let secret = SecretKey::generate();
-        let aead = secret.aead_unauthenticated(ctx,self);
-        (secret.to_public().into_compressed(), aead)
-    }
-
-    /// Initalize an AEAD from an ephemeral key exchange with the public key `self`.
-    ///
-    /// Returns the ephemeral public key and AEAD.
-    pub fn init_aead32_unauthenticated<AEAD>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD) 
-    where AEAD: NewAead<KeySize=U32>
-    {
-        let secret = SecretKey::generate();
-        let aead = secret.aead32_unauthenticated(ctx,self);
-        (secret.to_public().into_compressed(), aead)
-    }
-}
-
-impl Keypair {
     /// Sender's AEAD with ECQV certificate.
     ///
     /// Along with the AEAD, we return the implicit ECQV certificate
@@ -148,7 +152,7 @@ impl Keypair {
     where T: SigningTranscript+Clone, AEAD: NewAead
     {
         let (cert,secret) = self.issue_self_ecqv_cert(t);
-        let aead = secret.aead_unauthenticated(b"",&public);
+        let aead = secret.to_keypair().aead_unauthenticated(b"",&public);
         (cert, aead)
     }
 }
