@@ -126,6 +126,17 @@ impl PublicKey {
         let aead = secret.aead_unauthenticated(ctx,self);
         (secret.to_public().into_compressed(), aead)
     }
+
+    /// Initalize an AEAD from an ephemeral key exchange with the public key `self`.
+    ///
+    /// Returns the ephemeral public key and AEAD.
+    pub fn init_aead32_unauthenticated<AEAD>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD) 
+    where AEAD: NewAead<KeySize=U32>
+    {
+        let secret = SecretKey::generate();
+        let aead = secret.aead32_unauthenticated(ctx,self);
+        (secret.to_public().into_compressed(), aead)
+    }
 }
 
 impl Keypair {
@@ -141,3 +152,10 @@ impl Keypair {
         (cert, aead)
     }
 }
+
+/*
+#[cfg(test)]
+mod test {
+    use super::super::*;
+}
+*/
