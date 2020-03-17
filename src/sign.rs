@@ -134,6 +134,7 @@ impl Signature {
 
     /// Depricated construction of a `Signature` from a slice of bytes
     /// without checking the bit distinguishing from ed25519.  Deprecated.
+    #[cfg(feature = "preaudit_deprecated")]
     #[inline]
     pub fn from_bytes_not_distinguished_from_ed25519(bytes: &[u8]) -> SignatureResult<Signature> {
         if bytes.len() != SIGNATURE_LENGTH {
