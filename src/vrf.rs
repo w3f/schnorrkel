@@ -425,7 +425,7 @@ impl PublicKey {
     where
         B: Borrow<VRFInOut>,
     {
-        assert!( ps.len() > 0);
+        assert!( ps.len() > 1);
         let mut t = ::merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
