@@ -9,6 +9,19 @@
 
 //! Encryption using schnorrkel keys
 
+/*
+Raid Wahby writes:
+
+As luck would have it, Degabriele, Lehmann, Paterson, Smart, and
+Strefler (CT-RSA '12, https://eprint.iacr.org/2011/615) show that
+ECIES and EC-Schnorr signatures are secure when instantiated with
+the same secret key, in the random oracle model and assuming that
+gap-DH and gap-DLP are hard (see Theorem 2).
+
+It seems like this proof could be extended to EdDSA and HPKE with
+DHKEM---but I haven't done more than glance! so this should be
+regarded as a pointer, not a recommendation.
+*/
 
 // use rand_core::{RngCore,CryptoRng};
 
