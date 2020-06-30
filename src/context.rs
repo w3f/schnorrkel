@@ -86,8 +86,14 @@ pub trait SigningTranscript {
     /// Produce a secret witness scalar `k`, aka nonce, from the protocol
     /// transcript and any "nonce seeds" kept with the secret keys.
     fn witness_scalar(&self, label: &'static [u8], nonce_seeds: &[&[u8]]) -> Scalar {
+        self.witness_scalar_rng(label, nonce_seeds, super::rand_hack())
+    }
+
+    /// Produce a secret witness scalar `k`, aka nonce, from the protocol
+    /// transcript and any "nonce seeds" kept with the secret keys, while passing an rng.
+    fn witness_scalar_rng<R: RngCore+CryptoRng>(&self, label: &'static [u8], nonce_seeds: &[&[u8]], rng: R) -> Scalar {
         let mut scalar_bytes = [0u8; 64];
-        self.witness_bytes(label, &mut scalar_bytes, nonce_seeds);
+        self.witness_bytes_rng(label, &mut scalar_bytes, nonce_seeds, rng);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 

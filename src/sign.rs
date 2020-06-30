@@ -171,10 +171,16 @@ impl SecretKey {
     #[allow(non_snake_case)]
     pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
     {
+        self.sign_rng(t, public_key, super::rand_hack())
+    }
+
+    #[allow(non_snake_case)]
+    pub fn sign_rng<T: SigningTranscript, R: RngCore+CryptoRng>(&self, mut t: T, public_key: &PublicKey, rng: R) -> Signature
+    {
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"sign:pk",public_key.as_compressed());
 
-        let mut r = t.witness_scalar(b"signing",&[&self.nonce]);  // context, message, A/public_key
+        let mut r = t.witness_scalar_rng(b"signing",&[&self.nonce], rng);  // context, message, A/public_key
         let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"sign:R",&R);
@@ -349,6 +355,11 @@ impl Keypair {
     pub fn sign_simple(&self, ctx: &[u8], msg: &[u8]) -> Signature
     {
         self.secret.sign_simple(ctx, msg, &self.public)
+    }
+
+    pub fn sign_rng<T: SigningTranscript, R: CryptoRng + RngCore>(&self, t: T, mut rng: R) -> Signature
+    {
+        self.secret.sign_rng(t,&self.public, &mut rng)
     }
 
     /// Verify a signature by keypair's public key on a transcript.
