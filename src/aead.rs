@@ -37,7 +37,7 @@ use curve25519_dalek::{
 use super::{SecretKey,PublicKey,Keypair,SignatureResult};
 use crate::context::SigningTranscript;
 
-use crate::cert::ECQVCertPublic;
+use crate::cert::AdaptorCertPublic;
 
 
 fn make_aead<T,AEAD>(mut t: T) -> AEAD 
@@ -148,31 +148,31 @@ impl Keypair {
         (ekey.public.into_compressed(), make_aead(t))
     }
 
-    /// Reciever's AEAD with ECQV certificate.
+    /// Reciever's AEAD with Adaptor certificate.
     ///
     /// Returns the AEAD constructed from an ephemeral key exchange
     /// with the public key computed form the sender's public key
-    /// and their implicit ECQV certificate.
-    pub fn reciever_aead_with_ecqv_cert<T,AEAD>(
+    /// and their implicit Adaptor certificate.
+    pub fn reciever_aead_with_adaptor_cert<T,AEAD>(
         &self, 
         t: T, 
-        cert_public: &ECQVCertPublic, 
+        cert_public: &AdaptorCertPublic, 
         public: &PublicKey,
     ) -> SignatureResult<AEAD> 
     where T: SigningTranscript, AEAD: NewAead
     {
-        let epk = public.open_ecqv_cert(t,cert_public) ?;
+        let epk = public.open_adaptor_cert(t,cert_public) ?;
         Ok(self.aead_unauthenticated(b"",&epk))
     }
 
-    /// Sender's AEAD with ECQV certificate.
+    /// Sender's AEAD with Adaptor certificate.
     ///
-    /// Along with the AEAD, we return the implicit ECQV certificate
+    /// Along with the AEAD, we return the implicit Adaptor certificate
     /// from which the reciever recreates the ephemeral public key.
-    pub fn sender_aead_with_ecqv_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (ECQVCertPublic,AEAD) 
+    pub fn sender_aead_with_adaptor_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (AdaptorCertPublic,AEAD) 
     where T: SigningTranscript+Clone, AEAD: NewAead
     {
-        let (cert,secret) = self.issue_self_ecqv_cert(t);
+        let (cert,secret) = self.issue_self_adaptor_cert(t);
         let aead = secret.to_keypair().aead_unauthenticated(b"",&public);
         (cert, aead)
     }
