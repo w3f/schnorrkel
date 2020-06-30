@@ -103,7 +103,7 @@ impl Keypair {
         let cert_public = ECQVCertPublic(gamma.0);
 
         // Compute the secret key reconstruction data
-        let s = cert_public.derive_e(t) * k + self.secret.key;
+        let s = k + cert_public.derive_e(t) * self.secret.key;
 
         let mut cert_secret = ECQVCertSecret([0u8; 64]);
         cert_secret.0[0..32].copy_from_slice(&cert_public.0[..]);
@@ -154,7 +154,7 @@ impl PublicKey {
         let gamma = CompressedRistretto(cert_public.0.clone());
         t.commit_point(b"gamma",&gamma);
 
-        let key = s + cert_public.derive_e(t) * seed_secret_key.key;
+        let key = s + seed_secret_key.key;
         Ok(( cert_public, SecretKey { key, nonce } ))
     }
 }
@@ -206,7 +206,7 @@ impl PublicKey {
         t.commit_point(b"gamma",&gamma);
         let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 
-        let point = self.as_point() + cert_public.derive_e(t) * gamma;
+        let point = cert_public.derive_e(t) * self.as_point() + gamma;
         Ok(PublicKey::from_point(point))
     }
 }
