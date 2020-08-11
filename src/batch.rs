@@ -1,11 +1,13 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorrkel.
+// Copyright (c) 2017-2019 isis lovecruft
 // Copyright (c) 2019 Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - Jeffrey Burdges <jeff@web3.foundation>
+// - isis agora lovecruft <isis@patternsinthevoid.net>
 
 //! ### Schnorr signature batch verification.
 
