@@ -393,7 +393,7 @@ where T: SigningTranscript, R: RngCore+CryptoRng
 /// Attach a fake `Rng` that returns all zeros, only for use in test vectors.
 /// You must never deploy this because some protocols like MuSig become insecure.
 #[cfg(test)]
-pub fn attach_test_vector_rng<T>(t: T) -> SigningTranscriptWithRng<T,impl RngCore+CryptoRng>
+pub(crate) fn attach_test_vector_rng<T>(t: T) -> SigningTranscriptWithRng<T,impl RngCore+CryptoRng>
 where T: SigningTranscript
 {
     // Very insecure hack except this fn only exists in tests
