@@ -10,7 +10,7 @@
 //! Encryption using schnorrkel keys
 
 /*
-Raid Wahby writes:
+Riad Wahby writes:
 
 As luck would have it, Degabriele, Lehmann, Paterson, Smart, and
 Strefler (CT-RSA '12, https://eprint.iacr.org/2011/615) show that
