@@ -40,7 +40,7 @@ pub struct Signature {
     ///
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.  The scalar is then multiplied by the distinguished
-    /// basepoint to produce `R`, and `RistrettoPoint`.
+    /// basepoint to produce `R`, a `RistrettoPoint`.
     pub (crate) R: CompressedRistretto,
 
     /// `s` is a `Scalar`, formed by using an hash function with 512-bits output
@@ -103,12 +103,12 @@ impl Signature {
     /// this marker remains unset because otherwise schnorrkel
     /// signatures would be indistinguishable from ed25519 signatures.
     /// We cannot always distinguish between schnorrkel and ed25519
-    /// public keys either, so without this market bit we could not
+    /// public keys either, so without this marker bit we could not
     /// do batch verification in systems that support precisely
     /// ed25519 and schnorrkel.
     ///
     /// We cannot distinguish amongst different `SigningTranscript`
-    /// types using these markey bits, but protocol should not need
+    /// types using these marker bits, but protocol should not need
     /// two different transcript types.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<Signature> {

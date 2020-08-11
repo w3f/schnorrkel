@@ -139,8 +139,8 @@ where T: SigningTranscript + ?Sized,
 
 /// We delegate `SigningTranscript` methods to the corresponding
 /// inherent methods of `merlin::Transcript` and implement two
-/// witness methods to avoid abrtasting the `merlin::TranscriptRng`
-/// machenry.
+/// witness methods to avoid overwriting the `merlin::TranscriptRng`
+/// machinery.
 impl SigningTranscript for Transcript {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
         Transcript::append_message(self, label, bytes)
@@ -258,19 +258,19 @@ impl SigningContext {
 /// better in low memory enviroments.  We therefore do not provide
 /// conveniences like `signing_context` for this.
 ///
-/// We note that merlin already uses Keccak, upon which Shak128 is based,
+/// We note that merlin already uses Keccak, upon which Shake128 is based,
 /// and that no rust implementation for Blake2x currently exists.
 ///
 /// We caution that our transcript abstractions cannot provide the
-/// protections agsint hash collisions that Ed25519 provides via
-/// double hashing, but that prehashed Ed25519 variants loose.
+/// protections against hash collisions that Ed25519 provides via
+/// double hashing, but that prehashed Ed25519 variants lose.
 /// As such, any hash function used here must be collision resistant.
-/// We strongly recommend agsint building XOFs from weaker hash
+/// We strongly recommend against building XOFs from weaker hash
 /// functions like SHA1 with HKDF constructions or similar.
 ///
 /// In `XoFTranscript` style, we never expose the hash function `H`
-/// underlying this type, so that developers cannot circument the
-/// domain seperartion provided by our methods.  We do this to make
+/// underlying this type, so that developers cannot circumvent the
+/// domain separation provided by our methods.  We do this to make
 /// `&mut XoFTranscript : SigningTranscript` safe.
 pub struct XoFTranscript<H>(H)
 where H: Input + ExtendableOutput + Clone;
@@ -287,7 +287,7 @@ where H: Input + ExtendableOutput + Clone
     /// Create a `XoFTranscript` from a conventional hash functions with an extensible output mode.
     ///
     /// We intentionally consume and never reexpose the hash function
-    /// provided, so that our domain seperation works correctly even
+    /// provided, so that our domain separation works correctly even
     /// when using `&mut XoFTranscript : SigningTranscript`.
     #[inline(always)]
     pub fn new(h: H) -> XoFTranscript<H> { XoFTranscript(h) }
@@ -339,18 +339,17 @@ where H: Input + ExtendableOutput + Clone
 /// Schnorr signing transcript with the default `ThreadRng` replaced
 /// by an arbitrary `CryptoRng`.
 ///
-/// If `ThreadRng` breaks on your platform, or merely if your paranoid,
+/// If `ThreadRng` breaks on your platform, or merely if you're paranoid,
 /// then you might "upgrade" from `ThreadRng` to `OsRng` by using calls
 /// like `keypair.sign( attach_rng(t,OSRng::new()) )`.
-/// We recommend instead simply fixing `ThreadRng` for your platform
-/// however.
+/// However, we recommend instead simply fixing `ThreadRng` for your platform.
 ///
 /// There are also derandomization tricks like
 /// `attach_rng(t,ChaChaRng::from_seed([0u8; 32]))`
 /// for deterministic signing in tests too.  Although derandomization
 /// produces secure signatures, we recommend against doing this in
 /// production because we implement protocols like multi-signatures
-/// which likely become vulnerabile when derandomized.
+/// which likely become vulnerable when derandomized.
 pub struct SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: RngCore+CryptoRng
 {
@@ -382,7 +381,7 @@ where T: SigningTranscript, R: RngCore+CryptoRng
 /// for deterministic tests.  We warn against doing this in production
 /// however because, although such derandomization produces secure Schnorr
 /// signatures, we do implement protocols here like multi-signatures which
-/// likely become vulnerabile when derandomized.
+/// likely become vulnerable when derandomized.
 pub fn attach_rng<T,R>(t: T, rng: R) -> SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: RngCore+CryptoRng
 {

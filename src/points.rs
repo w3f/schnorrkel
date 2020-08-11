@@ -10,7 +10,7 @@
 //! ### Ristretto point tooling
 //!
 //! We provide a `RistrettoBoth` type that contains both an uncompressed
-//! `RistrettoPoint` along side its matching `CompressedRistretto`,
+//! `RistrettoPoint` alongside its matching `CompressedRistretto`,
 //! which helps several protocols avoid duplicate ristretto compressions
 //! and/or decompressions.
 
@@ -34,7 +34,7 @@ pub const RISTRETTO_POINT_LENGTH: usize = 32;
 /// as well as the corresponding `CompressedRistretto`.  It provides
 /// a convenient middle ground for protocols that both hash compressed
 /// points to derive scalars for use with uncompressed points.
-#[derive(Copy, Clone, Default, Eq)]  // PartialEq optimnized below
+#[derive(Copy, Clone, Default, Eq)]  // PartialEq optimized below
 pub struct RistrettoBoth {
     compressed: CompressedRistretto,
     point: RistrettoPoint,
@@ -138,7 +138,7 @@ impl RistrettoBoth {
         RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DESCRIPTION,bytes)
     }
 
-    /// Variant of `RistrettoBoth::from_bytes` that propogates more informative errors.
+    /// Variant of `RistrettoBoth::from_bytes` that propagates more informative errors.
     #[inline]
     pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
@@ -154,7 +154,7 @@ impl RistrettoBoth {
 
 serde_boilerplate!(RistrettoBoth);
 
-/// We hide fields largely so that only compairing the compressed forms works.
+/// We hide fields largely so that only comparing the compressed forms works.
 impl PartialEq<Self> for RistrettoBoth {
     fn eq(&self, other: &Self) -> bool {
         let r = self.compressed.eq(&other.compressed);

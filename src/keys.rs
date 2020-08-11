@@ -58,7 +58,7 @@ pub enum ExpansionMode {
     /// Expand the `MiniSecretKey` into a uniformly distributed
     /// `SecretKey`.
     ///
-    /// We preoduce the `SecretKey` using merlin and far more uniform
+    /// We produce the `SecretKey` using merlin and far more uniform
     /// sampling, which might benefits some future protocols, and
     /// might reduce binary size if used throughout.
     ///
@@ -193,7 +193,7 @@ impl MiniSecretKey {
         key[0]  &= 248;
         key[31] &=  63;
         key[31] |=  64;
-        // We then devide by the cofactor to internally keep a clean
+        // We then divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
         let key = Scalar::from_bits(key);
@@ -517,7 +517,7 @@ impl SecretKey {
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
         // TODO:  We should consider making sure the scalar is valid,
-        // maybe by zering the high bit, or preferably by checking < l.
+        // maybe by zeroing the high bit, or preferably by checking < l.
         // key[31] &= 0b0111_1111;
         // We devide by the cofactor to internally keep a clean
         // representation mod l.
