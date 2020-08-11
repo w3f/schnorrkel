@@ -24,7 +24,7 @@ use crate::context::{SigningTranscript};
 /// * `messages` is a slice of byte slices, one per signed message.
 /// * `signatures` is a slice of `Signature`s.
 /// * `public_keys` is a slice of `PublicKey`s.
-/// * `deduplicate_public_keys` 
+/// * `deduplicate_public_keys`
 /// * `csprng` is an implementation of `RngCore+CryptoRng`, such as `rand::ThreadRng`.
 ///
 /// # Panics
@@ -65,10 +65,10 @@ pub fn verify_batch<T,I>(
     deduplicate_public_keys: bool,
 ) -> SignatureResult<()>
 where
-    T: SigningTranscript, 
+    T: SigningTranscript,
     I: IntoIterator<Item=T>,
 {
-    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, rand_hack())  
+    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, rand_hack())
 }
 
 struct NotAnRng;
@@ -99,14 +99,14 @@ pub fn verify_batch_deterministic<T,I>(
     deduplicate_public_keys: bool,
 ) -> SignatureResult<()>
 where
-    T: SigningTranscript, 
+    T: SigningTranscript,
     I: IntoIterator<Item=T>,
 {
-    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, NotAnRng)  
+    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, NotAnRng)
 }
 
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
-/// 
+///
 /// Inputs and return agree with `verify_batch` except the user supplies their own random number generator.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
@@ -118,7 +118,7 @@ pub fn verify_batch_rng<T,I,R>(
     mut rng: R,
 ) -> SignatureResult<()>
 where
-    T: SigningTranscript, 
+    T: SigningTranscript,
     I: IntoIterator<Item=T>,
     R: RngCore+CryptoRng,
 {
@@ -165,11 +165,11 @@ where
     assert!(hrams.len() == public_keys.len(), ASSERT_MESSAGE);
 
     // Use a random number generator keyed by both the publidc keys,
-    // and the system randomn number gnerator 
+    // and the system randomn number gnerator
     let mut csprng = zs_t.build_rng().finalize(&mut rng);
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
-    // variable time 256 bit multiplication below. 
+    // variable time 256 bit multiplication below.
     let rnd_128bit_scalar = |_| {
         let mut r = [0u8; 16];
         csprng.fill_bytes(&mut r);
@@ -191,7 +191,7 @@ where
     let As = if ! deduplicate_public_keys {
         // Multiply each H(R || A || M) by the random value
         for (hram, z) in hrams.iter_mut().zip(zs.iter()) {
-            *hram = &*hram * z; 
+            *hram = &*hram * z;
         }
         public_keys
     } else {
@@ -205,7 +205,7 @@ where
                 ppks.push(public_keys[i]);
                 hrams[ppks.len()-1] = zhram;
             } else {
-                hrams[ppks.len()-1] = &hrams[ppks.len()-1] + zhram;                
+                hrams[ppks.len()-1] = &hrams[ppks.len()-1] + zhram;
             }
         }
         hrams.truncate(ppks.len());
@@ -256,7 +256,7 @@ mod test {
             let mut keypair: Keypair = Keypair::generate_with(&mut csprng);
             if i == 3 || i == 4 { keypair = keypairs[0].clone(); }
             signatures.push(keypair.sign(ctx.bytes(messages[i])));
-            keypairs.push(keypair);            
+            keypairs.push(keypair);
         }
         let mut public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 
@@ -279,4 +279,3 @@ mod test {
         assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], true).is_err() );
     }
 }
-

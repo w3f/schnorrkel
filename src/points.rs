@@ -8,11 +8,11 @@
 // - Jeff Burdges <jeff@web3.foundation>
 
 //! ### Ristretto point tooling
-//! 
+//!
 //! We provide a `RistrettoBoth` type that contains both an uncompressed
-//! `RistrettoPoint` along side its matching `CompressedRistretto`, 
+//! `RistrettoPoint` along side its matching `CompressedRistretto`,
 //! which helps several protocols avoid duplicate ristretto compressions
-//! and/or decompressions.  
+//! and/or decompressions.
 
 // We're discussing including some variant in curve25519-dalek directly in
 // https://github.com/dalek-cryptography/curve25519-dalek/pull/220
@@ -206,4 +206,3 @@ impl ::core::hash::Hash for RistrettoBoth {
         self.compressed.0.hash(state);
     }
 }
-

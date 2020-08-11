@@ -165,7 +165,7 @@ impl SigningTranscript for Transcript {
 
 /// Schnorr signing context
 ///
-/// We expect users to have seperate `SigningContext`s for each role 
+/// We expect users to have seperate `SigningContext`s for each role
 /// that signature play in their protocol.  These `SigningContext`s
 /// may be global `lazy_static!`s, or perhaps constants in future.
 ///
@@ -251,17 +251,17 @@ impl SigningContext {
 ///
 /// We provide this transcript type to directly use conventional hash
 /// functions with an extensible output mode, like Shake128 and
-/// Blake2x.  
+/// Blake2x.
 ///
 /// We recommend using `merlin::Transcript` instead because merlin
 /// provides the transcript abstraction natively and might function
 /// better in low memory enviroments.  We therefore do not provide
-/// conveniences like `signing_context` for this.  
+/// conveniences like `signing_context` for this.
 ///
 /// We note that merlin already uses Keccak, upon which Shak128 is based,
-/// and that no rust implementation for Blake2x currently exists.  
+/// and that no rust implementation for Blake2x currently exists.
 ///
-/// We caution that our transcript abstractions cannot provide the 
+/// We caution that our transcript abstractions cannot provide the
 /// protections agsint hash collisions that Ed25519 provides via
 /// double hashing, but that prehashed Ed25519 variants loose.
 /// As such, any hash function used here must be collision resistant.
@@ -420,7 +420,7 @@ use rand_chacha::ChaChaRng;
 
 /// Attach a `ChaChaRng` to a `Transcript` to repalce the default `ThreadRng`
 #[cfg(feature = "rand_chacha")]
-pub fn attach_chacharng<T>(t: T, seed: [u8; 32]) -> SigningTranscriptWithRng<T,ChaChaRng> 
+pub fn attach_chacharng<T>(t: T, seed: [u8; 32]) -> SigningTranscriptWithRng<T,ChaChaRng>
 where T: SigningTranscript
 {
     use rand_core::SeedableRng;
