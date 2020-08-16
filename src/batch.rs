@@ -90,6 +90,15 @@ impl rand_core::CryptoRng for NotAnRng {}
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
 /// Avoids using system randomness and instead depends entirely upon delinearization.
+///
+/// We break the `R: CryptRng` requirement from `verify_batch_rng`
+/// here, but this appears fine using an Fiat-Shamir transform with
+/// an argument similar to 
+/// [public key delinearization](https://crypto.stanford.edu/~dabo/pubs/papers/BLSmultisig.html).
+///
+/// We caution deeterministic delinearization could interact poorly
+/// with other functionaltiy, *if* one delinarization scalar were
+/// left constant.  We do not make that mistake here.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn verify_batch_deterministic<T,I>(
