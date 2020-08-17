@@ -49,18 +49,18 @@ pub const KEYPAIR_LENGTH: usize = SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH;
 /// Methods for expanding a `MiniSecretKey` into a `SecretKey`.
 ///
 /// Our `SecretKey`s consist of a scalar and nonce seed, both 32 bytes,
-/// what EdDSA/Ed25519 calls an extended secret key.  We normally create 
+/// what EdDSA/Ed25519 calls an extended secret key.  We normally create
 /// `SecretKey`s by expanding a `MiniSecretKey`, what Esd25519 calls
 /// a `SecretKey`.  We provide two such methods, our suggested approach
 /// produces uniformly distribted secret key scalars, but another
 /// approach retains the bit clamping form Ed25519.
 pub enum ExpansionMode {
     /// Expand the `MiniSecretKey` into a uniformly distributed
-    /// `SecretKey`. 
+    /// `SecretKey`.
     ///
-    /// We preoduce the `SecretKey` using merlin and far more uniform
+    /// We produce the `SecretKey` using merlin and far more uniform
     /// sampling, which might benefits some future protocols, and
-    /// might reduce binary size if used throughout.  
+    /// might reduce binary size if used throughout.
     ///
     /// We slightly prefer this method, but some existing code uses
     /// `Ed25519` mode, so users cannot necessarily use this mode
@@ -81,7 +81,7 @@ pub enum ExpansionMode {
     /// create incompatability.
     ///
     /// We weakly recommend against emoloying this method.  We include
-    /// it primarily because early Ristretto documentation touted the 
+    /// it primarily because early Ristretto documentation touted the
     /// relationship with Ed25519, which led to some deployments adopting
     /// this expansion method.
     Ed25519,
@@ -160,13 +160,13 @@ impl MiniSecretKey {
     /// ed25519-style bit clamping.
     ///
     /// At present, there is no exposed mapping from Ristretto
-    /// to the underlying Edwards curve because Ristretto invovles
+    /// to the underlying Edwards curve because Ristretto involves
     /// an inverse square root, and thus two such mappings exist.
     /// Ristretto could be made usable with Ed25519 keys by choosing
     /// one mapping as standard, but doing so makes the standard more
     /// complex, and possibly harder to implement.  If anyone does
     /// standardize the mapping to the curve then this method permits
-    /// compatable schnorrkel and ed25519 keys.
+    /// compatible schnorrkel and ed25519 keys.
     ///
     /// # Examples
     ///
@@ -193,7 +193,7 @@ impl MiniSecretKey {
         key[0]  &= 248;
         key[31] &=  63;
         key[31] |=  64;
-        // We then devide by the cofactor to internally keep a clean
+        // We then divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
         let key = Scalar::from_bits(key);
@@ -210,7 +210,7 @@ impl MiniSecretKey {
     /// We slightly prefer `ExpansionMode::Uniform` here, but both
     /// remain secure under almost all situations.  There exists
     /// deployed code using `ExpansionMode::Ed25519`, so you might
-    /// require that for compatability. 
+    /// require that for compatability.
     ///
     /// ```
     /// # fn main() {
@@ -439,7 +439,7 @@ impl SecretKey {
     /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode, SignatureError};
     ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
-    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE); 
+    /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE);
     /// # // was SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
     /// let secret_key_again: SecretKey = SecretKey::from_bytes(&bytes[..]).unwrap();
@@ -517,7 +517,7 @@ impl SecretKey {
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
         // TODO:  We should consider making sure the scalar is valid,
-        // maybe by zering the high bit, or preferably by checking < l.
+        // maybe by zeroing the high bit, or preferably by checking < l.
         // key[31] &= 0b0111_1111;
         // We devide by the cofactor to internally keep a clean
         // representation mod l.
@@ -552,7 +552,7 @@ impl SecretKey {
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
-        // No clamping in a Schnorr group
+        // No clamping necessary in the ristretto255 group
         PublicKey::from_point(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
     }
 
@@ -780,7 +780,7 @@ impl Keypair {
 
         Ok(Keypair{ secret: secret, public: public })
     }
-    
+
     /// Serialize `Keypair` to bytes with Ed25519 secret key format.
     ///
     /// # Returns
@@ -789,7 +789,7 @@ impl Keypair {
     /// `SecretKey` serialized like Ed25519, and next the Ristterro
     /// `PublicKey`
     ///
-    /// 
+    ///
     pub fn to_half_ed25519_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
 
@@ -936,7 +936,7 @@ mod test {
     fn keypair_zeroize() {
         // #[cfg(feature = "getrandom")]
         let mut csprng = ::rand_core::OsRng;
-        
+
         let mut keypair = Keypair::generate_with(&mut csprng);
 
         keypair.zeroize();
