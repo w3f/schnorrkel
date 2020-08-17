@@ -519,7 +519,7 @@ impl SecretKey {
         // TODO:  We should consider making sure the scalar is valid,
         // maybe by zeroing the high bit, or preferably by checking < l.
         // key[31] &= 0b0111_1111;
-        // We devide by the cofactor to internally keep a clean
+        // We divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
         let key = Scalar::from_bits(key);
