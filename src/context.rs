@@ -375,7 +375,7 @@ where T: SigningTranscript, R: RngCore+CryptoRng
 
 }
 
-/// Attach a `CryptoRng` to a `SigningTranscript` to repalce the default `ThreadRng`
+/// Attach a `CryptoRng` to a `SigningTranscript` to replace the default `ThreadRng`.
 ///
 /// There are tricks like `attach_rng(t,ChaChaRng::from_seed([0u8; 32]))`
 /// for deterministic tests.  We warn against doing this in production
