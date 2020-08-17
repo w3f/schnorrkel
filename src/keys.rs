@@ -458,7 +458,7 @@ impl SecretKey {
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
         let key = Scalar::from_canonical_bytes(key).ok_or(SignatureError::ScalarFormatError) ?;
-        
+
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);
 
