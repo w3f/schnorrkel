@@ -1,11 +1,13 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorrkel
-// Copyright (c) 2018 Isis Lovecruft
+// Copyright (c) 2018 isis lovecruft
+// Copyright (c) 2018-2020 Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
-// - Isis Agora Lovecruft <isis@patternsinthevoid.net>
+// - isis agora lovecruft <isis@patternsinthevoid.net>
+// - Jeff Burdges <jeff@web3.foundation>
 
 #[macro_use]
 extern crate criterion;
