@@ -41,7 +41,7 @@ mod schnorr_benches {
         let msg: &[u8] = b"";
 		let ctx = signing_context(b"this signature does this thing");
         let sig: Signature = keypair.sign(ctx.bytes(msg));
-        
+
         c.bench_function("Schnorr signature verification", move |b| {
                          b.iter(| | keypair.verify(ctx.bytes(msg), &sig))
         });
