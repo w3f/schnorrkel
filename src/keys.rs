@@ -1,11 +1,11 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorrkel.
-// Copyright (c) 2019 Isis Lovecruft and Web 3 Foundation
+// Copyright (c) 2019 isis lovecruft and Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
-// - Isis Agora Lovecruft <isis@patternsinthevoid.net>
+// - isis agora lovecruft <isis@patternsinthevoid.net>
 // - Jeff Burdges <jeff@web3.foundation>
 
 //! ### Schnorr signatures on the 2-torsion free subgroup of ed25519, as provided by the Ristretto point compression.
@@ -458,7 +458,7 @@ impl SecretKey {
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
         let key = Scalar::from_canonical_bytes(key).ok_or(SignatureError::ScalarFormatError) ?;
-        
+
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);
 
@@ -519,7 +519,7 @@ impl SecretKey {
         // TODO:  We should consider making sure the scalar is valid,
         // maybe by zeroing the high bit, or preferably by checking < l.
         // key[31] &= 0b0111_1111;
-        // We devide by the cofactor to internally keep a clean
+        // We divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
         let key = Scalar::from_bits(key);

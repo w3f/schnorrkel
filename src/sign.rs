@@ -163,7 +163,7 @@ impl SecretKey {
     ///
     /// Requires a `SigningTranscript`, normally created from a
     /// `SigningContext` and a message, as well as the public key
-    /// correspodning to `self`.  Returns a Schnorr signature.
+    /// corresponding to `self`.  Returns a Schnorr signature.
     ///
     /// We employ a randomized nonce here, but also incorporate the
     /// transcript like in a derandomized scheme, but only after first
