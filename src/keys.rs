@@ -180,11 +180,11 @@ impl MiniSecretKey {
     /// # }
     /// ```
     fn expand_ed25519(&self) -> SecretKey {
-        use sha2::{Sha512, digest::{Input,FixedOutput}};
+        use sha2::{Sha512, digest::{Update,FixedOutput}};
 
         let mut h = Sha512::default();
-        h.input(self.as_bytes());
-        let r = h.fixed_result();
+        h.update(self.as_bytes());
+        let r = h.finalize_fixed();
 
         // We need not clamp in a Schnorr group like Ristretto, but here
         // we do so to improve Ed25519 comparability.

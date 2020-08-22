@@ -298,7 +298,7 @@ impl Keypair {
     /// use schnorrkel::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     /// use sha3::Shake128;
-    /// use sha3::digest::{Input};
+    /// use sha3::digest::{Update};
     ///
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -323,7 +323,7 @@ impl Keypair {
     /// ```
     /// # use schnorrkel::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
-    /// # use sha3::digest::Input;
+    /// # use sha3::digest::Update;
     /// #
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -416,7 +416,7 @@ impl Keypair {
 #[cfg(test)]
 mod test {
     use sha3::Shake128;
-    use curve25519_dalek::digest::{Input};
+    use curve25519_dalek::digest::{Update};
 
     use super::super::*;
 

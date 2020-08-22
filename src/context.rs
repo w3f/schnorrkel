@@ -15,7 +15,7 @@ use rand_core::{RngCore,CryptoRng};
 
 use merlin::Transcript;
 
-use curve25519_dalek::digest::{Input,FixedOutput,ExtendableOutput,XofReader};
+use curve25519_dalek::digest::{Update,FixedOutput,ExtendableOutput,XofReader};
 use curve25519_dalek::digest::generic_array::typenum::{U32,U64};
 
 use curve25519_dalek::ristretto::CompressedRistretto; // RistrettoPoint
@@ -217,7 +217,7 @@ impl SigningContext {
     #[inline(always)]
     pub fn xof<D: ExtendableOutput>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
-        h.xof_result().read(&mut prehash);
+        h.finalize_xof().read(&mut prehash);
         let mut t = self.0.clone();
         t.append_message(b"sign-XoF", &prehash);
         t
@@ -228,7 +228,7 @@ impl SigningContext {
     #[inline(always)]
     pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 32];
-        prehash.copy_from_slice(h.fixed_result().as_slice());
+        prehash.copy_from_slice(h.finalize_fixed().as_slice());
         let mut t = self.0.clone();
         t.append_message(b"sign-256", &prehash);
         t
@@ -239,7 +239,7 @@ impl SigningContext {
     #[inline(always)]
     pub fn hash512<D: FixedOutput<OutputSize=U64>>(&self, h: D) -> Transcript {
         let mut prehash = [0u8; 64];
-        prehash.copy_from_slice(h.fixed_result().as_slice());
+        prehash.copy_from_slice(h.finalize_fixed().as_slice());
         let mut t = self.0.clone();
         t.append_message(b"sign-256", &prehash);
         t
@@ -273,16 +273,16 @@ impl SigningContext {
 /// domain separation provided by our methods.  We do this to make
 /// `&mut XoFTranscript : SigningTranscript` safe.
 pub struct XoFTranscript<H>(H)
-where H: Input + ExtendableOutput + Clone;
+where H: Update + ExtendableOutput + Clone;
 
-fn input_bytes<H: Input>(h: &mut H, bytes: &[u8]) {
+fn input_bytes<H: Update>(h: &mut H, bytes: &[u8]) {
     let l = bytes.len() as u64;
-    h.input(l.to_le_bytes());
-    h.input(bytes);
+    h.update(l.to_le_bytes());
+    h.update(bytes);
 }
 
 impl<H> XoFTranscript<H>
-where H: Input + ExtendableOutput + Clone
+where H: Update + ExtendableOutput + Clone
 {
     /// Create a `XoFTranscript` from a conventional hash functions with an extensible output mode.
     ///
@@ -294,27 +294,27 @@ where H: Input + ExtendableOutput + Clone
 }
 
 impl<H> From<H> for XoFTranscript<H>
-where H: Input + ExtendableOutput + Clone
+where H: Update + ExtendableOutput + Clone
 {
     #[inline(always)]
     fn from(h: H) -> XoFTranscript<H> { XoFTranscript(h) }
 }
 
 impl<H> SigningTranscript for XoFTranscript<H>
-where H: Input + ExtendableOutput + Clone
+where H: Update + ExtendableOutput + Clone
 {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        self.0.input(b"co");
+        self.0.update(b"co");
         input_bytes(&mut self.0, label);
         input_bytes(&mut self.0, bytes);
     }
 
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        self.0.input(b"ch");
+        self.0.update(b"ch");
         input_bytes(&mut self.0, label);
         let l = dest.len() as u64;
-        self.0.input(l.to_le_bytes());
-        self.0.clone().chain(b"xof").xof_result().read(dest);
+        self.0.update(l.to_le_bytes());
+        self.0.clone().chain(b"xof").finalize_xof().read(dest);
     }
 
     fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], mut rng: R)
@@ -326,12 +326,12 @@ where H: Input + ExtendableOutput + Clone
             input_bytes(&mut h, ns);
         }
         let l = dest.len() as u64;
-        h.input(l.to_le_bytes());
+        h.update(l.to_le_bytes());
 
         let mut r = [0u8; 32];
         rng.fill_bytes(&mut r);
-        h.input(&r);
-        h.xof_result().read(dest);
+        h.update(&r);
+        h.finalize_xof().read(dest);
     }
 }
 
@@ -432,7 +432,7 @@ where T: SigningTranscript
 #[cfg(test)]
 mod test {
     use sha3::Shake128;
-    use curve25519_dalek::digest::{Input};
+    use curve25519_dalek::digest::{Update};
 
 }
 */

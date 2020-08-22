@@ -286,7 +286,7 @@ impl ExtendedKey<SecretKey> {
 
 #[cfg(test)]
 mod tests {
-    use sha3::digest::{Input}; // ExtendableOutput,XofReader
+    use sha3::digest::{Update}; // ExtendableOutput,XofReader
     use sha3::{Shake128};
 
     use super::*;
@@ -323,7 +323,7 @@ mod tests {
             extended_keypair = extended_keypair1;
             extended_public_key = extended_public_key1;
 
-            h.input(b"Another");
+            h.update(b"Another");
 
             if i % 5 == 0 {
                 let good_sig = extended_keypair.key.sign(ctx.xof(h.clone()));
