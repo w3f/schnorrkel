@@ -583,6 +583,12 @@ impl Debug for PublicKey {
     }
 }
 
+impl ConstantTimeEq for PublicKey {
+    fn ct_eq(&self, other: &PublicKey) -> Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
+
 /*
 impl Zeroize for PublicKey {
     fn zeroize(&mut self) {
