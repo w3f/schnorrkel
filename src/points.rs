@@ -21,6 +21,7 @@
 use core::fmt::{Debug};
 
 use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
+use subtle::{ConstantTimeEq,Choice};
 // use curve25519_dalek::scalar::Scalar;
 
 use crate::errors::{SignatureError,SignatureResult};
@@ -43,6 +44,12 @@ pub struct RistrettoBoth {
 impl Debug for RistrettoBoth {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         write!(f, "RistrettoPoint( {:?} )", self.compressed)
+    }
+}
+
+impl ConstantTimeEq for RistrettoBoth {
+    fn ct_eq(&self, other: &RistrettoBoth) -> Choice {
+       self.compressed.ct_eq(&other.compressed)
     }
 }
 
