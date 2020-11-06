@@ -29,8 +29,9 @@ version = "0.5.1"
 default-features = false
 
 [dependencies.curve25519-dalek]
-# git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "3.0"
+git = "https://github.com/dalek-cryptography/curve25519-dalek"
+# version = "3.0"
+rev = "a787300ba169ae035bcdf2d540cf2b61b950405c"
 default-features = false
 
 [dependencies.ed25519-dalek]
