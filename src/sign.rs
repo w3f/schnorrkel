@@ -1,11 +1,13 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorrkel.
+// Copyright (c) 2017-2019 isis lovecruft
 // Copyright (c) 2019 Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
-// - jeffrey Burdges <jeff@web3.foundation>
+// - isis agora lovecruft <isis@patternsinthevoid.net>
+// - Jeffrey Burdges <jeff@web3.foundation>
 
 //! ### Schnorr signature creation and verification, including batch verification.
 
@@ -40,7 +42,7 @@ pub struct Signature {
     ///
     /// This digest is then interpreted as a `Scalar` and reduced into an
     /// element in ℤ/lℤ.  The scalar is then multiplied by the distinguished
-    /// basepoint to produce `R`, and `RistrettoPoint`.
+    /// basepoint to produce `R`, a `RistrettoPoint`.
     pub (crate) R: CompressedRistretto,
 
     /// `s` is a `Scalar`, formed by using an hash function with 512-bits output
@@ -80,7 +82,7 @@ fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
 impl Signature {
     const DESCRIPTION : &'static str = "A 64 byte Ristretto Schnorr signature";
     /*
-    const DESCRIPTION_LONG : &'static str = 
+    const DESCRIPTION_LONG : &'static str =
         "A 64 byte Ristretto Schnorr signature, similar to an ed25519 \
          signature as specified in RFC8032, except the Ristretto point \
          compression is used for the curve point in the first 32 bytes";
@@ -100,15 +102,15 @@ impl Signature {
     ///
     /// We distinguish schnorrkell signatures from ed25519 signatures
     /// by setting the high bit of byte 31.  We return an error if
-    /// this marker remains unset because otherwise schnorrkel 
+    /// this marker remains unset because otherwise schnorrkel
     /// signatures would be indistinguishable from ed25519 signatures.
     /// We cannot always distinguish between schnorrkel and ed25519
-    /// public keys either, so without this market bit we could not
+    /// public keys either, so without this marker bit we could not
     /// do batch verification in systems that support precisely
-    /// ed25519 and schnorrkel.  
+    /// ed25519 and schnorrkel.
     ///
     /// We cannot distinguish amongst different `SigningTranscript`
-    /// types using these markey bits, but protocol should not need
+    /// types using these marker bits, but protocol should not need
     /// two different transcript types.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<Signature> {
@@ -161,7 +163,7 @@ impl SecretKey {
     ///
     /// Requires a `SigningTranscript`, normally created from a
     /// `SigningContext` and a message, as well as the public key
-    /// correspodning to `self`.  Returns a Schnorr signature.
+    /// corresponding to `self`.  Returns a Schnorr signature.
     ///
     /// We employ a randomized nonce here, but also incorporate the
     /// transcript like in a derandomized scheme, but only after first
@@ -169,7 +171,7 @@ impl SecretKey {
     /// should be no attacks even if both the random number generator
     /// fails and the function gets called with the wrong public key.
     #[allow(non_snake_case)]
-    pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature 
+    pub fn sign<T: SigningTranscript>(&self, mut t: T, public_key: &PublicKey) -> Signature
     {
         t.proto_name(b"Schnorr-sig");
         t.commit_point(b"sign:pk",public_key.as_compressed());
@@ -296,7 +298,7 @@ impl Keypair {
     /// use schnorrkel::{Signature,Keypair};
     /// use rand::prelude::*; // ThreadRng,thread_rng
     /// use sha3::Shake128;
-    /// use sha3::digest::{Input};
+    /// use sha3::digest::{Update};
     ///
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -313,7 +315,7 @@ impl Keypair {
     /// ```
     ///
     /// We require a "context" string for all signatures, which should
-    /// be chosen judiciously for your project.  It should represent the 
+    /// be chosen judiciously for your project.  It should represent the
     /// role the signature plays in your application.  If you use the
     /// context in two purposes, and the same key, then a signature for
     /// one purpose can be substituted for the other.
@@ -321,7 +323,7 @@ impl Keypair {
     /// ```
     /// # use schnorrkel::{Keypair,Signature,signing_context};
     /// # use rand::prelude::*; // ThreadRng,thread_rng
-    /// # use sha3::digest::Input;
+    /// # use sha3::digest::Update;
     /// #
     /// # #[cfg(all(feature = "std"))]
     /// # fn main() {
@@ -414,7 +416,7 @@ impl Keypair {
 #[cfg(test)]
 mod test {
     use sha3::Shake128;
-    use curve25519_dalek::digest::{Input};
+    use curve25519_dalek::digest::{Update};
 
     use super::super::*;
 
@@ -425,13 +427,13 @@ mod test {
         let bad_sig:  Signature;
 
         let ctx = signing_context(b"good");
-        
+
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
         // #[cfg(feature = "getrandom")]
         let mut csprng = ::rand_core::OsRng;
-        
+
         let keypair = Keypair::generate_with(&mut csprng);
         good_sig = keypair.sign(ctx.bytes(&good));
         bad_sig  = keypair.sign(ctx.bytes(&bad));
@@ -497,4 +499,3 @@ mod test {
         assert!( public.verify_simple_preaudit_deprecated(SIGNING_CTX,message,&signature[..]).is_ok() );
     }
 }
-

@@ -10,7 +10,7 @@
 //! Encryption using schnorrkel keys
 
 /*
-Raid Wahby writes:
+Riad Wahby writes:
 
 As luck would have it, Degabriele, Lehmann, Paterson, Smart, and
 Strefler (CT-RSA '12, https://eprint.iacr.org/2011/615) show that
@@ -40,7 +40,7 @@ use crate::context::SigningTranscript;
 use crate::cert::AdaptorCertPublic;
 
 
-fn make_aead<T,AEAD>(mut t: T) -> AEAD 
+fn make_aead<T,AEAD>(mut t: T) -> AEAD
 where T: SigningTranscript,AEAD: NewAead
 {
     let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
@@ -56,7 +56,7 @@ impl SecretKey {
     }
 
     /// Commit the results of a raw key exchange into a transcript
-    pub fn commit_raw_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
+    pub fn commit_raw_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey)
     where T: SigningTranscript
     {
         let p = self.raw_key_exchange(public);
@@ -66,7 +66,7 @@ impl SecretKey {
     /// An AEAD from a key exchange with the specified public key.
     ///
     /// Requires the AEAD have a 32 byte public key and does not support a context.
-    pub fn aead32_unauthenticated<AEAD>(&self, public: &PublicKey) -> AEAD 
+    pub fn aead32_unauthenticated<AEAD>(&self, public: &PublicKey) -> AEAD
     where AEAD: NewAead<KeySize=U32>
     {
         let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
@@ -79,7 +79,7 @@ impl PublicKey {
     /// Initalize an AEAD to the public key `self` using an ephemeral key exchange.
     ///
     /// Returns the ephemeral public key and AEAD.
-    pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD) 
+    pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD)
     {
         let ephemeral = Keypair::generate();
         let aead = ephemeral.aead_unauthenticated(ctx,self);
@@ -90,7 +90,7 @@ impl PublicKey {
     ///
     /// Returns the ephemeral public key and AEAD.
     /// Requires the AEAD have a 32 byte public key and does not support a context.
-    pub fn init_aead32_unauthenticated<AEAD>(&self) -> (CompressedRistretto,AEAD) 
+    pub fn init_aead32_unauthenticated<AEAD>(&self) -> (CompressedRistretto,AEAD)
     where AEAD: NewAead<KeySize=U32>
     {
         let secret = SecretKey::generate();
@@ -102,7 +102,7 @@ impl PublicKey {
 impl Keypair {
     /// Commit the results of a key exchange into a transcript
     /// including the public keys in sorted order.
-    pub fn commit_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey) 
+    pub fn commit_key_exchange<T>(&self, t: &mut T, ctx: &'static [u8], public: &PublicKey)
     where T: SigningTranscript
     {
         let mut pks = [self.public.as_compressed(), public.as_compressed()];
@@ -123,7 +123,7 @@ impl Keypair {
     pub fn reciever_aead<T,AEAD>(
         &self,
         mut t: T,
-        ephemeral_pk: &PublicKey, 
+        ephemeral_pk: &PublicKey,
         static_pk: &PublicKey,
     ) -> AEAD
     where T: SigningTranscript, AEAD: NewAead
@@ -154,11 +154,11 @@ impl Keypair {
     /// with the public key computed form the sender's public key
     /// and their implicit Adaptor certificate.
     pub fn reciever_aead_with_adaptor_cert<T,AEAD>(
-        &self, 
-        t: T, 
-        cert_public: &AdaptorCertPublic, 
+        &self,
+        t: T,
+        cert_public: &AdaptorCertPublic,
         public: &PublicKey,
-    ) -> SignatureResult<AEAD> 
+    ) -> SignatureResult<AEAD>
     where T: SigningTranscript, AEAD: NewAead
     {
         let epk = public.open_adaptor_cert(t,cert_public) ?;
@@ -169,7 +169,7 @@ impl Keypair {
     ///
     /// Along with the AEAD, we return the implicit Adaptor certificate
     /// from which the reciever recreates the ephemeral public key.
-    pub fn sender_aead_with_adaptor_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (AdaptorCertPublic,AEAD) 
+    pub fn sender_aead_with_adaptor_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (AdaptorCertPublic,AEAD)
     where T: SigningTranscript+Clone, AEAD: NewAead
     {
         let (cert,secret) = self.issue_self_adaptor_cert(t);

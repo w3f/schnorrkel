@@ -1,11 +1,11 @@
 // -*- mode: rust; -*-
 //
 // This file is part of schnorrkel.
-// Copyright (c) 2019 Isis Lovecruft and Web 3 Foundation
+// Copyright (c) 2019 isis lovecruft and Web 3 Foundation
 // See LICENSE for licensing information.
 //
 // Authors:
-// - Isis Agora Lovecruft <isis@patternsinthevoid.net>
+// - isis agora lovecruft <isis@patternsinthevoid.net>
 // - Jeff Burdges <jeff@web3.foundation>
 
 //! ### Various and tooling related to serde

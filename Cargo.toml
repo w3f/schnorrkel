@@ -16,7 +16,7 @@ edition = "2018"
 # travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
 
 [dependencies.aead]
-version = "0.2.0"
+version = "0.3.0"
 default-features = false
 optional = true
 
@@ -30,11 +30,11 @@ default-features = false
 
 [dependencies.curve25519-dalek]
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "2.0"
+version = "3.0"
 default-features = false
 
 [dependencies.ed25519-dalek]
-version = "1.0.0-pre.3"
+version = "1.0.0"
 default-features = false
 optional = true
 
@@ -42,7 +42,7 @@ optional = true
 version = "2.2.1"
 default-features = false
 
-[dependencies.merlin] 
+[dependencies.merlin]
 version = "2.0"
 # features = ["debug-transcript"]
 default-features = false
@@ -72,7 +72,7 @@ default-features = false
 optional = true
 
 [dependencies.sha2]
-version = "0.8.0"
+version = "0.9.0"
 default-features = false
 
 [dependencies.failure]
@@ -90,8 +90,8 @@ rand = "0.7.3"
 rand_chacha = "0.2.1"
 # hex = "0.3.2"
 hex-literal = "0.2.1"
-sha2 = "0.8.0"
-sha3 = "0.8.2"
+sha2 = "0.9.0"
+sha3 = "0.9.0"
 bincode = "1.2.0"
 criterion = "0.3.1"
 
