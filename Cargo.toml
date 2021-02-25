@@ -1,6 +1,6 @@
 [package]
 name = "schnorrkel"
-version = "0.9.3"
+version = "0.9.2"
 authors = ["Jeff Burdges <jeff@web3.foundation>"]
 readme = "README.md"
 license = "BSD-3-Clause"
