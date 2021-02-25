@@ -199,7 +199,14 @@ impl PublicKey {
     }
 }
 
-/// VRF output, possibly unverified.
+/// VRF pre-output, possibly unverified.
+#[deprecated(
+    since = "0.9.2",
+    note = "Please use VRFPreOut instead of VRFOutput"
+)]
+pub type VRFOutput = VRFPreOut;
+
+/// VRF pre-output, possibly unverified.
 ///
 /// Internally, we keep both `RistrettoPoint` and `CompressedRistretto`
 /// forms using `RistrettoBoth`.
