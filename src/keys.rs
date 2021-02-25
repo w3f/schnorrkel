@@ -483,12 +483,14 @@ impl SecretKey {
         bytes
     }
 
+    /* Unused tooling removed to reduce dependencies. 
     /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
     #[cfg(feature = "ed25519_dalek")]
     pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
         ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_ed25519_bytes()[..])
         .expect("Improper serialisation of Ed25519 secret key!")
     }
+    */
 
     /// Construct an `SecretKey` from a slice of bytes, corresponding to
     /// an Ed25519 expanded secret key.
