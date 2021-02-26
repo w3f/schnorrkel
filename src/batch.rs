@@ -134,7 +134,7 @@ where
     R: RngCore+CryptoRng,
 {
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
-    assert!(signatures.len() == public_keys.len(), ASSERT_MESSAGE);  // Check transcripts length below
+    assert!(signatures.len() == public_keys.len(), "{}", ASSERT_MESSAGE);  // Check transcripts length below
 
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
@@ -172,8 +172,8 @@ where
             t.commit_point(b"sign:R",&signatures[i].R);
             t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
         } ).collect();
-    assert!(transcripts.next().is_none(), ASSERT_MESSAGE);
-    assert!(hrams.len() == public_keys.len(), ASSERT_MESSAGE);
+    assert!(transcripts.next().is_none(), "{}", ASSERT_MESSAGE);
+    assert!(hrams.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 
     // Use a random number generator keyed by both the publidc keys,
     // and the system randomn number gnerator

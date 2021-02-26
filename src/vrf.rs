@@ -910,8 +910,8 @@ pub fn dleq_verify_batch(
     kusama: bool,
 ) -> SignatureResult<()> {
     const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
-    assert!(ps.len() == proofs.len(), ASSERT_MESSAGE);
-    assert!(proofs.len() == public_keys.len(), ASSERT_MESSAGE);
+    assert!(ps.len() == proofs.len(), "{}", ASSERT_MESSAGE);
+    assert!(proofs.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 
     // Use a random number generator keyed by the publidc keys, the
     // inout and putput points, and the system randomn number gnerator.
