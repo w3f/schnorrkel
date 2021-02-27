@@ -99,12 +99,22 @@ harness = false
 [features]
 default = ["std", "u64_backend", "getrandom"] # "rand"
 preaudit_deprecated = []
-getrandom = ["rand_core/getrandom"]
 nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
 alloc = ["curve25519-dalek/alloc", "rand_core/alloc"]
-chacha = ["rand_chacha"]
 std = ["getrandom", "curve25519-dalek/std"] # "failure/std"
 asm = ["sha2/asm"]
 u64_backend = ["curve25519-dalek/u64_backend"]
 u32_backend = ["curve25519-dalek/u32_backend"]
 avx2_backend = ["curve25519-dalek/avx2_backend"]
+
+# We cannot make getrandom a direct dependency because rand_core makes
+# getrandom a feature name, which requires forwarding.
+getrandom = ["rand_core/getrandom"]
+# We thus cannot forward the wasm-bindgen feature of getrandom,
+# but our consumers could depend upon getrandom and activate its
+# wasm-bindgen feature themselve, which works due to cargo features
+# being additive.
+# wasm-bindgen = ["getrandom/wasm-bindgen"]
+# See https://github.com/rust-lang/cargo/issues/9210
+# and https://github.com/w3f/schnorrkel/issues/65#issuecomment-786923588
+
