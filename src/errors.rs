@@ -160,7 +160,7 @@ impl ::failure::Fail for SignatureError {}
 /// `impl From<SignatureError> for E where E: ::serde::de::Error`.
 #[cfg(feature = "serde")]
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
-where E: ::serde::de::Error
+where E: ::serde_crate::de::Error
 {
     use self::SignatureError::*;
     match err {
