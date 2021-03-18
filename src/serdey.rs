@@ -30,7 +30,13 @@ impl ::serde_crate::Serialize for $t {
 
 impl<'d> ::serde_crate::Deserialize<'d> for $t {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde_crate::Deserializer<'d> {
-        let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
+        cfg_if::cfg_if!{
+            if #[cfg(any(feature = "alloc", feature = "std"))] {
+                let bytes = <::serde_bytes::ByteBuf>::deserialize(deserializer)?;
+            } else {
+                let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
+            }
+        }
 
         Self::from_bytes(bytes.as_ref())
                 .map_err(crate::errors::serde_error_from_signature_error)
