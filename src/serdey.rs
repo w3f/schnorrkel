@@ -46,6 +46,7 @@ mod test {
     use std::vec::Vec;
 
     use bincode::{serialize, serialized_size, deserialize};
+    use serde_json::{to_value, from_value, to_string, from_str};
 
     use curve25519_dalek::ristretto::{CompressedRistretto};
 
@@ -93,10 +94,39 @@ mod test {
     }
 
     #[test]
+    fn serialize_deserialize_signature_json() {
+        let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
+
+        let encoded_signature = to_value(&signature).unwrap();
+        let decoded_signature: Signature = from_value(encoded_signature).unwrap();
+
+        assert_eq!(signature, decoded_signature);
+
+        let encoded_signature = to_string(&signature).unwrap();
+        let decoded_signature: Signature = from_str(&encoded_signature).unwrap();
+
+        assert_eq!(signature, decoded_signature);
+    }
+
+    #[test]
     fn serialize_deserialize_public_key() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
         let encoded_public_key: Vec<u8> = serialize(&public_key).unwrap();
         let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
+
+        assert_eq!(public_key, decoded_public_key);
+    }
+
+    #[test]
+    fn serialize_deserialize_public_key_json() {
+        let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
+        let encoded_public_key = to_value(&public_key).unwrap();
+        let decoded_public_key: PublicKey = from_value(encoded_public_key).unwrap();
+
+        assert_eq!(public_key, decoded_public_key);
+
+        let encoded_public_key = to_string(&public_key).unwrap();
+        let decoded_public_key: PublicKey = from_str(&encoded_public_key).unwrap();
 
         assert_eq!(public_key, decoded_public_key);
     }
@@ -117,6 +147,23 @@ mod test {
     fn serialize_deserialize_mini_secret_key() {
         let encoded_secret_key: Vec<u8> = serialize(&ED25519_SECRET_KEY).unwrap();
         let decoded_secret_key: MiniSecretKey = deserialize(&encoded_secret_key).unwrap();
+
+        for i in 0..32 {
+            assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
+        }
+    }
+
+    #[test]
+    fn serialize_deserialize_mini_secret_key_json() {
+        let encoded_secret_key = to_value(&ED25519_SECRET_KEY).unwrap();
+        let decoded_secret_key: MiniSecretKey = from_value(encoded_secret_key).unwrap();
+
+        for i in 0..32 {
+            assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
+        }
+
+        let encoded_secret_key = to_string(&ED25519_SECRET_KEY).unwrap();
+        let decoded_secret_key: MiniSecretKey = from_str(&encoded_secret_key).unwrap();
 
         for i in 0..32 {
             assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
