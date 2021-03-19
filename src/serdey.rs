@@ -19,31 +19,29 @@
 // #[cfg(feature = "serde")]
 // use serde::de::Visitor;
 
-
 #[cfg(feature = "serde")]
 macro_rules! serde_boilerplate { ($t:ty) => {
-impl ::serde::Serialize for $t {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
-        serializer.serialize_bytes(&self.to_bytes()[..])
+impl ::serde_crate::Serialize for $t {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: ::serde_crate::Serializer {
+        let bytes = &self.to_bytes()[..];
+        ::serde_bytes::Bytes::new(bytes).serialize(serializer)
     }
 }
 
-impl<'d> ::serde::Deserialize<'d> for $t {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde::Deserializer<'d> {
-        struct MyVisitor;
-
-        impl<'d> ::serde::de::Visitor<'d> for MyVisitor {
-            type Value = $t;
-
-            fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                formatter.write_str(Self::Value::DESCRIPTION)
-            }
-
-            fn visit_bytes<E>(self, bytes: &[u8]) -> Result<$t, E> where E: ::serde::de::Error {
-                Self::Value::from_bytes(bytes).map_err(crate::errors::serde_error_from_signature_error)
+impl<'d> ::serde_crate::Deserialize<'d> for $t {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde_crate::Deserializer<'d> {
+        cfg_if::cfg_if!{
+            if #[cfg(feature = "std")] {
+                let bytes = <std::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
+            } else if #[cfg(feature = "alloc")] {
+                let bytes = <alloc::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
+            } else {
+                let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
             }
         }
-        deserializer.deserialize_bytes(MyVisitor)
+
+        Self::from_bytes(bytes.as_ref())
+                .map_err(crate::errors::serde_error_from_signature_error)
     }
 }
 } } // macro_rules! serde_boilerplate
@@ -56,6 +54,7 @@ mod test {
     use std::vec::Vec;
 
     use bincode::{serialize, serialized_size, deserialize};
+    use serde_json::{to_value, from_value, to_string, from_str};
 
     use curve25519_dalek::ristretto::{CompressedRistretto};
 
@@ -103,10 +102,39 @@ mod test {
     }
 
     #[test]
+    fn serialize_deserialize_signature_json() {
+        let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
+
+        let encoded_signature = to_value(&signature).unwrap();
+        let decoded_signature: Signature = from_value(encoded_signature).unwrap();
+
+        assert_eq!(signature, decoded_signature);
+
+        let encoded_signature = to_string(&signature).unwrap();
+        let decoded_signature: Signature = from_str(&encoded_signature).unwrap();
+
+        assert_eq!(signature, decoded_signature);
+    }
+
+    #[test]
     fn serialize_deserialize_public_key() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
         let encoded_public_key: Vec<u8> = serialize(&public_key).unwrap();
         let decoded_public_key: PublicKey = deserialize(&encoded_public_key).unwrap();
+
+        assert_eq!(public_key, decoded_public_key);
+    }
+
+    #[test]
+    fn serialize_deserialize_public_key_json() {
+        let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
+        let encoded_public_key = to_value(&public_key).unwrap();
+        let decoded_public_key: PublicKey = from_value(encoded_public_key).unwrap();
+
+        assert_eq!(public_key, decoded_public_key);
+
+        let encoded_public_key = to_string(&public_key).unwrap();
+        let decoded_public_key: PublicKey = from_str(&encoded_public_key).unwrap();
 
         assert_eq!(public_key, decoded_public_key);
     }
@@ -127,6 +155,23 @@ mod test {
     fn serialize_deserialize_mini_secret_key() {
         let encoded_secret_key: Vec<u8> = serialize(&ED25519_SECRET_KEY).unwrap();
         let decoded_secret_key: MiniSecretKey = deserialize(&encoded_secret_key).unwrap();
+
+        for i in 0..32 {
+            assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
+        }
+    }
+
+    #[test]
+    fn serialize_deserialize_mini_secret_key_json() {
+        let encoded_secret_key = to_value(&ED25519_SECRET_KEY).unwrap();
+        let decoded_secret_key: MiniSecretKey = from_value(encoded_secret_key).unwrap();
+
+        for i in 0..32 {
+            assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
+        }
+
+        let encoded_secret_key = to_string(&ED25519_SECRET_KEY).unwrap();
+        let decoded_secret_key: MiniSecretKey = from_str(&encoded_secret_key).unwrap();
 
         for i in 0..32 {
             assert_eq!(ED25519_SECRET_KEY.0[i], decoded_secret_key.0[i]);
