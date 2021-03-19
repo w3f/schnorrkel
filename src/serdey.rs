@@ -31,8 +31,10 @@ impl ::serde_crate::Serialize for $t {
 impl<'d> ::serde_crate::Deserialize<'d> for $t {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: ::serde_crate::Deserializer<'d> {
         cfg_if::cfg_if!{
-            if #[cfg(any(feature = "alloc", feature = "std"))] {
-                let bytes = <::serde_bytes::ByteBuf>::deserialize(deserializer)?;
+            if #[cfg(feature = "std")] {
+                let bytes = <std::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
+            } else if #[cfg(feature = "alloc")] {
+                let bytes = <alloc::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
             } else {
                 let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
             }
