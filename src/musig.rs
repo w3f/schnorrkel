@@ -38,6 +38,7 @@ use alloc::{collections::btree_map::{BTreeMap, Entry}};
 #[cfg(feature = "std")]
 use std::{collections::btree_map::{BTreeMap, Entry}};
 
+use arrayref::array_ref;
 use arrayvec::ArrayVec;
 
 use merlin::Transcript;

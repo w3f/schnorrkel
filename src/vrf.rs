@@ -89,7 +89,9 @@ use std::{boxed::Box, vec::Vec};
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::{IsIdentity,MultiscalarMul,VartimeMultiscalarMul}; // Identity
+use curve25519_dalek::traits::{IsIdentity}; // Identity
+#[cfg(any(feature = "alloc", feature = "std"))]
+use curve25519_dalek::traits::{MultiscalarMul,VartimeMultiscalarMul};
 
 use merlin::Transcript;
 
@@ -465,6 +467,7 @@ impl PublicKey {
         };
         #[cfg(not(any(feature = "alloc", feature = "std")))]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
+            let _ = vartime; // ignore unused variable
             use curve25519_dalek::traits::Identity;
             let mut acc = RistrettoPoint::identity();
             for (z,p) in zf().zip(ps) {
