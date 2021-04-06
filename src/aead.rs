@@ -25,7 +25,7 @@ regarded as a pointer, not a recommendation.
 
 // use rand_core::{RngCore,CryptoRng};
 
-use ::aead::{NewAead, generic_array::{GenericArray}};
+use aead::{NewAead, generic_array::{GenericArray}};
 
 use curve25519_dalek::digest::generic_array::typenum::{U32};
 

@@ -58,7 +58,7 @@ pub struct Signature {
 }
 
 impl Debug for Signature {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Signature( R: {:?}, s: {:?} )", &self.R, &self.s)
     }
 }
@@ -184,7 +184,7 @@ impl SecretKey {
         let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
         let s: Scalar = &(&k * &self.key) + &r;
 
-        ::zeroize::Zeroize::zeroize(&mut r);
+        zeroize::Zeroize::zeroize(&mut r);
 
         Signature{ R, s }
     }
@@ -330,7 +330,7 @@ impl Keypair {
     /// # let mut csprng: ThreadRng = thread_rng();
     /// # let keypair: Keypair = Keypair::generate_with(&mut csprng);
     /// # let message: &[u8] = b"All I want is to pet all of the dogs.";
-    /// # let prehashed = ::sha3::Shake256::default().chain(message);
+    /// # let prehashed = sha3::Shake256::default().chain(message);
     /// #
     /// let ctx = signing_context(b"My Signing Context");
     ///
@@ -432,7 +432,7 @@ mod test {
         let bad:  &[u8] = "wrong message".as_bytes();
 
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);
         good_sig = keypair.sign(ctx.bytes(&good));
@@ -466,7 +466,7 @@ mod test {
         // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);
         good_sig = keypair.sign(ctx.xof(prehashed_good.clone()));

@@ -298,7 +298,7 @@ mod tests {
         let mut h = Shake128::default().chain(msg);
 
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
         let key = Keypair::generate_with(&mut csprng);
 
         let mut extended_public_key = ExtendedKey {

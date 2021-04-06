@@ -354,7 +354,7 @@ impl VRFInOut {
     /// If you are not the signer then you must verify the VRF before calling this method.
     ///
     /// We expect most users would prefer the less generic `VRFInOut::make_chacharng` method.
-    pub fn make_rng<R: ::rand_core::SeedableRng>(&self, context: &[u8]) -> R {
+    pub fn make_rng<R: rand_core::SeedableRng>(&self, context: &[u8]) -> R {
         R::from_seed(self.make_bytes::<R::Seed>(context))
     }
 
@@ -370,7 +370,7 @@ impl VRFInOut {
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     #[cfg(feature = "rand_chacha")]
-    pub fn make_chacharng(&self, context: &[u8]) -> ::rand_chacha::ChaChaRng {
+    pub fn make_chacharng(&self, context: &[u8]) -> rand_chacha::ChaChaRng {
         self.make_rng::<::rand_chacha::ChaChaRng>(context)
     }
 
@@ -386,18 +386,18 @@ impl VRFInOut {
     pub fn make_merlin_rng(&self, context: &[u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
-        impl ::rand_core::RngCore for ZeroFakeRng {
+        impl rand_core::RngCore for ZeroFakeRng {
             fn next_u32(&mut self) -> u32 {  panic!()  }
             fn next_u64(&mut self) -> u64 {  panic!()  }
             fn fill_bytes(&mut self, dest: &mut [u8]) {
                 for i in dest.iter_mut() {  *i = 0;  }
             }
-            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ::rand_core::Error> {
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
                 self.fill_bytes(dest);
                 Ok(())
             }
         }
-        impl ::rand_core::CryptoRng for ZeroFakeRng {}
+        impl rand_core::CryptoRng for ZeroFakeRng {}
 
         let mut t = Transcript::new(b"VRFResult");
         t.append_message(b"",context);
@@ -435,7 +435,7 @@ impl PublicKey {
         B: Borrow<VRFInOut>,
     {
         assert!( ps.len() > 0);
-        let mut t = ::merlin::Transcript::new(b"MergeVRFs");
+        let mut t = merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
             p.borrow().commit(&mut t);
@@ -651,7 +651,7 @@ impl Keypair {
         let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
         let s = &r - &(&c * &self.secret.key);
 
-        ::zeroize::Zeroize::zeroize(&mut r);
+        zeroize::Zeroize::zeroize(&mut r);
 
         (VRFProof { c, s }, VRFProofBatchable { R, Hr, s })
     }
@@ -1016,7 +1016,7 @@ mod tests {
     #[test]
     fn vrf_single() {
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
 
@@ -1062,7 +1062,7 @@ mod tests {
     #[test]
     fn vrf_malleable() {
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
 
@@ -1134,7 +1134,7 @@ mod tests {
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[test]
     fn vrfs_merged_and_batched() {
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
         let keypairs: Vec<Keypair> = (0..4)
             .map(|_| Keypair::generate_with(&mut csprng))
             .collect();

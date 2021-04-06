@@ -229,7 +229,7 @@ use rand_core::{RngCore,CryptoRng};
 
 // #[cfg(all(feature = "getrandom", feature = "rand"))] 
 // fn rand_hack() -> impl RngCore+CryptoRng {
-//     ::rand::thread_rng()
+//     rand::thread_rng()
 //  }
  
 // #[cfg(all(feature = "getrandom", not(feature = "rand")))] 
@@ -247,7 +247,7 @@ fn rand_hack() -> impl RngCore+CryptoRng {
         fn next_u32(&mut self) -> u32 {  panic!("{}", PRM)  }
         fn next_u64(&mut self) -> u64 {  panic!("{}", PRM)  }
         fn fill_bytes(&mut self, _dest: &mut [u8]) {  panic!("{}", PRM)  }
-        fn try_fill_bytes(&mut self, _dest: &mut [u8]) -> Result<(), ::rand_core::Error> {  panic!("{}", PRM)  }
+        fn try_fill_bytes(&mut self, _dest: &mut [u8]) -> Result<(), rand_core::Error> {  panic!("{}", PRM)  }
     }
     impl rand_core::CryptoRng for PanicRng {}
 

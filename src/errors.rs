@@ -152,15 +152,15 @@ impl Display for SignatureError {
 }
 
 #[cfg(feature = "failure")]
-impl ::failure::Fail for SignatureError {}
+impl failure::Fail for SignatureError {}
 
 /// Convert `SignatureError` into `::serde::de::Error` aka `SerdeError`
 ///
 /// We should do this with `From` but right now the orphan rules prohibit
-/// `impl From<SignatureError> for E where E: ::serde::de::Error`.
+/// `impl From<SignatureError> for E where E: serde::de::Error`.
 #[cfg(feature = "serde")]
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
-where E: ::serde_crate::de::Error
+where E: serde_crate::de::Error
 {
     use self::SignatureError::*;
     match err {
