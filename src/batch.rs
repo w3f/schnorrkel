@@ -53,7 +53,7 @@ use crate::context::{SigningTranscript};
 /// let signatures:  Vec<Signature> = keypairs.iter().map(|key| key.sign(ctx.bytes(&msg))).collect();
 /// let public_keys: Vec<PublicKey> = keypairs.iter().map(|key| key.public).collect();
 ///
-/// let transcripts = ::std::iter::once(ctx.bytes(msg)).cycle().take(64);
+/// let transcripts = std::iter::once(ctx.bytes(msg)).cycle().take(64);
 ///
 /// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_ok() );
 /// # }
@@ -80,7 +80,7 @@ impl rand_core::RngCore for NotAnRng {
     fn next_u64(&mut self) -> u64 { rand_core::impls::next_u64_via_fill(self) }
 
     /// A no-op function which leaves the destination bytes for randomness unchanged.
-    fn fill_bytes(&mut self, dest: &mut [u8]) { ::zeroize::Zeroize::zeroize(dest) }
+    fn fill_bytes(&mut self, dest: &mut [u8]) { zeroize::Zeroize::zeroize(dest) }
 
     fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
         self.fill_bytes(dest);

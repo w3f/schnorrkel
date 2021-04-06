@@ -38,6 +38,7 @@ use alloc::{collections::btree_map::{BTreeMap, Entry}};
 #[cfg(feature = "std")]
 use std::{collections::btree_map::{BTreeMap, Entry}};
 
+use arrayref::array_ref;
 use arrayvec::ArrayVec;
 
 use merlin::Transcript;
@@ -624,7 +625,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
         let mut s_me: Scalar = self.stage.r_me.iter().zip(&rewinds).map(|(y,x)| x*y).sum();
         s_me += &(&c * &a_me * &self.stage.keypair.borrow().secret.key);
 
-        ::zeroize::Zeroize::zeroize(&mut self.stage.r_me);
+        zeroize::Zeroize::zeroize(&mut self.stage.r_me);
 
         let MuSig { t, mut Rs, stage: RevealStage { .. }, } = self;
         *(Rs.get_mut(&self.stage.keypair.borrow().public).expect("Rs known to contain this public; qed")) = CoR::Cosigned { s: s_me.clone() };

@@ -42,7 +42,7 @@ pub struct RistrettoBoth {
 }
 
 impl Debug for RistrettoBoth {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "RistrettoPoint( {:?} )", self.compressed)
     }
 }
@@ -61,7 +61,7 @@ fn zeroize_hack<Z: Default>(z: &mut Z) {
     atomic::compiler_fence(atomic::Ordering::SeqCst);
 }
 
-impl ::zeroize::Zeroize for RistrettoBoth {
+impl zeroize::Zeroize for RistrettoBoth {
     fn zeroize(&mut self) {
         zeroize_hack(&mut self.compressed);
         zeroize_hack(&mut self.point);
@@ -196,7 +196,7 @@ impl PartialOrd<RistrettoBoth> for RistrettoBoth {
 }
 
 impl Ord for RistrettoBoth {
-    fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.compressed.0.cmp(&other.compressed.0)
     }
 
@@ -208,8 +208,8 @@ impl Ord for RistrettoBoth {
     // }
 }
 
-impl ::core::hash::Hash for RistrettoBoth {
-    fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for RistrettoBoth {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.compressed.0.hash(state);
     }
 }

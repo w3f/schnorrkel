@@ -29,8 +29,9 @@ script:
   - cargo clippy --version
   - cargo clippy --all
 
-  # build
-  - cargo build --all
+  # check
+  - cargo check --no-default-features --features "u64_backend" # no_std
+  - cargo check --tests --benches                              # compilation
 
   # test
   - cargo $TEST_COMMAND $FEATURES

@@ -69,7 +69,7 @@ pub struct AdaptorCertSecret(pub [u8; 64]);
 /*
 impl<'a> From<&'a AdaptorCertSecret> for &'a AdaptorCertPublic {
     from(secret: &AdaptorCertSecret) -> &AdaptorCertPublic {
-        unsafe { ::core::mem::transmute(secret) }
+        unsafe { core::mem::transmute(secret) }
     }
 }
 */
@@ -247,7 +247,7 @@ mod tests {
         let t = signing_context(b"").bytes(b"MrMeow!");
 
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
         let issuer = Keypair::generate_with(&mut csprng);
 
         let (cert_public,secret_key) = issuer.issue_self_adaptor_cert(t.clone());
