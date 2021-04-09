@@ -361,7 +361,9 @@ impl PreparedBatch{
             bytes = tail;
             array_ref![head,0,32].clone()
         };
-        let bs = super::sign::check_scalar(read()) ?;
+        let mut bs = read();
+        bs[31] &= 127;
+        let bs = super::sign::check_scalar(bs) ?;
         let mut Rs = Vec::with_capacity(l);
         for _ in 0..l {
             Rs.push( CompressedRistretto(read()) );
@@ -380,7 +382,9 @@ impl PreparedBatch{
     pub fn write_bytes(&self, mut bytes: &mut [u8]) {
         assert!(bytes.len() == self.byte_len());        
         let mut place = |s: &[u8]| reserve_mut(&mut bytes,32).copy_from_slice(s);
-        place(self.bs.as_bytes());
+        let mut bs = self.bs.to_bytes();
+        bs[31] |= 128;
+        place(&bs[..]);
         for R in self.Rs.iter() {
             place(R.as_bytes());
         }
