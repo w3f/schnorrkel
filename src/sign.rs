@@ -63,7 +63,7 @@ impl Debug for Signature {
     }
 }
 
-fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
+pub(crate) fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
     // Since this is only used in signature deserialisation (i.e. upon
     // verification), we can do a "succeed fast" trick by checking that the most
     // significant 4 bits are unset.  If they are unset, we can succeed fast

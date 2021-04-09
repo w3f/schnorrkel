@@ -12,11 +12,19 @@
 //! ### Schnorr signature batch verification.
 
 use curve25519_dalek::constants;
-use curve25519_dalek::ristretto::{RistrettoPoint}; // CompressedRistretto
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
 use crate::context::{SigningTranscript};
+
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+
+const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
 
 
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
@@ -58,8 +66,6 @@ use crate::context::{SigningTranscript};
 /// assert!( verify_batch(transcripts, &signatures[..], &public_keys[..], false).is_ok() );
 /// # }
 /// ```
-#[cfg(any(feature = "alloc", feature = "std"))]
-#[allow(non_snake_case)]
 pub fn verify_batch<T,I>(
     transcripts: I,
     signatures: &[Signature],
@@ -101,8 +107,6 @@ impl rand_core::CryptoRng for NotAnRng {}
 /// We caution deeterministic delinearization could interact poorly
 /// with other functionaltiy, *if* one delinarization scalar were
 /// left constant.  We do not make that mistake here.
-#[cfg(any(feature = "alloc", feature = "std"))]
-#[allow(non_snake_case)]
 pub fn verify_batch_deterministic<T,I>(
     transcripts: I,
     signatures: &[Signature],
@@ -119,8 +123,6 @@ where
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
 /// Inputs and return agree with `verify_batch` except the user supplies their own random number generator.
-#[cfg(any(feature = "alloc", feature = "std"))]
-#[allow(non_snake_case)]
 pub fn verify_batch_rng<T,I,R>(
     transcripts: I,
     signatures: &[Signature],
@@ -133,18 +135,48 @@ where
     I: IntoIterator<Item=T>,
     R: RngCore+CryptoRng,
 {
-    const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
     assert!(signatures.len() == public_keys.len(), "{}", ASSERT_MESSAGE);  // Check transcripts length below
 
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
+    let (zs, hrams) = prepare_batch(transcripts, signatures, public_keys, rng);
 
-    use core::iter::once;
+    // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
+    let bs: Scalar = signatures.iter()
+        .map(|sig| sig.s)
+        .zip(zs.iter())
+        .map(|(s, z)| z * s)
+        .sum();
 
-    use curve25519_dalek::traits::IsIdentity;
-    use curve25519_dalek::traits::VartimeMultiscalarMul;
+    verify_batch_equation( bs, zs, hrams, signatures, public_keys, deduplicate_public_keys )
+}
+
+
+trait HasR {
+    #[allow(non_snake_case)]
+    fn get_R(&self) -> &CompressedRistretto;
+}
+impl HasR for Signature {
+    #[allow(non_snake_case)]
+    fn get_R(&self) -> &CompressedRistretto { &self.R }
+}
+impl HasR for CompressedRistretto {
+    #[allow(non_snake_case)]
+    fn get_R(&self) -> &CompressedRistretto { self }
+}
+
+/// First phase of batch verification that computes the delinierizing
+/// coefficents and challenge hashes
+#[allow(non_snake_case)]
+fn prepare_batch<T,I,R>(
+    transcripts: I,
+    signatures: &[impl HasR],
+    public_keys: &[PublicKey],
+    mut rng: R,
+) -> (Vec<Scalar>,Vec<Scalar>)
+where
+    T: SigningTranscript,
+    I: IntoIterator<Item=T>,
+    R: RngCore+CryptoRng,
+{
 
     // Assumulate public keys, signatures, and transcripts for pseudo-random delinearization scalars
     let mut zs_t = merlin::Transcript::new(b"V-RNG");
@@ -152,12 +184,11 @@ where
         zs_t.commit_point(b"",pk.as_compressed());
     }
     for sig in signatures {
-        zs_t.append_message(b"",& sig.to_bytes());
+        zs_t.commit_point(b"",sig.get_R());
     }
 
     // We might collect here anyways, but right now you cannot have
     //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
-    // Begin NLL hack
     let mut transcripts = transcripts.into_iter();
     // Compute H(R || A || M) for each (signature, public_key, message) triplet
     let mut hrams: Vec<Scalar> = transcripts.by_ref()
@@ -169,7 +200,7 @@ where
 
             t.proto_name(b"Schnorr-sig");
             t.commit_point(b"sign:pk",public_keys[i].as_compressed());
-            t.commit_point(b"sign:R",&signatures[i].R);
+            t.commit_point(b"sign:R",signatures[i].get_R());
             t.challenge_scalar(b"sign:c")  // context, message, A/public_key, R=rG
         } ).collect();
     assert!(transcripts.next().is_none(), "{}", ASSERT_MESSAGE);
@@ -188,15 +219,28 @@ where
     };
     let zs: Vec<Scalar> = signatures.iter().map(rnd_128bit_scalar).collect();
 
-    // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
-    let B_coefficient: Scalar = signatures.iter()
-        .map(|sig| sig.s)
-        .zip(zs.iter())
-        .map(|(s, z)| z * s)
-        .sum();
+    (zs, hrams)
+}
+
+/// Last phase of batch verification that checks the verification equation
+#[allow(non_snake_case)]
+fn verify_batch_equation(
+    bs: Scalar,
+    zs: Vec<Scalar>,
+    mut hrams: Vec<Scalar>,
+    signatures: &[impl HasR],
+    public_keys: &[PublicKey],
+    deduplicate_public_keys: bool,
+) -> SignatureResult<()>
+{
+    use curve25519_dalek::traits::IsIdentity;
+    use curve25519_dalek::traits::VartimeMultiscalarMul;
+
+    use core::iter::once;
+
     let B = once(Some(constants::RISTRETTO_BASEPOINT_POINT));
 
-    let Rs = signatures.iter().map(|sig| sig.R.decompress());
+    let Rs = signatures.iter().map(|sig| sig.get_R().decompress());
 
     let mut ppks = Vec::new();
     let As = if ! deduplicate_public_keys {
@@ -221,17 +265,132 @@ where
         }
         hrams.truncate(ppks.len());
         ppks.as_slice()
-   }.iter().map(|pk| Some(pk.as_point().clone()));
+    }.iter().map(|pk| Some(pk.as_point().clone()));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
-        once(-B_coefficient).chain(zs.iter().cloned()).chain(hrams),
+        once(-bs).chain(zs.iter().cloned()).chain(hrams),
         B.chain(Rs).chain(As),
     ).map(|id| id.is_identity()).unwrap_or(false);
     // We need not return SigenatureError::PointDecompressionError because
     // the decompression failures occur for R represent invalid signatures.
 
     if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
+}
+
+
+
+/// Half-aggregated aka prepared batch signature
+/// 
+/// Implemntation of "Non-interactive half-aggregation of EdDSA and
+/// variantsof Schnorr signatures" by  Konstantinos Chalkias,
+/// François Garillot, Yashvanth Kondi, and Valeria Nikolaenko
+/// available from https://eprint.iacr.org/2021/350.pdf
+#[allow(non_snake_case)]
+pub struct PreparedBatch {
+    bs: Scalar,
+    Rs: Vec<CompressedRistretto>,
+}
+
+impl PreparedBatch{
+
+    /// Create a half-aggregated aka prepared batch signature from many other signatures.
+    #[allow(non_snake_case)]
+    pub fn new<T,I,R>(
+        transcripts: I,
+        signatures: &[Signature],
+        public_keys: &[PublicKey],
+    ) -> PreparedBatch
+    where
+        T: SigningTranscript,
+        I: IntoIterator<Item=T>,
+    {
+        assert!(signatures.len() == public_keys.len(), "{}", ASSERT_MESSAGE);  // Check transcripts length below
+
+        let (zs, _hrams) = prepare_batch(transcripts, signatures, public_keys, NotAnRng);
+
+        // Compute the basepoint coefficient, ∑ s[i]z[i] (mod l)
+        let bs: Scalar = signatures.iter()
+            .map(|sig| sig.s)
+            .zip(zs.iter())
+            .map(|(s, z)| z * s)
+            .sum();
+
+        let Rs = signatures.iter().map(|sig| sig.R).collect();
+        PreparedBatch { bs, Rs, }
+    }
+
+    /// Verify a half-aggregated aka prepared batch signature
+    #[allow(non_snake_case)]
+    pub fn verify<T,I>(
+        &self,
+        transcripts: I,
+        public_keys: &[PublicKey],
+        deduplicate_public_keys: bool,
+    ) -> SignatureResult<()>
+    where
+        T: SigningTranscript,
+        I: IntoIterator<Item=T>,
+    {
+        assert!(self.Rs.len() == public_keys.len(), "{}", ASSERT_MESSAGE);  // Check transcripts length below
+
+        let (zs, hrams) = prepare_batch(transcripts, self.Rs.as_slice(), public_keys, NotAnRng);
+
+        verify_batch_equation(
+            self.bs,
+            zs, hrams,
+            self.Rs.as_slice(),
+            public_keys, deduplicate_public_keys
+        )
+    }
+
+    /// Reads a `PreparedBatch` from a correctly sized buffer
+    pub fn read_bytes(&self, mut bytes: &[u8]) -> SignatureResult<PreparedBatch> {
+        if bytes.len() % 32 != 0 || bytes.len() < 64 { 
+            return Err(SignatureError::BytesLengthError {
+                name: "PreparedBatch",
+                description: "A Prepared batched signature",
+                length: 0 // TODO: Maybe get rid of this silly field?
+            });
+        }
+        let l = (bytes.len() % 32) - 1;
+        let mut read = || {
+            let (head,tail) = bytes.split_at(32);
+            bytes = tail;
+            array_ref![tail,0,32].clone()
+        };
+        let bs = super::sign::check_scalar(read()) ?;
+        let mut Rs = Vec::with_capacity(l);
+        for _ in 0..l {
+            Rs.push( CompressedRistretto(read()) );
+        }
+        Ok(PreparedBatch { bs, Rs })
+    }
+    
+    /// Returns buffer size required for serialization
+    #[allow(non_snake_case)]
+    pub fn byte_len(&self) -> usize {
+        32 + 32 * self.Rs.len()
+    }
+
+    /// Serializes into exacly sized buffer
+    #[allow(non_snake_case)]
+    pub fn write_bytes(&self, mut bytes: &mut [u8]) {
+        assert!(bytes.len() == self.byte_len());        
+        let mut place = |s: &[u8]| reserve_mut(&mut bytes,32).copy_from_slice(s);
+        place(self.bs.as_bytes());
+        for R in self.Rs.iter() {
+            place(R.as_bytes());
+        }
+    }    
+}
+
+
+pub fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mut [T] {
+    let tmp: &'heap mut [T] = ::std::mem::replace(&mut *heap, &mut []);
+    let (reserved, tmp) = tmp.split_at_mut(len);
+    *heap = tmp;
+    reserved
 }
 
 

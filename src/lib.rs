@@ -288,4 +288,4 @@ pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic};
+pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic,PreparedBatch};
