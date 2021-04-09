@@ -128,7 +128,7 @@ pub fn verify_batch_rng<T,I,R>(
     signatures: &[Signature],
     public_keys: &[PublicKey],
     deduplicate_public_keys: bool,
-    mut rng: R,
+    rng: R,
 ) -> SignatureResult<()>
 where
     T: SigningTranscript,
@@ -191,7 +191,7 @@ where
     //   IntoIterator<Item=T, IntoIter: ExactSizeIterator+TrustedLen>
     let mut transcripts = transcripts.into_iter();
     // Compute H(R || A || M) for each (signature, public_key, message) triplet
-    let mut hrams: Vec<Scalar> = transcripts.by_ref()
+    let hrams: Vec<Scalar> = transcripts.by_ref()
         .zip(0..signatures.len())
         .map( |(mut t,i)| {
             let mut d = [0u8; 16];
@@ -345,7 +345,9 @@ impl PreparedBatch{
     }
 
     /// Reads a `PreparedBatch` from a correctly sized buffer
+    #[allow(non_snake_case)]
     pub fn read_bytes(&self, mut bytes: &[u8]) -> SignatureResult<PreparedBatch> {
+        use arrayref::array_ref;
         if bytes.len() % 32 != 0 || bytes.len() < 64 { 
             return Err(SignatureError::BytesLengthError {
                 name: "PreparedBatch",
@@ -357,7 +359,7 @@ impl PreparedBatch{
         let mut read = || {
             let (head,tail) = bytes.split_at(32);
             bytes = tail;
-            array_ref![tail,0,32].clone()
+            array_ref![head,0,32].clone()
         };
         let bs = super::sign::check_scalar(read()) ?;
         let mut Rs = Vec::with_capacity(l);
