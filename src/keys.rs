@@ -99,7 +99,7 @@ pub enum ExpansionMode {
 pub struct MiniSecretKey(pub (crate) [u8; MINI_SECRET_KEY_LENGTH]);
 
 impl Debug for MiniSecretKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "MiniSecretKey: {:?}", &self.0[..])
     }
 }
@@ -363,7 +363,7 @@ pub struct SecretKey {
 }
 
 impl Debug for SecretKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SecretKey {{ key: {:?} nonce: {:?} }}", &self.key, &self.nonce)
     }
 }
@@ -486,8 +486,8 @@ impl SecretKey {
     /* Unused tooling removed to reduce dependencies. 
     /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
     #[cfg(feature = "ed25519_dalek")]
-    pub fn to_ed25519_expanded_secret_key(&self) -> ::ed25519_dalek::ExpandedSecretKey {
-        ::ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_ed25519_bytes()[..])
+    pub fn to_ed25519_expanded_secret_key(&self) -> ed25519_dalek::ExpandedSecretKey {
+        ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_ed25519_bytes()[..])
         .expect("Improper serialisation of Ed25519 secret key!")
     }
     */
@@ -580,7 +580,7 @@ serde_boilerplate!(SecretKey);
 pub struct PublicKey(pub (crate) RistrettoBoth);
 
 impl Debug for PublicKey {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "PublicKey( {:?} )", self.0)
     }
 }
@@ -902,7 +902,7 @@ mod test {
             014, 225, 114, 243, 218, 166, 035, 037,
             175, 002, 026, 104, 247, 007, 081, 026, ]);
         let pk = ED25519_PUBLIC_KEY.decompress().unwrap();
-        // let pk = unsafe { ::std::mem::transmute::<EdwardsPoint,RistrettoPoint>(pk) };
+        // let pk = unsafe { std::mem::transmute::<EdwardsPoint,RistrettoPoint>(pk) };
         let point = super::super::ed25519::edwards_to_ristretto(pk).unwrap();
         let ristretto_public_key = PublicKey::from_point(point);
 
@@ -943,7 +943,7 @@ mod test {
     #[test]
     fn keypair_zeroize() {
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let mut keypair = Keypair::generate_with(&mut csprng);
 
@@ -964,7 +964,7 @@ mod test {
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
         // #[cfg(feature = "getrandom")]
-        let mut csprng = ::rand_core::OsRng;
+        let mut csprng = rand_core::OsRng;
 
         let mini_secret: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);
         let secret: SecretKey = mini_secret.expand(ExpansionMode::Ed25519);
