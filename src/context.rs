@@ -241,7 +241,7 @@ impl SigningContext {
         let mut prehash = [0u8; 64];
         prehash.copy_from_slice(h.finalize_fixed().as_slice());
         let mut t = self.0.clone();
-        t.append_message(b"sign-256", &prehash);
+        t.append_message(b"sign-512", &prehash);
         t
     }
 }
