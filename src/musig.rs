@@ -66,8 +66,8 @@ const REWINDS: usize = 3;
 ///
 /// Incorrect weightings shall occur if the iterator provided does not
 /// run in the same sorted ordering as `BTreeMap::iter`/`keys`/etc.
-/// We avoided a context: &'static [u8] here and in callers becuase they
-/// seem irreevant to the security arguments in the MuSig paper.
+/// We avoided a context: &'static [u8] here and in callers because they
+/// seem irrelevant to the security arguments in the MuSig paper.
 #[inline(always)]
 fn commit_public_keys<'a,I>(keys: I) -> Transcript
 where I: Iterator<Item=&'a PublicKey>
@@ -478,7 +478,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
 {
     /// Initialize a multi-signature aka cosignature protocol run.
     ///
-    /// We encurage borrowing the `Keypair` to minimize copies of
+    /// We encourage borrowing the `Keypair` to minimize copies of
     /// the private key, so we provide the `Keypair::musig` method
     /// for the `K = &'k Keypair` case.  You could use `Rc` or `Arc`
     /// with this `MuSig::new` method, or even pass in an owned copy.
@@ -511,7 +511,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
         self.stage.R_me.to_commitment().unwrap()
     }
 
-    /// Add a new cosigner's public key and associated `R` bypassing our commitmewnt phase.
+    /// Add a new cosigner's public key and associated `R` bypassing our commitment phase.
     pub fn add_their_commitment(&mut self, them: PublicKey, theirs: Commitment)
      -> SignatureResult<()>
     {
@@ -568,7 +568,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     }
 
     /// Add a new cosigner's public key and associated `R` bypassing our
-    /// commitmewnt phase.
+    /// commitment phase.
     ///
     /// We implemented defenses that reduce the risks posed by this
     /// method, but anyone who wishes provable security should heed
@@ -586,7 +586,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     /// (b) stateful, and (c) infrequently used, via some constrained
     /// channel like manually scanning QR code.  Almost all hardware
     /// wallets designs fail (b), but non-hardware wallets fail (a),
-    /// with the middle ground being only something like Pairty Signer.
+    /// with the middle ground being only something like Parity Signer.
     /// Also, any public keys controlled by an organization likely
     /// fail (c) too, making this only useful for individuals.
     pub fn add_trusted(&mut self, them: PublicKey, theirs: Reveal)
@@ -633,7 +633,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     }
 }
 
-/// Final cosigning stage  colelction
+/// Final cosigning stage collection
 #[allow(non_snake_case)]
 pub struct CosignStage {
     /// Collective `R` value

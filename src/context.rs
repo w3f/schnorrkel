@@ -165,7 +165,7 @@ impl SigningTranscript for Transcript {
 
 /// Schnorr signing context
 ///
-/// We expect users to have seperate `SigningContext`s for each role
+/// We expect users to have separate `SigningContext`s for each role
 /// that signature play in their protocol.  These `SigningContext`s
 /// may be global `lazy_static!`s, or perhaps constants in future.
 ///
@@ -173,11 +173,11 @@ impl SigningTranscript for Transcript {
 /// a signature transcript.
 ///
 /// You should use `merlin::Transcript`s directly if you must do
-/// anything more complex, like use signatures in larger zero-knoweldge
+/// anything more complex, like use signatures in larger zero-knowledge
 /// protocols or sign several components but only reveal one later.
 ///
 /// We declare these methods `#[inline(always)]` because rustc does
-/// not handle large returns as efficently as one might like.
+/// not handle large returns as efficiently as one might like.
 /// https://github.com/rust-random/rand/issues/817
 #[derive(Clone)] // Debug
 pub struct SigningContext(Transcript);
@@ -199,7 +199,7 @@ impl SigningContext {
         SigningContext(t)
     }
 
-    /// Initalize an owned signing transcript on a message provided as a byte array.
+    /// Initialize an owned signing transcript on a message provided as a byte array.
     ///
     /// Avoid this method when processing large slices because it
     /// calls `merlin::Transcript::append_message` directly and
@@ -211,7 +211,7 @@ impl SigningContext {
         t
     }
 
-    /// Initalize an owned signing transcript on a message provided
+    /// Initialize an owned signing transcript on a message provided
     /// as a hash function with extensible output mode (XOF) by
     /// finalizing the hash and extracting 32 bytes from XOF.
     #[inline(always)]
@@ -223,7 +223,7 @@ impl SigningContext {
         t
     }
 
-    /// Initalize an owned signing transcript on a message provided as
+    /// Initialize an owned signing transcript on a message provided as
     /// a hash function with 256 bit output.
     #[inline(always)]
     pub fn hash256<D: FixedOutput<OutputSize=U32>>(&self, h: D) -> Transcript {
@@ -234,7 +234,7 @@ impl SigningContext {
         t
     }
 
-    /// Initalize an owned signing transcript on a message provided as
+    /// Initialize an owned signing transcript on a message provided as
     /// a hash function with 512 bit output, usually a gross over kill.
     #[inline(always)]
     pub fn hash512<D: FixedOutput<OutputSize=U64>>(&self, h: D) -> Transcript {
@@ -247,7 +247,7 @@ impl SigningContext {
 }
 
 
-/// Very simple transcript construction from a modern hash fucntion.
+/// Very simple transcript construction from a modern hash function.
 ///
 /// We provide this transcript type to directly use conventional hash
 /// functions with an extensible output mode, like Shake128 and
@@ -255,7 +255,7 @@ impl SigningContext {
 ///
 /// We recommend using `merlin::Transcript` instead because merlin
 /// provides the transcript abstraction natively and might function
-/// better in low memory enviroments.  We therefore do not provide
+/// better in low memory environments.  We therefore do not provide
 /// conveniences like `signing_context` for this.
 ///
 /// We note that merlin already uses Keccak, upon which Shake128 is based,

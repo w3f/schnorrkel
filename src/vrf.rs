@@ -104,7 +104,7 @@ use crate::points::RistrettoBoth;
 /// 
 /// Greg Maxwell argue that nonce generation should hash all parameters
 /// that challenge generation does in https://moderncrypto.org/mail-archive/curves/2020/001012.html
-/// We support this position in prionciple as a defense in depth against
+/// We support this position in principle as a defense in depth against
 /// attacks that cause missalignment between the public and secret keys.
 ///
 /// We did this for signatures but not for the VRF deployed in Kusama.
@@ -152,14 +152,14 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
     }
 }
 
-/// VRF SigningTranscript for malleable VRF ouputs.
+/// VRF SigningTranscript for malleable VRF outputs.
 ///
 /// *Warning*  We caution that malleable VRF outputs are insecure when
 /// used in conjunction with HDKD, as provided in dervie.rs. 
 /// Attackers could translate malleable VRF outputs from one soft subkey 
 /// to another soft subkey, gaining early knowledge of the VRF output.
-/// We think most VRF applicaitons for which HDKH soudns suitable
-/// benefit from using implicit certificates insead of HDKD anyways,
+/// We think most VRF applications for which HDKH sounds suitable
+/// benefit from using implicit certificates instead of HDKD anyways,
 /// which should also be secure in combination with HDKD.
 /// We always use non-malleable VRF inputs in our convenience methods.
 #[derive(Clone)]
@@ -177,8 +177,8 @@ impl<T> VRFSigningTranscript for Malleable<T> where T: SigningTranscript {
 /// used in conjunction with HDKD, as provided in dervie.rs. 
 /// Attackers could translate malleable VRF outputs from one soft subkey 
 /// to another soft subkey, gaining early knowledge of the VRF output.
-/// We think most VRF applicaitons for which HDKH soudns suitable
-/// benefit from using implicit certificates insead of HDKD anyways,
+/// We think most VRF applications for which HDKH sounds suitable
+/// benefit from using implicit certificates instead of HDKD anyways,
 /// which should also be secure in combination with HDKH.
 /// We always use non-malleable VRF inputs in our convenience methods.
 pub fn vrf_malleable_hash<T: SigningTranscript>(mut t: T) -> RistrettoBoth {
@@ -216,7 +216,7 @@ pub type VRFOutput = VRFPreOut;
 /// We'd actually love to statically distinguish here between inputs
 /// and outputs, as well as whether outputs were verified, but doing
 /// so would disrupt our general purpose DLEQ proof mechanism, so
-/// users must be responcible for this themselves.  We do however
+/// users must be responsible for this themselves.  We do however
 /// consume by value in actual output methods, and do not implement
 /// `Copy`, as a reminder that VRF outputs should only be used once
 /// and should be checked before usage.
@@ -337,7 +337,7 @@ impl VRFInOut {
     /// If called with distinct contexts then outputs should be independent.
     ///
     /// We incorporate both the input and output to provide the 2Hash-DH
-    /// construction from Theorem 2 on page 32 in appendex C of
+    /// construction from Theorem 2 on page 32 in appendix C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     pub fn make_bytes<B: Default + AsMut<[u8]>>(&self, context: &[u8]) -> B {
@@ -366,7 +366,7 @@ impl VRFInOut {
     /// Independent output streams are available via `ChaChaRng::set_stream` too.
     ///
     /// We incorporate both the input and output to provide the 2Hash-DH
-    /// construction from Theorem 2 on page 32 in appendex C of
+    /// construction from Theorem 2 on page 32 in appendix C of
     /// ["Ouroboros Praos: An adaptively-secure, semi-synchronous proof-of-stake blockchain"](https://eprint.iacr.org/2017/573.pdf)
     /// by Bernardo David, Peter Gazi, Aggelos Kiayias, and Alexander Russell.
     #[cfg(feature = "rand_chacha")]
@@ -657,7 +657,7 @@ impl Keypair {
     }
 
     /// Run VRF on one single input transcript, producing the outpus
-    /// and correspodning short proof.
+    /// and corresponding short proof.
     ///
     /// There are schemes like Ouroboros Praos in which nodes evaluate
     /// VRFs repeatedly until they win some contest.  In these case,
@@ -672,7 +672,7 @@ impl Keypair {
     }
 
     /// Run VRF on one single input transcript and an extra message transcript, 
-    /// producing the outpus and correspodning short proof.
+    /// producing the outpus and corresponding short proof.
     pub fn vrf_sign_extra<T,E>(&self, t: T, extra: E) -> (VRFInOut, VRFProof, VRFProofBatchable)
     where T: VRFSigningTranscript,
           E: SigningTranscript,
@@ -684,7 +684,7 @@ impl Keypair {
 
 
     /// Run VRF on one single input transcript, producing the outpus
-    /// and correspodning short proof only if the result first passes
+    /// and corresponding short proof only if the result first passes
     /// some check.
     ///
     /// There are schemes like Ouroboros Praos in which nodes evaluate
@@ -702,7 +702,7 @@ impl Keypair {
     }
 
     /// Run VRF on one single input transcript, producing the outpus
-    /// and correspodning short proof only if the result first passes
+    /// and corresponding short proof only if the result first passes
     /// some check, which itself returns an extra message transcript.
     pub fn vrf_sign_extra_after_check<T,E,F>(&self, t: T, mut check: F)
      -> Option<(VRFInOut, VRFProof, VRFProofBatchable)>
@@ -901,9 +901,9 @@ impl PublicKey {
 /// TODO: Assess when the two verification equations should be
 /// combined, presumably by benchmarking both forms.  At smaller batch
 /// sizes then we should clearly benefit form the combined form, but
-/// bany combination doubles the scalar by scalar multiplicications
+/// any combination doubles the scalar by scalar multiplications
 /// and hashing, so large enough batch verifications should favor two
-/// seperate calls.
+/// separate calls.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[allow(non_snake_case)]
 pub fn dleq_verify_batch(
@@ -916,8 +916,8 @@ pub fn dleq_verify_batch(
     assert!(ps.len() == proofs.len(), "{}", ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 
-    // Use a random number generator keyed by the publidc keys, the
-    // inout and putput points, and the system randomn number gnerator.
+    // Use a random number generator keyed by the public keys, the
+    // inout and putput points, and the system random number generator.
     let mut csprng = {
         let mut t = Transcript::new(b"VB-RNG");
         for (pk,p) in public_keys.iter().zip(ps) {

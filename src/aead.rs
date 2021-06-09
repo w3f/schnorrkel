@@ -76,7 +76,7 @@ impl SecretKey {
 }
 
 impl PublicKey {
-    /// Initalize an AEAD to the public key `self` using an ephemeral key exchange.
+    /// Initialize an AEAD to the public key `self` using an ephemeral key exchange.
     ///
     /// Returns the ephemeral public key and AEAD.
     pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD)
@@ -86,7 +86,7 @@ impl PublicKey {
         (ephemeral.public.into_compressed(), aead)
     }
 
-    /// Initalize an AEAD to the public key `self` using an ephemeral key exchange.
+    /// Initialize an AEAD to the public key `self` using an ephemeral key exchange.
     ///
     /// Returns the ephemeral public key and AEAD.
     /// Requires the AEAD have a 32 byte public key and does not support a context.
@@ -168,7 +168,7 @@ impl Keypair {
     /// Sender's AEAD with Adaptor certificate.
     ///
     /// Along with the AEAD, we return the implicit Adaptor certificate
-    /// from which the reciever recreates the ephemeral public key.
+    /// from which the receiver recreates the ephemeral public key.
     pub fn sender_aead_with_adaptor_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (AdaptorCertPublic,AEAD)
     where T: SigningTranscript+Clone, AEAD: NewAead
     {
