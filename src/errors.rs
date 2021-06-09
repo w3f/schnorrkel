@@ -18,7 +18,7 @@ use core::fmt;
 use core::fmt::Display;
 
 
-/// `Result` specilized to this crate for convenience.
+/// `Result` specialized to this crate for convenience.
 pub type SignatureResult<T> = Result<T, SignatureError>;
 
 /// Three-round trip multi-signature stage identifies used in error reporting
@@ -46,7 +46,7 @@ impl Display for MultiSignatureStage {
 /// Errors which may occur while processing signatures and keypairs.
 ///
 /// All these errors represent a failed signature when they occur in
-/// the context of verifying a sitgnature, including in deserializaing
+/// the context of verifying a signature, including in deserializaing
 /// for verification.  We expose the distinction among them primarily
 /// for debugging purposes.
 ///
@@ -90,19 +90,19 @@ pub enum SignatureError {
     },
     /// Signature not marked as schnorrkel, maybe try ed25519 instead.
     NotMarkedSchnorrkel,
-    /// There is no record of the preceeding multi-signautre protocol
+    /// There is no record of the preceding multi-signautre protocol
     /// stage for the specified public key.
     MuSigAbsent {
         /// Identifies the multi-signature protocol stage during which
-        /// the error occured.
+        /// the error occurred.
         musig_stage: MultiSignatureStage,
     },
     /// For this public key, there are either conflicting records for
-    /// the preceeding multi-signautre protocol stage or else duplicate
+    /// the preceding multi-signautre protocol stage or else duplicate
     /// duplicate records for the current stage.
     MuSigInconsistent {
         /// Identifies the multi-signature protocol stage during which
-        /// the error occured.
+        /// the error occurred.
         musig_stage: MultiSignatureStage,
         /// Set true if the stage was reached correctly once but this
         /// duplicate disagrees.
@@ -175,4 +175,3 @@ where E: serde_crate::de::Error
         _ => panic!("Non-serialisation error encountered by serde!"),
     }
 }
-

@@ -71,16 +71,16 @@ pub enum ExpansionMode {
     /// ed25519-style bit clamping.
     ///
     /// Ristretto points are represented by Ed25519 points internally
-    /// so concievably some future standard might expose a mapping
+    /// so conceivably some future standard might expose a mapping
     /// from Ristretto to Ed25519, which makes this mode useful.
     /// At present, there is no such exposed mapping however because
     /// two such mappings actually exist, depending upon the branch of
     /// the inverse square root chosen by a Ristretto implementation.
     /// There is however a concern that such a mapping would remain
     /// a second class citizen, meaning implementations differ and
-    /// create incompatability.
+    /// create incompatibility.
     ///
-    /// We weakly recommend against emoloying this method.  We include
+    /// We weakly recommend against employing this method.  We include
     /// it primarily because early Ristretto documentation touted the
     /// relationship with Ed25519, which led to some deployments adopting
     /// this expansion method.
@@ -127,7 +127,7 @@ impl MiniSecretKey {
 
     /// Expand this `MiniSecretKey` into a `SecretKey`
     ///
-    /// We preoduce a secret keys using merlin and more uniformly
+    /// We produce a secret keys using merlin and more uniformly
     /// with this method, which reduces binary size and benefits
     /// some future protocols.
     ///
@@ -337,10 +337,10 @@ impl MiniSecretKey {
 serde_boilerplate!(MiniSecretKey);
 
 
-/// A seceret key for use with Ristretto Schnorr signatures.
+/// A secret key for use with Ristretto Schnorr signatures.
 ///
 /// Internally, these consist of a scalar mod l along with a seed for
-/// nonce generation.  In this way, we ensure all scalar arithmatic
+/// nonce generation.  In this way, we ensure all scalar arithmetic
 /// works smoothly in operations like threshold or multi-signatures,
 /// or hierarchical deterministic key derivations.
 ///
@@ -358,7 +358,7 @@ pub struct SecretKey {
     /// Seed for deriving the nonces used in signing.
     ///
     /// We require this be random and secret or else key compromise attacks will ensue.
-    /// Any modificaiton here may dirupt some non-public key derivation techniques.
+    /// Any modification here may disrupt some non-public key derivation techniques.
     pub (crate) nonce: [u8; 32],
 }
 
@@ -407,7 +407,7 @@ impl SecretKey {
     /// Convert this `SecretKey` into an array of 64 bytes with.
     ///
     /// Returns an array of 64 bytes, with the first 32 bytes being
-    /// the secret scalar represented cannonically, and the last
+    /// the secret scalar represented canonically, and the last
     /// 32 bytes being the seed for nonces.
     ///
     /// # Examples
@@ -484,7 +484,7 @@ impl SecretKey {
     }
 
     /* Unused tooling removed to reduce dependencies. 
-    /// Convert this `SecretKey` into an Ed25519 expanded secreyt key.
+    /// Convert this `SecretKey` into an Ed25519 expanded secret key.
     #[cfg(feature = "ed25519_dalek")]
     pub fn to_ed25519_expanded_secret_key(&self) -> ed25519_dalek::ExpandedSecretKey {
         ed25519_dalek::ExpandedSecretKey::from_bytes(&self.to_ed25519_bytes()[..])
@@ -575,7 +575,7 @@ serde_boilerplate!(SecretKey);
 ///
 /// At present, we decompress `PublicKey`s into this representation
 /// during deserialization, which improves error handling, but costs
-/// a compression during signing and verifiaction.
+/// a compression during signing and verification.
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PublicKey(pub (crate) RistrettoBoth);
 
@@ -730,7 +730,7 @@ impl Keypair {
     /// # Returns
     ///
     /// A byte array `[u8; KEYPAIR_LENGTH]` consisting of first a
-    /// `SecretKey` serialized cannonically, and next the Ristterro
+    /// `SecretKey` serialized canonically, and next the Ristterro
     /// `PublicKey`
     ///
     /// # Examples
@@ -865,7 +865,7 @@ impl Keypair {
     ///
     /// We generate a `SecretKey` directly bypassing `MiniSecretKey`,
     /// so our secret keys do not satisfy the high bit "clamping"
-    /// impoised on Ed25519 keys.
+    /// imposed on Ed25519 keys.
     pub fn generate_with<R>(csprng: R) -> Keypair
     where R: CryptoRng + RngCore,
     {

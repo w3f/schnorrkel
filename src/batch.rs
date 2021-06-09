@@ -44,9 +44,9 @@ const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signat
 ///
 /// # Returns
 ///
-/// * A `Result` whose `Ok` value is an emtpy tuple and whose `Err` value is a
+/// * A `Result` whose `Ok` value is an empty tuple and whose `Err` value is a
 ///   `SignatureError` containing a description of the internal error which
-///   occured.
+///   occurred.
 ///
 /// # Examples
 ///
@@ -105,7 +105,7 @@ impl rand_core::CryptoRng for NotAnRng {}
 /// [public key delinearization](https://crypto.stanford.edu/~dabo/pubs/papers/BLSmultisig.html).
 ///
 /// We caution deeterministic delinearization could interact poorly
-/// with other functionaltiy, *if* one delinarization scalar were
+/// with other functionality, *if* one delinarization scalar were
 /// left constant.  We do not make that mistake here.
 pub fn verify_batch_deterministic<T,I>(
     transcripts: I,
@@ -206,8 +206,8 @@ where
     assert!(transcripts.next().is_none(), "{}", ASSERT_MESSAGE);
     assert!(hrams.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 
-    // Use a random number generator keyed by both the publidc keys,
-    // and the system randomn number gnerator
+    // Use a random number generator keyed by both the public keys,
+    // and the system random number generator
     let mut csprng = zs_t.build_rng().finalize(&mut rng);
     // Select a random 128-bit scalar for each signature.
     // We may represent these as scalars because we use
@@ -272,7 +272,7 @@ fn verify_batch_equation(
         once(-bs).chain(zs.iter().cloned()).chain(hrams),
         B.chain(Rs).chain(As),
     ).map(|id| id.is_identity()).unwrap_or(false);
-    // We need not return SigenatureError::PointDecompressionError because
+    // We need not return SignatureError::PointDecompressionError because
     // the decompression failures occur for R represent invalid signatures.
 
     if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
@@ -282,7 +282,7 @@ fn verify_batch_equation(
 
 /// Half-aggregated aka prepared batch signature
 /// 
-/// Implemntation of "Non-interactive half-aggregation of EdDSA and
+/// Implementation of "Non-interactive half-aggregation of EdDSA and
 /// variantsof Schnorr signatures" by  Konstantinos Chalkias,
 /// François Garillot, Yashvanth Kondi, and Valeria Nikolaenko
 /// available from https://eprint.iacr.org/2021/350.pdf
@@ -377,7 +377,7 @@ impl PreparedBatch{
         32 + 32 * self.Rs.len()
     }
 
-    /// Serializes into exacly sized buffer
+    /// Serializes into exactly sized buffer
     #[allow(non_snake_case)]
     pub fn write_bytes(&self, mut bytes: &mut [u8]) {
         assert!(bytes.len() == self.byte_len());        

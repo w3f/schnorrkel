@@ -134,7 +134,7 @@ impl Signature {
         Ok(Signature{ R: CompressedRistretto(lower), s: check_scalar(upper) ? })
     }
 
-    /// Depricated construction of a `Signature` from a slice of bytes
+    /// Deprecated construction of a `Signature` from a slice of bytes
     /// without checking the bit distinguishing from ed25519.  Deprecated.
     #[cfg(feature = "preaudit_deprecated")]
     #[inline]
@@ -290,7 +290,7 @@ impl Keypair {
     /// # Examples
     ///
     /// Internally, we manage signature transcripts using a 128 bit secure
-    /// STROBE construction based on Keccak, which itself is extremly fast
+    /// STROBE construction based on Keccak, which itself is extremely fast
     /// and secure.  You might however influence performance or security
     /// by prehashing your message, like
     ///

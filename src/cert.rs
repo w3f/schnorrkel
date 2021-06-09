@@ -8,10 +8,10 @@
 // - Jeffrey Burdges <jeff@web3.foundation>
 
 
-//! ### Adaptor siganture-based implicit certificate scheme for Ristretto
+//! ### Adaptor signature-based implicit certificate scheme for Ristretto
 //!
 //! [Implicit certificates](https://en.wikipedia.org/wiki/Implicit_certificate)
-//! provide an extremely space efficent public key certificate scheme.
+//! provide an extremely space efficient public key certificate scheme.
 //!
 //! As a rule, implicit certificates do not prove possession of the
 //! private key.  We thus worry more about fear rogue key attack when
@@ -84,7 +84,7 @@ impl From<AdaptorCertSecret> for AdaptorCertPublic {
 
 /// Adaptor Implicit Certificate Public Key Reconstruction Data
 ///
-/// Identifying the public key of, and implicity verifying, an Adaptor
+/// Identifying the public key of, and implicitly verifying, an Adaptor
 /// implicit certificate requires this data, which is produced
 /// when the certificate holder accepts the implicit certificate.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -140,7 +140,7 @@ impl PublicKey {
     ///
     /// We request an Adaptor implicit certificate by first creating an
     /// ephemeral `Keypair` and sending the public portion to the issuer
-    /// as `seed_public_key`.  An issuer issues the certificat by replying
+    /// as `seed_public_key`.  An issuer issues the certificate by replying
     /// with the `AdaptorCertSecret` created by `issue_adaptor_cert`.
     ///
     /// Aside from the issuer `PublicKey` supplied as `self`, you provide
@@ -188,12 +188,12 @@ impl Keypair {
     /// We can issue an implicit certificate to ourselves if we merely
     /// want to certify an associated public key.  We should prefer
     /// this option over "hierarchical deterministic" key derivation
-    /// because compromizing the resulting secret key does not
-    /// compromize the issuer's secret key.
+    /// because compromising the resulting secret key does not
+    /// compromise the issuer's secret key.
     ///
     /// In this case, we avoid the entire interactive protocol described
     /// by `issue_adaptor_cert` and `accept_adaptor_cert` by hiding it an all
-    /// managment of the ephemeral `Keypair` inside this function.
+    /// management of the ephemeral `Keypair` inside this function.
     ///
     /// Aside from the issuing secret key supplied as `self`, you provide
     /// only a digest `h` that incorporates any context and metadata
@@ -255,4 +255,3 @@ mod tests {
         assert_eq!(secret_key.to_public(), public_key);
     }
 }
-
