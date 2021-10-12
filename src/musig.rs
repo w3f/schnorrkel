@@ -263,7 +263,7 @@ impl Reveal {
         self.check_length() ?;
         let a = self.iter_points().map(
             |x| x.decompress().ok_or(SignatureError::PointDecompressionError)
-        ).collect::<SignatureResult<ArrayVec<[RistrettoPoint; REWINDS]>>>() ?;
+        ).collect::<SignatureResult<ArrayVec<RistrettoPoint,REWINDS>>>() ?;
         Ok( RevealedPoints( a.into_inner().unwrap() ) )
     }
 }
@@ -413,7 +413,7 @@ impl<T: SigningTranscript+Clone,S> MuSig<T,S> {
         move |pk| {
             let mut t1 = t0.clone();
             t1.commit_point(b"pk-choice", pk.as_compressed() );
-            let mut a = ArrayVec::<[Scalar; REWINDS]>::new();
+            let mut a = ArrayVec::<Scalar, REWINDS>::new();
             while !a.is_full() {
                 a.push( t1.challenge_scalar(b"R") );
             }
@@ -486,7 +486,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
     pub fn new(keypair: K, t: T) -> MuSig<T,CommitStage<K>> {
         let nonce = &keypair.borrow().secret.nonce;
 
-        let mut r_me = ArrayVec::<[Scalar; REWINDS]>::new();
+        let mut r_me = ArrayVec::<Scalar, REWINDS>::new();
         for i in 0..REWINDS {
             r_me.push( t.witness_scalar(b"MuSigWitness",&[nonce,&i.to_le_bytes()]) );
         }
@@ -494,7 +494,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
         // context, message, nonce, but not &self.public.compressed
 
         let B = &constants::RISTRETTO_BASEPOINT_TABLE;
-        let R_me_points: ArrayVec<[RistrettoPoint; REWINDS]> = r_me.iter()
+        let R_me_points: ArrayVec<RistrettoPoint, REWINDS> = r_me.iter()
             .map(|r_me_i| r_me_i * B).collect();
         let R_me_points = RevealedPoints(R_me_points.into_inner().unwrap());
         let R_me = R_me_points.to_reveal();
