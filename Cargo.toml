@@ -29,9 +29,9 @@ version = "0.7.1"
 default-features = false
 
 [dependencies.curve25519-dalek]
-package = "curve25519-dalek-ng"
+package = "curve25519-dalek"
 # git = "https://github.com/dalek-cryptography/curve25519-dalek"
-version = "4.1.0"
+version = "3.2.0"
 default-features = false
 
 # [dependencies.ed25519-dalek]
@@ -40,8 +40,8 @@ default-features = false
 # optional = true
 
 [dependencies.subtle]
-package = "subtle-ng"
-version = "2.5.0"
+package = "subtle"
+version = "2.4.1"
 default-features = false
 
 [dependencies.merlin]
@@ -128,4 +128,3 @@ getrandom = ["rand_core/getrandom"]
 # wasm-bindgen = ["getrandom/wasm-bindgen"]
 # See https://github.com/rust-lang/cargo/issues/9210
 # and https://github.com/w3f/schnorrkel/issues/65#issuecomment-786923588
-
