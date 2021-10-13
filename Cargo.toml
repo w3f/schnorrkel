@@ -25,7 +25,8 @@ version = "0.3.6"
 default-features = false
 
 [dependencies.arrayvec]
-version = "0.7.1"
+# needs to match parity-scale-code which is "=0.7.0"
+version = "0.7.0"
 default-features = false
 
 [dependencies.curve25519-dalek]
