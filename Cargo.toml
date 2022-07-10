@@ -111,7 +111,7 @@ harness = false
 [features]
 default = ["std", "u64_backend", "getrandom"] # "rand"
 preaudit_deprecated = []
-nightly = ["curve25519-dalek/nightly", "rand/nightly"] # "zeroize/nightly"
+nightly = ["curve25519-dalek/nightly", "rand_core/nightly"] # "zeroize/nightly"
 alloc = ["curve25519-dalek/alloc", "rand_core/alloc", "serde_bytes/alloc"]
 std = ["getrandom", "curve25519-dalek/std", "serde_bytes/std"] # "failure/std"
 asm = ["sha2/asm"]
