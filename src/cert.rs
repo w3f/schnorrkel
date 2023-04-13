@@ -166,7 +166,7 @@ impl PublicKey {
         s.copy_from_slice(&cert_secret.0[32..64]);
         let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : AdaptorCertPublic = cert_secret.into();
-        let gamma = CompressedRistretto(cert_public.0.clone());
+        let gamma = CompressedRistretto(cert_public.0);
         t.commit_point(b"gamma",&gamma);
 
         let key = s + seed_secret_key.key;
@@ -221,7 +221,7 @@ impl PublicKey {
         t.proto_name(b"Adaptor");
         t.commit_point(b"issuer-pk",self.as_compressed());
 
-        let gamma = CompressedRistretto(cert_public.0.clone());
+        let gamma = CompressedRistretto(cert_public.0);
         t.commit_point(b"gamma",&gamma);
         let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 

@@ -279,7 +279,7 @@ impl SecretKey {
     /// Evaluate the VRF-like multiplication on an uncompressed point,
     /// probably not useful in this form.
     pub fn vrf_create_from_point(&self, input: RistrettoBoth) -> VRFInOut {
-        let output = RistrettoBoth::from_point(&self.key * input.as_point());
+        let output = RistrettoBoth::from_point(self.key * input.as_point());
         VRFInOut { input, output }
     }
 
@@ -431,7 +431,7 @@ impl PublicKey {
     where
         B: Borrow<VRFInOut>,
     {
-        assert!( ps.len() > 0);
+        assert!(!ps.is_empty());
         let mut t = merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
@@ -634,11 +634,11 @@ impl Keypair {
         if !kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
 
         // We compute R after adding pk and all h.
-        let mut r = t.witness_scalar(b"proving\00",&[&self.secret.nonce]);
+        let mut r = t.witness_scalar(b"proving\x000",&[&self.secret.nonce]);
         let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"vrf:R=g^r", &R);
 
-        let Hr = (&r * p.input.as_point()).compress();
+        let Hr = (r * p.input.as_point()).compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
         if kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
@@ -646,7 +646,7 @@ impl Keypair {
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
-        let s = &r - &(&c * &self.secret.key);
+        let s = r - c * self.secret.key;
 
         zeroize::Zeroize::zeroize(&mut r);
 
@@ -909,7 +909,7 @@ pub fn dleq_verify_batch(
     public_keys: &[PublicKey],
     kusama: bool,
 ) -> SignatureResult<()> {
-    const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
+    const ASSERT_MESSAGE: &str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), "{}", ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 

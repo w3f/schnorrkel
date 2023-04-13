@@ -610,13 +610,13 @@ impl PublicKey {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
 
     /// Access the compressed Ristretto form
-    pub fn as_compressed(&self) -> &CompressedRistretto { &self.0.as_compressed() }
+    pub fn as_compressed(&self) -> &CompressedRistretto { self.0.as_compressed() }
 
     /// Extract the compressed Ristretto form
     pub fn into_compressed(self) -> CompressedRistretto { self.0.into_compressed() }
 
     /// Access the point form
-    pub fn as_point(&self) -> &RistrettoPoint { &self.0.as_point() }
+    pub fn as_point(&self) -> &RistrettoPoint { self.0.as_point() }
 
     /// Extract the point form
     pub fn into_point(self) -> RistrettoPoint { self.0.into_point() }
@@ -786,7 +786,7 @@ impl Keypair {
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
 
-        Ok(Keypair{ secret: secret, public: public })
+        Ok(Keypair{ secret, public })
     }
 
     /// Serialize `Keypair` to bytes with Ed25519 secret key format.
@@ -839,7 +839,7 @@ impl Keypair {
         let secret = SecretKey::from_ed25519_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
 
-        Ok(Keypair{ secret: secret, public: public })
+        Ok(Keypair{ secret, public })
     }
 
     /// Generate a Ristretto Schnorr `Keypair` directly,

@@ -248,7 +248,7 @@ impl<K: Derivation> ExtendedKey<K> {
     pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
     where T: SigningTranscript
     {
-        let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
+        let (key, chaincode) = self.key.derived_key(t, self.chaincode);
         ExtendedKey { key, chaincode }
     }
 
@@ -256,7 +256,7 @@ impl<K: Derivation> ExtendedKey<K> {
     /// a chain code in the extended key.
     pub fn derived_key_simple<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
     {
-        let (key, chaincode) = self.key.derived_key_simple(self.chaincode.clone(), i);
+        let (key, chaincode) = self.key.derived_key_simple(self.chaincode, i);
         ExtendedKey { key, chaincode }
     }
 }

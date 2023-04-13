@@ -182,7 +182,7 @@ impl SecretKey {
         t.commit_point(b"sign:R",&R);
 
         let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
-        let s: Scalar = &(&k * &self.key) + &r;
+        let s: Scalar = k * self.key + r;
 
         zeroize::Zeroize::zeroize(&mut r);
 
