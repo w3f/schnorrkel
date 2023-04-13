@@ -35,8 +35,6 @@ use core::borrow::{Borrow};  // BorrowMut
 
 #[cfg(feature = "alloc")]
 use alloc::{collections::btree_map::{BTreeMap, Entry}};
-#[cfg(feature = "std")]
-use std::{collections::btree_map::{BTreeMap, Entry}};
 
 use arrayref::array_ref;
 use arrayvec::ArrayVec;
@@ -760,8 +758,6 @@ impl<T: SigningTranscript+Clone> MuSig<T,CollectStage> {
 mod tests {
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     use super::*;
 

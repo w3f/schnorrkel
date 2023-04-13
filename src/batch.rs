@@ -20,9 +20,6 @@ use crate::context::{SigningTranscript};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
-
 
 const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
 
@@ -404,14 +401,12 @@ pub fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mu
 mod test {
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     use rand::prelude::*; // ThreadRng,thread_rng
 
     use super::super::*;
 
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     #[test]
     fn verify_batch_seven_signatures() {
         let ctx = signing_context(b"my batch context");
