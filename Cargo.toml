@@ -12,9 +12,6 @@ description = "Schnorr VRF, signatures, etc. using the Ristretto group"
 exclude = [ ".gitignore", "res/*" ]
 edition = "2021"
 
-# [badges]
-# travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
-
 [dependencies.aead]
 version = "0.4.3"
 default-features = false
@@ -31,14 +28,8 @@ default-features = false
 
 [dependencies.curve25519-dalek]
 package = "curve25519-dalek-ng"
-# git = "https://github.com/dalek-cryptography/curve25519-dalek"
 version = "4.1.1"
 default-features = false
-
-# [dependencies.ed25519-dalek]
-# version = "1.0.0"
-# default-features = false
-# optional = true
 
 [dependencies.subtle]
 package = "subtle-ng"
@@ -47,13 +38,7 @@ default-features = false
 
 [dependencies.merlin]
 version = "3.0.0"
-# features = ["debug-transcript"]
 default-features = false
-
-# [dependencies.rand]
-# version = "0.8.3"
-# default-features = false
-# optional = true
 
 [dependencies.rand_core]
 version = "0.6.2"
@@ -96,7 +81,6 @@ features = ["zeroize_derive"]
 [dev-dependencies]
 rand = "0.8.4"
 rand_chacha = "0.3.1"
-# hex = "0.3.2"
 hex-literal = "0.3.3"
 sha2 = "0.9.8"
 sha3 = "0.9.1"

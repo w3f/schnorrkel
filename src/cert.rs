@@ -66,14 +66,6 @@ use crate::context::SigningTranscript;
 pub struct AdaptorCertSecret(pub [u8; 64]);
 /// TODO: Serde serialization/deserialization
 
-/*
-impl<'a> From<&'a AdaptorCertSecret> for &'a AdaptorCertPublic {
-    from(secret: &AdaptorCertSecret) -> &AdaptorCertPublic {
-        unsafe { core::mem::transmute(secret) }
-    }
-}
-*/
-
 impl From<AdaptorCertSecret> for AdaptorCertPublic {
     fn from(secret: AdaptorCertSecret) -> AdaptorCertPublic {
         let mut public = AdaptorCertPublic([0u8; 32]);
@@ -246,7 +238,6 @@ mod tests {
     fn adaptor_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
         let issuer = Keypair::generate_with(&mut csprng);
 

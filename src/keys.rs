@@ -942,7 +942,6 @@ mod test {
 
     #[test]
     fn keypair_zeroize() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let mut keypair = Keypair::generate_with(&mut csprng);
@@ -963,7 +962,6 @@ mod test {
 
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let mini_secret: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);

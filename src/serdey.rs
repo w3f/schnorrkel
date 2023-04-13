@@ -10,15 +10,6 @@
 
 //! ### Various and tooling related to serde
 
-// #[cfg(feature = "serde")]
-// use serde::{Serialize, Deserialize};
-// #[cfg(feature = "serde")]
-// use serde::{Serializer, Deserializer};
-// #[cfg(feature = "serde")]
-// use serde::de::Error as SerdeError;
-// #[cfg(feature = "serde")]
-// use serde::de::Visitor;
-
 #[cfg(feature = "serde")]
 macro_rules! serde_boilerplate { ($t:ty) => {
 impl serde_crate::Serialize for $t {

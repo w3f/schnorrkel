@@ -108,22 +108,7 @@ pub enum SignatureError {
         /// duplicate disagrees.
         duplicate: bool,
     },
-
-    // /// Reveal did not match commitment
-    // InvalidReveal,
-// other multisig errors
-// AbsentCommitment
-// InvalidCommitment
 }
-
-/*
-impl SignatureError {
-    #[inline(always)]
-    fn equation(b: bool) -> SignatureResult<()> {
-        if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
-    }
-}
-*/
 
 impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

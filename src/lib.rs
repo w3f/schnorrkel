@@ -222,17 +222,6 @@ extern crate alloc;
 
 use rand_core::{RngCore,CryptoRng};
 
-// Removed rand dependency because naming the same feature std_rng on rand
-// and getrandom on rand_code is too confusing to propogate correctly. 
-// Use transcript.attach_rng(::rand::thread_rng()) when signing if you
-// application suffers from this performance regression.
-
-// #[cfg(all(feature = "getrandom", feature = "rand"))] 
-// fn rand_hack() -> impl RngCore+CryptoRng {
-//     rand::thread_rng()
-//  }
- 
-// #[cfg(all(feature = "getrandom", not(feature = "rand")))] 
 #[cfg(feature = "getrandom")] 
 fn rand_hack() -> impl RngCore+CryptoRng {
     rand_core::OsRng

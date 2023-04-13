@@ -431,7 +431,6 @@ mod test {
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);
@@ -465,7 +464,6 @@ mod test {
         let prehashed_bad: Shake128 = Shake128::default().chain(bad);
         // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);

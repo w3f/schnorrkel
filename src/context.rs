@@ -57,22 +57,6 @@ pub trait SigningTranscript {
         self.commit_bytes(label, compressed.as_bytes());
     }
 
-    /*
-    fn commit_sorted_points<P,S>(&mut self, label: &'static [u8], set: &mut [P])
-    where P: Borrow<CompressedRistretto>,
-          // S: BorrowMut<[P]>,
-    {
-        // let set = set.borrow_mut();
-        set.sort_unstable_by(
-            |a,b| a.borrow().as_bytes()
-             .cmp(b.borrow().as_bytes())
-        );
-        for p in set.iter() {
-            self.commit_point(label,p.borrow());
-        }
-    }
-    */
-
     /// Produce some challenge bytes, shadowed by `merlin::Transcript`.
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]);
 
@@ -401,14 +385,3 @@ where T: SigningTranscript
     use rand_core::SeedableRng;
     attach_rng(t,ChaChaRng::from_seed(seed))
 }
-
-
-
-/*
-#[cfg(test)]
-mod test {
-    use sha3::Shake128;
-    use curve25519_dalek::digest::{Update};
-
-}
-*/

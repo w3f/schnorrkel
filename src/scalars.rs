@@ -12,9 +12,6 @@
 //! Elliptic curve utilities not provided by curve25519-dalek,
 //! including some not so safe utilities for managing scalars and points.
 
-// use curve25519_dalek::scalar::Scalar;
-
-
 pub(crate) fn divide_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
     let mut low = 0u8;
     for i in scalar.iter_mut().rev() {
@@ -34,20 +31,6 @@ pub(crate) fn multiply_scalar_bytes_by_cofactor(scalar: &mut [u8; 32]) {
         high = r >> 5;
     }
 }
-
-/*
-pub fn divide_scalar_by_cofactor(scalar: Scalar) -> Scalar {
-    let mut x = scalar.to_bytes();
-    divide_scalar_bytes_by_cofactor(&mut x);
-    Scalar::from_bits(x)
-}
-
-pub fn multiply_scalar_by_cofactor(scalar: Scalar) -> Scalar {
-    let mut x = scalar.to_bytes();
-    multiply_scalar_bytes_by_cofactor(&mut x);
-    Scalar::from_bits(x)
-}
-*/
 
 #[cfg(test)]
 mod tests {

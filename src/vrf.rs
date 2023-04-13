@@ -147,7 +147,6 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
     #[inline(always)]
     fn transcript_with_malleability_addressed(mut self, publickey: &PublicKey) -> T {
         self.commit_point(b"vrf-nm-pk", publickey.as_compressed());        
-        // publickey.make_transcript_nonmalleable(&mut self);
         self
     }
 }
@@ -1015,7 +1014,6 @@ mod tests {
 
     #[test]
     fn vrf_single() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
@@ -1061,7 +1059,6 @@ mod tests {
 
     #[test]
     fn vrf_malleable() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
