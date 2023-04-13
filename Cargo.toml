@@ -10,7 +10,7 @@ keywords = ["cryptography", "ed25519", "curve25519", "signature", "ECC"]
 categories = ["cryptography", "no-std"]
 description = "Schnorr VRF, signatures, etc. using the Ristretto group"
 exclude = [ ".gitignore", "res/*" ]
-edition = "2018"
+edition = "2021"
 
 # [badges]
 # travis-ci = { repository = "dalek-cryptography/ed25519-dalek", branch = "master"}
