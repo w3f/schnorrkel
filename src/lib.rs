@@ -264,6 +264,8 @@ pub mod aead;
 mod batch;
 
 // Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
+
+#[cfg_attr(not(test), deprecated(since = "0.11.0", note = "This module will be replaced in the future"))]
 #[cfg(feature = "std")]
 pub mod musig;
 
