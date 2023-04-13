@@ -76,7 +76,7 @@ pub(crate) fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
         return Ok(Scalar::from_bits(bytes))
     }
 
-    Scalar::from_canonical_bytes(bytes).ok_or(SignatureError::ScalarFormatError)
+    crate::scalar_from_canonical_bytes(bytes).ok_or(SignatureError::ScalarFormatError)
 }
 
 impl Signature {
@@ -177,7 +177,7 @@ impl SecretKey {
         t.commit_point(b"sign:pk",public_key.as_compressed());
 
         let mut r = t.witness_scalar(b"signing",&[&self.nonce]);  // context, message, A/public_key
-        let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
+        let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"sign:R",&R);
 

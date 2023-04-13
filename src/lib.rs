@@ -221,6 +221,7 @@ extern crate std;
 extern crate alloc;
 
 use rand_core::{RngCore,CryptoRng};
+use curve25519_dalek::scalar::Scalar;
 
 #[cfg(feature = "getrandom")] 
 fn rand_hack() -> impl RngCore+CryptoRng {
@@ -276,3 +277,14 @@ pub use crate::errors::{SignatureError,SignatureResult};
 
 #[cfg(feature = "alloc")]
 pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic,PreparedBatch};
+
+pub(crate) fn scalar_from_canonical_bytes(bytes: [u8; 32]) -> Option<Scalar> {
+    let key = Scalar::from_canonical_bytes(bytes);
+
+    // Note: this is a `CtOption` so we have to do this to extract the value.
+    if bool::from(key.is_none()) {
+        return None;
+    }
+
+    Some(key.unwrap())
+}

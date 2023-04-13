@@ -518,8 +518,8 @@ impl VRFProof {
         c.copy_from_slice(&bytes[..32]);
         s.copy_from_slice(&bytes[32..]);
 
-        let c = Scalar::from_canonical_bytes(c).ok_or(SignatureError::ScalarFormatError) ?;
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let c = crate::scalar_from_canonical_bytes(c).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(VRFProof { c, s })
     }
 }
@@ -573,7 +573,7 @@ impl VRFProofBatchable {
         Hr.copy_from_slice(&bytes[32..64]);
         s.copy_from_slice(&bytes[64..96]);
 
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(VRFProofBatchable { R: CompressedRistretto(R), Hr: CompressedRistretto(Hr), s })
     }
 
@@ -635,7 +635,7 @@ impl Keypair {
 
         // We compute R after adding pk and all h.
         let mut r = t.witness_scalar(b"proving\00",&[&self.secret.nonce]);
-        let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
+        let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"vrf:R=g^r", &R);
 
         let Hr = (&r * p.input.as_point()).compress();

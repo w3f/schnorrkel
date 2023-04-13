@@ -261,7 +261,7 @@ where H: Update + ExtendableOutput + Clone;
 
 fn input_bytes<H: Update>(h: &mut H, bytes: &[u8]) {
     let l = bytes.len() as u64;
-    h.update(l.to_le_bytes());
+    h.update(&l.to_le_bytes());
     h.update(bytes);
 }
 
@@ -297,7 +297,7 @@ where H: Update + ExtendableOutput + Clone
         self.0.update(b"ch");
         input_bytes(&mut self.0, label);
         let l = dest.len() as u64;
-        self.0.update(l.to_le_bytes());
+        self.0.update(&l.to_le_bytes());
         self.0.clone().chain(b"xof").finalize_xof().read(dest);
     }
 
@@ -310,7 +310,7 @@ where H: Update + ExtendableOutput + Clone
             input_bytes(&mut h, ns);
         }
         let l = dest.len() as u64;
-        h.update(l.to_le_bytes());
+        h.update(&l.to_le_bytes());
 
         let mut r = [0u8; 32];
         rng.fill_bytes(&mut r);

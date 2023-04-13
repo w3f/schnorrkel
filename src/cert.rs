@@ -112,7 +112,7 @@ impl Keypair {
         let k = t.witness_scalar(b"issuing",&[ &self.secret.nonce, seed_public_key.as_compressed().as_bytes() ]);
 
         // Compute the public key reconstruction data
-        let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
+        let gamma = seed_public_key.as_point() + &k * constants::RISTRETTO_BASEPOINT_TABLE;
         let gamma = gamma.compress();
         t.commit_point(b"gamma",&gamma);
         let cert_public = AdaptorCertPublic(gamma.0);
@@ -164,7 +164,7 @@ impl PublicKey {
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : AdaptorCertPublic = cert_secret.into();
         let gamma = CompressedRistretto(cert_public.0.clone());
         t.commit_point(b"gamma",&gamma);

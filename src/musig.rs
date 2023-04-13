@@ -491,7 +491,7 @@ where K: Borrow<Keypair>, T: SigningTranscript+Clone
         let r_me = r_me.into_inner().unwrap();
         // context, message, nonce, but not &self.public.compressed
 
-        let B = &constants::RISTRETTO_BASEPOINT_TABLE;
+        let B = constants::RISTRETTO_BASEPOINT_TABLE;
         let R_me_points: ArrayVec<RistrettoPoint, REWINDS> = r_me.iter()
             .map(|r_me_i| r_me_i * B).collect();
         let R_me_points = RevealedPoints(R_me_points.into_inner().unwrap());
@@ -654,7 +654,7 @@ impl<T: SigningTranscript+Clone> MuSig<T,CosignStage> {
     pub fn add_their_cosignature(&mut self, them: PublicKey, theirs: Cosignature)
      -> SignatureResult<()>
     {
-        let theirs = Scalar::from_canonical_bytes(theirs.0)
+        let theirs = crate::scalar_from_canonical_bytes(theirs.0)
             .ok_or(SignatureError::ScalarFormatError) ?;
         match self.Rs.entry(them) {
             Entry::Vacant(_) => {
@@ -721,7 +721,7 @@ impl<T: SigningTranscript+Clone> MuSig<T,CollectStage> {
      -> SignatureResult<()>
     {
         let reveal = their_reveal.into_points() ?;
-        let s = Scalar::from_canonical_bytes(their_cosignature.0)
+        let s = crate::scalar_from_canonical_bytes(their_cosignature.0)
             .ok_or(SignatureError::ScalarFormatError) ?;
         let cor = CoR::Collect { reveal, s };
 

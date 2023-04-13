@@ -222,7 +222,7 @@ impl Derivation for PublicKey {
     where T: SigningTranscript
     {
         let (scalar, chaincode) = self.derive_scalar_and_chaincode(&mut t, cc);
-        let point = self.as_point() + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
+        let point = self.as_point() + (&scalar * constants::RISTRETTO_BASEPOINT_TABLE);
         (PublicKey::from_point(point), chaincode)
     }
 }
