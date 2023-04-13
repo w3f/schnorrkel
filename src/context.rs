@@ -57,22 +57,6 @@ pub trait SigningTranscript {
         self.commit_bytes(label, compressed.as_bytes());
     }
 
-    /*
-    fn commit_sorted_points<P,S>(&mut self, label: &'static [u8], set: &mut [P])
-    where P: Borrow<CompressedRistretto>,
-          // S: BorrowMut<[P]>,
-    {
-        // let set = set.borrow_mut();
-        set.sort_unstable_by(
-            |a,b| a.borrow().as_bytes()
-             .cmp(b.borrow().as_bytes())
-        );
-        for p in set.iter() {
-            self.commit_point(label,p.borrow());
-        }
-    }
-    */
-
     /// Produce some challenge bytes, shadowed by `merlin::Transcript`.
     fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]);
 
@@ -277,7 +261,7 @@ where H: Update + ExtendableOutput + Clone;
 
 fn input_bytes<H: Update>(h: &mut H, bytes: &[u8]) {
     let l = bytes.len() as u64;
-    h.update(l.to_le_bytes());
+    h.update(&l.to_le_bytes());
     h.update(bytes);
 }
 
@@ -313,7 +297,7 @@ where H: Update + ExtendableOutput + Clone
         self.0.update(b"ch");
         input_bytes(&mut self.0, label);
         let l = dest.len() as u64;
-        self.0.update(l.to_le_bytes());
+        self.0.update(&l.to_le_bytes());
         self.0.clone().chain(b"xof").finalize_xof().read(dest);
     }
 
@@ -326,7 +310,7 @@ where H: Update + ExtendableOutput + Clone
             input_bytes(&mut h, ns);
         }
         let l = dest.len() as u64;
-        h.update(l.to_le_bytes());
+        h.update(&l.to_le_bytes());
 
         let mut r = [0u8; 32];
         rng.fill_bytes(&mut r);
@@ -401,14 +385,3 @@ where T: SigningTranscript
     use rand_core::SeedableRng;
     attach_rng(t,ChaChaRng::from_seed(seed))
 }
-
-
-
-/*
-#[cfg(test)]
-mod test {
-    use sha3::Shake128;
-    use curve25519_dalek::digest::{Update};
-
-}
-*/

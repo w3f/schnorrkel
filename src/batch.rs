@@ -20,11 +20,8 @@ use crate::context::{SigningTranscript};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
 
-
-const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts, signatures, and public keys must be equal.";
+const ASSERT_MESSAGE: &str = "The number of messages/transcripts, signatures, and public keys must be equal.";
 
 
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
@@ -246,7 +243,7 @@ fn verify_batch_equation(
     let As = if ! deduplicate_public_keys {
         // Multiply each H(R || A || M) by the random value
         for (hram, z) in hrams.iter_mut().zip(zs.iter()) {
-            *hram = &*hram * z;
+            *hram *= z;
         }
         public_keys
     } else {
@@ -254,18 +251,18 @@ fn verify_batch_equation(
         ppks.reserve( public_keys.len() );
         // Multiply each H(R || A || M) by the random value
         for i in 0..public_keys.len() {
-            let zhram = &hrams[i] * zs[i];
+            let zhram = hrams[i] * zs[i];
             let j = ppks.len().checked_sub(1);
             if j.is_none() || ppks[j.unwrap()] != public_keys[i] {
                 ppks.push(public_keys[i]);
                 hrams[ppks.len()-1] = zhram;
             } else {
-                hrams[ppks.len()-1] = &hrams[ppks.len()-1] + zhram;
+                hrams[ppks.len()-1] = hrams[ppks.len()-1] + zhram;
             }
         }
         hrams.truncate(ppks.len());
         ppks.as_slice()
-    }.iter().map(|pk| Some(pk.as_point().clone()));
+    }.iter().map(|pk| Some(*pk.as_point()));
 
     // Compute (-∑ z[i]s[i] (mod l)) B + ∑ z[i]R[i] + ∑ (z[i]H(R||A||M)[i] (mod l)) A[i] = 0
     let b = RistrettoPoint::optional_multiscalar_mul(
@@ -359,7 +356,7 @@ impl PreparedBatch{
         let mut read = || {
             let (head,tail) = bytes.split_at(32);
             bytes = tail;
-            array_ref![head,0,32].clone()
+            *array_ref![head,0,32]
         };
         let mut bs = read();
         bs[31] &= 127;
@@ -393,7 +390,7 @@ impl PreparedBatch{
 
 
 pub fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mut [T] {
-    let tmp: &'heap mut [T] = ::std::mem::replace(&mut *heap, &mut []);
+    let tmp: &'heap mut [T] = std::mem::take(&mut *heap);
     let (reserved, tmp) = tmp.split_at_mut(len);
     *heap = tmp;
     reserved
@@ -404,14 +401,12 @@ pub fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mu
 mod test {
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     use rand::prelude::*; // ThreadRng,thread_rng
 
     use super::super::*;
 
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     #[test]
     fn verify_batch_seven_signatures() {
         let ctx = signing_context(b"my batch context");

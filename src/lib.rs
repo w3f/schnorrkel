@@ -212,6 +212,7 @@
 #![warn(rust_2018_compatibility)]
 #![warn(rust_2018_idioms)]
 #![deny(missing_docs)] // refuse to compile if documentation is missing
+#![allow(clippy::needless_lifetimes)]
 
 #[cfg(any(feature = "std"))]
 #[macro_use]
@@ -221,18 +222,8 @@ extern crate std;
 extern crate alloc;
 
 use rand_core::{RngCore,CryptoRng};
+use curve25519_dalek::scalar::Scalar;
 
-// Removed rand dependency because naming the same feature std_rng on rand
-// and getrandom on rand_code is too confusing to propogate correctly. 
-// Use transcript.attach_rng(::rand::thread_rng()) when signing if you
-// application suffers from this performance regression.
-
-// #[cfg(all(feature = "getrandom", feature = "rand"))] 
-// fn rand_hack() -> impl RngCore+CryptoRng {
-//     rand::thread_rng()
-//  }
- 
-// #[cfg(all(feature = "getrandom", not(feature = "rand")))] 
 #[cfg(feature = "getrandom")] 
 fn rand_hack() -> impl RngCore+CryptoRng {
     rand_core::OsRng
@@ -271,10 +262,12 @@ pub mod errors;
 #[cfg(feature = "aead")]
 pub mod aead;
 
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 mod batch;
 
-// Not safe because need randomness  #[cfg(any(feature = "alloc", feature = "std"))]
+// Not safe because need randomness
+
+#[cfg_attr(not(test), deprecated(since = "0.11.0", note = "This module will be replaced in the future"))]
 #[cfg(feature = "std")]
 pub mod musig;
 
@@ -283,5 +276,16 @@ pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature,SIGNATURE_LENGTH};
 pub use crate::errors::{SignatureError,SignatureResult};
 
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic,PreparedBatch};
+
+pub(crate) fn scalar_from_canonical_bytes(bytes: [u8; 32]) -> Option<Scalar> {
+    let key = Scalar::from_canonical_bytes(bytes);
+
+    // Note: this is a `CtOption` so we have to do this to extract the value.
+    if bool::from(key.is_none()) {
+        return None;
+    }
+
+    Some(key.unwrap())
+}

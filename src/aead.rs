@@ -31,7 +31,6 @@ use curve25519_dalek::digest::generic_array::typenum::{U32};
 
 use curve25519_dalek::{
     ristretto::{CompressedRistretto}, // RistrettoPoint
-    // scalar::Scalar,
 };
 
 use super::{SecretKey,PublicKey,Keypair,SignatureResult};
@@ -177,10 +176,3 @@ impl Keypair {
         (cert, aead)
     }
 }
-
-/*
-#[cfg(test)]
-mod test {
-    use super::super::*;
-}
-*/

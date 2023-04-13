@@ -457,7 +457,7 @@ impl SecretKey {
 
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
-        let key = Scalar::from_canonical_bytes(key).ok_or(SignatureError::ScalarFormatError) ?;
+        let key = crate::scalar_from_canonical_bytes(key).ok_or(SignatureError::ScalarFormatError) ?;
 
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);
@@ -555,7 +555,7 @@ impl SecretKey {
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
     pub fn to_public(&self) -> PublicKey {
         // No clamping necessary in the ristretto255 group
-        PublicKey::from_point(&self.key * &constants::RISTRETTO_BASEPOINT_TABLE)
+        PublicKey::from_point(&self.key * constants::RISTRETTO_BASEPOINT_TABLE)
     }
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
@@ -610,13 +610,13 @@ impl PublicKey {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
 
     /// Access the compressed Ristretto form
-    pub fn as_compressed(&self) -> &CompressedRistretto { &self.0.as_compressed() }
+    pub fn as_compressed(&self) -> &CompressedRistretto { self.0.as_compressed() }
 
     /// Extract the compressed Ristretto form
     pub fn into_compressed(self) -> CompressedRistretto { self.0.into_compressed() }
 
     /// Access the point form
-    pub fn as_point(&self) -> &RistrettoPoint { &self.0.as_point() }
+    pub fn as_point(&self) -> &RistrettoPoint { self.0.as_point() }
 
     /// Extract the point form
     pub fn into_point(self) -> RistrettoPoint { self.0.into_point() }
@@ -786,7 +786,7 @@ impl Keypair {
         let secret = SecretKey::from_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
 
-        Ok(Keypair{ secret: secret, public: public })
+        Ok(Keypair{ secret, public })
     }
 
     /// Serialize `Keypair` to bytes with Ed25519 secret key format.
@@ -839,7 +839,7 @@ impl Keypair {
         let secret = SecretKey::from_ed25519_bytes(&bytes[..SECRET_KEY_LENGTH]) ?;
         let public = PublicKey::from_bytes(&bytes[SECRET_KEY_LENGTH..]) ?;
 
-        Ok(Keypair{ secret: secret, public: public })
+        Ok(Keypair{ secret, public })
     }
 
     /// Generate a Ristretto Schnorr `Keypair` directly,
@@ -942,7 +942,6 @@ mod test {
 
     #[test]
     fn keypair_zeroize() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let mut keypair = Keypair::generate_with(&mut csprng);
@@ -963,7 +962,6 @@ mod test {
 
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let mini_secret: MiniSecretKey = MiniSecretKey::generate_with(&mut csprng);

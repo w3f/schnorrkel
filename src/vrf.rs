@@ -78,19 +78,17 @@
 
 use core::borrow::Borrow;
 
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 use core::iter::once;
 
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
-#[cfg(feature = "std")]
-use std::{boxed::Box, vec::Vec};
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::{IsIdentity}; // Identity
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 use curve25519_dalek::traits::{MultiscalarMul,VartimeMultiscalarMul};
 
 use merlin::Transcript;
@@ -147,7 +145,6 @@ impl<T> VRFSigningTranscript for T where T: SigningTranscript {
     #[inline(always)]
     fn transcript_with_malleability_addressed(mut self, publickey: &PublicKey) -> T {
         self.commit_point(b"vrf-nm-pk", publickey.as_compressed());        
-        // publickey.make_transcript_nonmalleable(&mut self);
         self
     }
 }
@@ -282,7 +279,7 @@ impl SecretKey {
     /// Evaluate the VRF-like multiplication on an uncompressed point,
     /// probably not useful in this form.
     pub fn vrf_create_from_point(&self, input: RistrettoBoth) -> VRFInOut {
-        let output = RistrettoBoth::from_point(&self.key * input.as_point());
+        let output = RistrettoBoth::from_point(self.key * input.as_point());
         VRFInOut { input, output }
     }
 
@@ -434,7 +431,7 @@ impl PublicKey {
     where
         B: Borrow<VRFInOut>,
     {
-        assert!( ps.len() > 0);
+        assert!(!ps.is_empty());
         let mut t = merlin::Transcript::new(b"MergeVRFs");
         t.commit_point(b"vrf:pk", self.as_compressed());
         for p in ps.iter() {
@@ -446,9 +443,9 @@ impl PublicKey {
             p.borrow().commit(&mut t0);
             challenge_scalar_128(t0)
         });
-        #[cfg(any(feature = "alloc", feature = "std"))]
+        #[cfg(feature = "alloc")]
         let zs: Vec<Scalar> = zf().collect();
-        #[cfg(any(feature = "alloc", feature = "std"))]
+        #[cfg(feature = "alloc")]
         let zf = || zs.iter();
 
         // We need actual fns here because closures cannot easily take
@@ -456,7 +453,7 @@ impl PublicKey {
         // closures but giving all closures unique types.
         fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
         fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
-        #[cfg(any(feature = "alloc", feature = "std"))]
+        #[cfg(feature = "alloc")]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
             let ps = ps.iter().map( |p| io(p.borrow()) );
             RistrettoBoth::from_point(if vartime {
@@ -465,7 +462,7 @@ impl PublicKey {
                 RistrettoPoint::multiscalar_mul(zf(), ps)
             })
         };
-        #[cfg(not(any(feature = "alloc", feature = "std")))]
+        #[cfg(not(feature = "alloc"))]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
             let _ = vartime; // ignore unused variable
             use curve25519_dalek::traits::Identity;
@@ -521,8 +518,8 @@ impl VRFProof {
         c.copy_from_slice(&bytes[..32]);
         s.copy_from_slice(&bytes[32..]);
 
-        let c = Scalar::from_canonical_bytes(c).ok_or(SignatureError::ScalarFormatError) ?;
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let c = crate::scalar_from_canonical_bytes(c).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(VRFProof { c, s })
     }
 }
@@ -576,7 +573,7 @@ impl VRFProofBatchable {
         Hr.copy_from_slice(&bytes[32..64]);
         s.copy_from_slice(&bytes[64..96]);
 
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         Ok(VRFProofBatchable { R: CompressedRistretto(R), Hr: CompressedRistretto(Hr), s })
     }
 
@@ -637,11 +634,11 @@ impl Keypair {
         if !kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
 
         // We compute R after adding pk and all h.
-        let mut r = t.witness_scalar(b"proving\00",&[&self.secret.nonce]);
-        let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
+        let mut r = t.witness_scalar(b"proving\x000",&[&self.secret.nonce]);
+        let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"vrf:R=g^r", &R);
 
-        let Hr = (&r * p.input.as_point()).compress();
+        let Hr = (r * p.input.as_point()).compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
         if kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
@@ -649,7 +646,7 @@ impl Keypair {
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         let c = t.challenge_scalar(b"prove"); // context, message, A/public_key, R=rG
-        let s = &r - &(&c * &self.secret.key);
+        let s = r - c * self.secret.key;
 
         zeroize::Zeroize::zeroize(&mut r);
 
@@ -722,7 +719,7 @@ impl Keypair {
     /// We merge the VRF outputs using variable time arithmetic, so
     /// if even the hash of the message being signed is sensitive then
     /// you might reimplement some constant time variant.
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     pub fn vrfs_sign<T, I>(&self, ts: I) -> (Box<[VRFInOut]>, VRFProof, VRFProofBatchable)
     where
         T: VRFSigningTranscript,
@@ -737,7 +734,7 @@ impl Keypair {
     /// We merge the VRF outputs using variable time arithmetic, so
     /// if even the hash of the message being signed is sensitive then
     /// you might reimplement some constant time variant.
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     pub fn vrfs_sign_extra<T,E,I>(&self, ts: I, extra: E) -> (Box<[VRFInOut]>, VRFProof, VRFProofBatchable)
     where
         T: VRFSigningTranscript,
@@ -790,11 +787,11 @@ impl PublicKey {
         t.commit_point(b"vrf:R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
-        #[cfg(not(any(feature = "alloc", feature = "std")))]
+        #[cfg(not(feature = "alloc"))]
         let Hr = (&proof.c * p.output.as_point()) + (&proof.s * p.input.as_point());
 
         // TODO: Verify if this is actually faster using benchmarks
-        #[cfg(any(feature = "alloc", feature = "std"))]
+        #[cfg(feature = "alloc")]
         let Hr = RistrettoPoint::vartime_multiscalar_mul(
             &[proof.c, proof.s],
             &[*p.output.as_point(), *p.input.as_point()],
@@ -843,7 +840,7 @@ impl PublicKey {
     }
 
     /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     pub fn vrfs_verify<T,I,O>(
         &self,
         transcripts: I,
@@ -859,7 +856,7 @@ impl PublicKey {
     }
 
     /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     pub fn vrfs_verify_extra<T,E,I,O>(
         &self,
         transcripts: I,
@@ -904,7 +901,7 @@ impl PublicKey {
 /// any combination doubles the scalar by scalar multiplications
 /// and hashing, so large enough batch verifications should favor two
 /// separate calls.
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 #[allow(non_snake_case)]
 pub fn dleq_verify_batch(
     ps: &[VRFInOut],
@@ -912,7 +909,7 @@ pub fn dleq_verify_batch(
     public_keys: &[PublicKey],
     kusama: bool,
 ) -> SignatureResult<()> {
-    const ASSERT_MESSAGE: &'static str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
+    const ASSERT_MESSAGE: &str = "The number of messages/transcripts / input points, output points, proofs, and public keys must be equal.";
     assert!(ps.len() == proofs.len(), "{}", ASSERT_MESSAGE);
     assert!(proofs.len() == public_keys.len(), "{}", ASSERT_MESSAGE);
 
@@ -975,7 +972,7 @@ pub fn dleq_verify_batch(
 /// Batch verify VRFs by different signers
 ///
 ///
-#[cfg(any(feature = "alloc", feature = "std"))]
+#[cfg(feature = "alloc")]
 pub fn vrf_verify_batch<T, I>(
     transcripts: I,
     outs: &[VRFPreOut],
@@ -1008,14 +1005,11 @@ where
 mod tests {
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
 
     use super::*;
 
     #[test]
     fn vrf_single() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
@@ -1061,7 +1055,6 @@ mod tests {
 
     #[test]
     fn vrf_malleable() {
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair1 = Keypair::generate_with(&mut csprng);
@@ -1131,7 +1124,7 @@ mod tests {
             .is_ok());
     }
 
-    #[cfg(any(feature = "alloc", feature = "std"))]
+    #[cfg(feature = "alloc")]
     #[test]
     fn vrfs_merged_and_batched() {
         let mut csprng = rand_core::OsRng;

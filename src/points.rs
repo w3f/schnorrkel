@@ -53,22 +53,6 @@ impl ConstantTimeEq for RistrettoBoth {
     }
 }
 
-/*
-#[inline(always)]
-fn zeroize_hack<Z: Default>(z: &mut Z) {
-    use core::{ptr, sync::atomic};
-    unsafe { ptr::write_volatile(z, Z::default()); }
-    atomic::compiler_fence(atomic::Ordering::SeqCst);
-}
-
-impl zeroize::Zeroize for RistrettoBoth {
-    fn zeroize(&mut self) {
-        zeroize_hack(&mut self.compressed);
-        zeroize_hack(&mut self.point);
-    }
-}
-*/
-
 impl RistrettoBoth {
     const DESCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
 
@@ -168,44 +152,18 @@ impl PartialEq<Self> for RistrettoBoth {
         debug_assert_eq!(r, self.point.eq(&other.point));
         r
     }
-
-    // fn ne(&self, other: &Rhs) -> bool {
-    //   self.compressed.0.ne(&other.compressed.0)
-    // }
 }
-
-// impl Eq for RistrettoBoth {}
 
 impl PartialOrd<RistrettoBoth> for RistrettoBoth {
     fn partial_cmp(&self, other: &RistrettoBoth) -> Option<::core::cmp::Ordering> {
         self.compressed.0.partial_cmp(&other.compressed.0)
     }
-
-    // fn lt(&self, other: &Rhs) -> bool {
-    //    self.compressed.0.lt(&other.compressed.0)
-    // }
-    // fn le(&self, other: &Rhs) -> bool {
-    //    self.compressed.0.le(&other.compressed.0)
-    // }
-    // fn gt(&self, other: &Rhs) -> bool {
-    //    self.compressed.0.gt(&other.compressed.0)
-    // }
-    // fn ge(&self, other: &Rhs) -> bool {
-    //    self.compressed.0.ge(&other.compressed.0)
-    // }
 }
 
 impl Ord for RistrettoBoth {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.compressed.0.cmp(&other.compressed.0)
     }
-
-    // fn max(self, other: Self) -> Self {
-    //    self.compressed.0.max(other.compressed.0)
-    // }
-    // fn min(self, other: Self) -> Self {
-    //    self.compressed.0.min(other.compressed.0)
-    // }
 }
 
 impl core::hash::Hash for RistrettoBoth {

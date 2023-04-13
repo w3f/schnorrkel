@@ -66,14 +66,6 @@ use crate::context::SigningTranscript;
 pub struct AdaptorCertSecret(pub [u8; 64]);
 /// TODO: Serde serialization/deserialization
 
-/*
-impl<'a> From<&'a AdaptorCertSecret> for &'a AdaptorCertPublic {
-    from(secret: &AdaptorCertSecret) -> &AdaptorCertPublic {
-        unsafe { core::mem::transmute(secret) }
-    }
-}
-*/
-
 impl From<AdaptorCertSecret> for AdaptorCertPublic {
     fn from(secret: AdaptorCertSecret) -> AdaptorCertPublic {
         let mut public = AdaptorCertPublic([0u8; 32]);
@@ -120,7 +112,7 @@ impl Keypair {
         let k = t.witness_scalar(b"issuing",&[ &self.secret.nonce, seed_public_key.as_compressed().as_bytes() ]);
 
         // Compute the public key reconstruction data
-        let gamma = seed_public_key.as_point() + &k * &constants::RISTRETTO_BASEPOINT_TABLE;
+        let gamma = seed_public_key.as_point() + &k * constants::RISTRETTO_BASEPOINT_TABLE;
         let gamma = gamma.compress();
         t.commit_point(b"gamma",&gamma);
         let cert_public = AdaptorCertPublic(gamma.0);
@@ -172,9 +164,9 @@ impl PublicKey {
 
         let mut s = [0u8; 32];
         s.copy_from_slice(&cert_secret.0[32..64]);
-        let s = Scalar::from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
+        let s = crate::scalar_from_canonical_bytes(s).ok_or(SignatureError::ScalarFormatError) ?;
         let cert_public : AdaptorCertPublic = cert_secret.into();
-        let gamma = CompressedRistretto(cert_public.0.clone());
+        let gamma = CompressedRistretto(cert_public.0);
         t.commit_point(b"gamma",&gamma);
 
         let key = s + seed_secret_key.key;
@@ -229,7 +221,7 @@ impl PublicKey {
         t.proto_name(b"Adaptor");
         t.commit_point(b"issuer-pk",self.as_compressed());
 
-        let gamma = CompressedRistretto(cert_public.0.clone());
+        let gamma = CompressedRistretto(cert_public.0);
         t.commit_point(b"gamma",&gamma);
         let gamma = gamma.decompress().ok_or(SignatureError::PointDecompressionError) ?;
 
@@ -246,7 +238,6 @@ mod tests {
     fn adaptor_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
         let issuer = Keypair::generate_with(&mut csprng);
 

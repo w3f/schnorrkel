@@ -76,7 +76,7 @@ pub(crate) fn check_scalar(bytes: [u8; 32]) -> SignatureResult<Scalar> {
         return Ok(Scalar::from_bits(bytes))
     }
 
-    Scalar::from_canonical_bytes(bytes).ok_or(SignatureError::ScalarFormatError)
+    crate::scalar_from_canonical_bytes(bytes).ok_or(SignatureError::ScalarFormatError)
 }
 
 impl Signature {
@@ -177,12 +177,12 @@ impl SecretKey {
         t.commit_point(b"sign:pk",public_key.as_compressed());
 
         let mut r = t.witness_scalar(b"signing",&[&self.nonce]);  // context, message, A/public_key
-        let R = (&r * &constants::RISTRETTO_BASEPOINT_TABLE).compress();
+        let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
 
         t.commit_point(b"sign:R",&R);
 
         let k: Scalar = t.challenge_scalar(b"sign:c");  // context, message, A/public_key, R=rG
-        let s: Scalar = &(&k * &self.key) + &r;
+        let s: Scalar = k * self.key + r;
 
         zeroize::Zeroize::zeroize(&mut r);
 
@@ -431,7 +431,6 @@ mod test {
         let good: &[u8] = "test message".as_bytes();
         let bad:  &[u8] = "wrong message".as_bytes();
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);
@@ -465,7 +464,6 @@ mod test {
         let prehashed_bad: Shake128 = Shake128::default().chain(bad);
         // You may verify that `Shake128: Copy` is possible, making these clones below correct.
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
 
         let keypair = Keypair::generate_with(&mut csprng);

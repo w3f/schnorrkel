@@ -222,7 +222,7 @@ impl Derivation for PublicKey {
     where T: SigningTranscript
     {
         let (scalar, chaincode) = self.derive_scalar_and_chaincode(&mut t, cc);
-        let point = self.as_point() + (&scalar * &constants::RISTRETTO_BASEPOINT_TABLE);
+        let point = self.as_point() + (&scalar * constants::RISTRETTO_BASEPOINT_TABLE);
         (PublicKey::from_point(point), chaincode)
     }
 }
@@ -248,7 +248,7 @@ impl<K: Derivation> ExtendedKey<K> {
     pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
     where T: SigningTranscript
     {
-        let (key, chaincode) = self.key.derived_key(t, self.chaincode.clone());
+        let (key, chaincode) = self.key.derived_key(t, self.chaincode);
         ExtendedKey { key, chaincode }
     }
 
@@ -256,7 +256,7 @@ impl<K: Derivation> ExtendedKey<K> {
     /// a chain code in the extended key.
     pub fn derived_key_simple<B: AsRef<[u8]>>(&self, i: B) -> ExtendedKey<K>
     {
-        let (key, chaincode) = self.key.derived_key_simple(self.chaincode.clone(), i);
+        let (key, chaincode) = self.key.derived_key_simple(self.chaincode, i);
         ExtendedKey { key, chaincode }
     }
 }
@@ -297,7 +297,6 @@ mod tests {
         let msg : &'static [u8] = b"Just some test message!";
         let mut h = Shake128::default().chain(msg);
 
-        // #[cfg(feature = "getrandom")]
         let mut csprng = rand_core::OsRng;
         let key = Keypair::generate_with(&mut csprng);
 
