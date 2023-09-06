@@ -147,16 +147,5 @@ impl failure::Fail for SignatureError {}
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
 where E: serde_crate::de::Error
 {
-    use self::SignatureError::*;
-    match err {
-        PointDecompressionError
-            => E::custom("Ristretto point decompression failed"),
-        ScalarFormatError
-            => E::custom("improper scalar has high-bit set"),  // TODO ed25519 v high 3 bits?
-        BytesLengthError{ description, length, .. }
-            => E::invalid_length(length, &description),
-        NotMarkedSchnorrkel
-            => E::custom("Signature bytes not marked as a schnorrkel signature"),
-        _ => panic!("Non-serialisation error encountered by serde!"),
-    }
+    E::custom(err)
 }
