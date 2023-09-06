@@ -196,6 +196,8 @@ impl MiniSecretKey {
         // We then divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
+
+        #[allow(deprecated)] // Scalar's always reduced here, so this is OK.
         let key = Scalar::from_bits(key);
 
         let mut nonce = [0u8; 32];
@@ -518,14 +520,17 @@ impl SecretKey {
 
         let mut key: [u8; 32] = [0u8; 32];
         key.copy_from_slice(&bytes[00..32]);
-        // TODO:  We should consider making sure the scalar is valid,
-        // maybe by zeroing the high bit, or preferably by checking < l.
-        // key[31] &= 0b0111_1111;
         // We divide by the cofactor to internally keep a clean
         // representation mod l.
         scalars::divide_scalar_bytes_by_cofactor(&mut key);
-        let key = Scalar::from_bits(key);
 
+        let key = Scalar::from_canonical_bytes(key);
+        if bool::from(key.is_none()) {
+            // This should never trigger for keys which come from `to_ed25519_bytes`.
+            return Err(SignatureError::InvalidKey);
+        }
+
+        let key = key.unwrap();
         let mut nonce: [u8; 32] = [0u8; 32];
         nonce.copy_from_slice(&bytes[32..64]);
 
@@ -973,5 +978,22 @@ mod test {
         let public_from_mini_secret: PublicKey = mini_secret.expand_to_public(ExpansionMode::Uniform);
         let public_from_secret: PublicKey = secret.to_public();
         assert!(public_from_mini_secret == public_from_secret);
+    }
+
+    #[cfg(feature = "getrandom")]
+    #[test]
+    fn secret_key_can_be_converted_to_ed25519_bytes_and_back() {
+        let count = if cfg!(debug_assertions) {
+            200000
+        } else {
+            2000000
+        };
+
+        for _ in 0..count {
+            let key = SecretKey::generate();
+            let bytes = key.to_ed25519_bytes();
+            let key_deserialized = SecretKey::from_ed25519_bytes(&bytes).unwrap();
+            assert_eq!(key_deserialized, key);
+        }
     }
 }
