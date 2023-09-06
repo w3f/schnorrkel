@@ -224,9 +224,14 @@ extern crate alloc;
 use rand_core::{RngCore,CryptoRng};
 use curve25519_dalek::scalar::Scalar;
 
-#[cfg(feature = "getrandom")] 
+#[cfg(all( feature = "getrandom", not(feature = "std") ))]
 fn rand_hack() -> impl RngCore+CryptoRng {
     rand_core::OsRng
+}
+
+#[cfg(all( feature = "getrandom", feature = "std" ))]
+fn rand_hack() -> impl RngCore+CryptoRng {
+    rand::thread_rng()
 }
 
 #[cfg(not(feature = "getrandom"))]
