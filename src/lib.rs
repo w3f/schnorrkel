@@ -214,7 +214,7 @@
 #![deny(missing_docs)] // refuse to compile if documentation is missing
 #![allow(clippy::needless_lifetimes)]
 
-#[cfg(any(feature = "std"))]
+#[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
 
