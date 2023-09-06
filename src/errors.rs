@@ -75,6 +75,8 @@ pub enum SignatureError {
     PointDecompressionError,
     /// Invalid scalar provided, usually to `Signature::from_bytes`.
     ScalarFormatError,
+    /// The provided key is not valid.
+    InvalidKey,
     /// An error in the length of bytes handed to a constructor.
     ///
     /// To use this, pass a string specifying the `name` of the type
@@ -120,6 +122,8 @@ impl Display for SignatureError {
                 write!(f, "Cannot decompress Ristretto point"),
             ScalarFormatError =>
                 write!(f, "Cannot use scalar with high-bit set"),
+            InvalidKey =>
+                write!(f, "The provided key is not valid"),
             BytesLengthError { name, length, .. } =>
                 write!(f, "{name} must be {length} bytes in length"),
             NotMarkedSchnorrkel => 
