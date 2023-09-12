@@ -390,7 +390,7 @@ impl PreparedBatch{
 
 
 pub fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mut [T] {
-    let tmp: &'heap mut [T] = std::mem::take(&mut *heap);
+    let tmp: &'heap mut [T] = core::mem::take(&mut *heap);
     let (reserved, tmp) = tmp.split_at_mut(len);
     *heap = tmp;
     reserved
