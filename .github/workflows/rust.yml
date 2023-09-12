@@ -19,6 +19,15 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
     - run: cargo test
 
+  build:
+    name: Build (no_std)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+    - run: cargo build --no-default-features
+    - run: cargo build --no-default-features --features alloc
+
   clippy:
     name: Check that clippy is happy
     runs-on: ubuntu-latest
