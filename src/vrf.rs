@@ -1008,6 +1008,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn vrf_single() {
         let mut csprng = rand_core::OsRng;
@@ -1053,6 +1054,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn vrf_malleable() {
         let mut csprng = rand_core::OsRng;

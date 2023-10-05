@@ -367,6 +367,8 @@ impl Keypair {
     /// use rand::prelude::*; // ThreadRng,thread_rng
     ///
     /// # fn main() {
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// let mut csprng: ThreadRng = thread_rng();
     /// let keypair: Keypair = Keypair::generate_with(&mut csprng);
     /// let message: &[u8] = b"All I want is to pet all of the dogs.";
@@ -376,6 +378,7 @@ impl Keypair {
     /// let sig: Signature = keypair.sign(ctx.bytes(message));
     ///
     /// assert!( keypair.public.verify(ctx.bytes(message), &sig).is_ok() );
+    /// # }
     /// # }
     /// ```
     pub fn verify<T: SigningTranscript>(&self, t: T, signature: &Signature) -> SignatureResult<()>
@@ -422,6 +425,7 @@ mod test {
     use super::super::*;
 
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn sign_verify_bytes() {
         let good_sig: Signature;
@@ -451,6 +455,7 @@ mod test {
                 "Verification of a signature on a different message passed!");
     }
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn sign_verify_xof() {
         let good_sig: Signature;

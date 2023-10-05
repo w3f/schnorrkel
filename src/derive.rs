@@ -291,6 +291,7 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn derive_key_public_vs_private_paths() {
         let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]);

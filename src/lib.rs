@@ -42,6 +42,7 @@
 //! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! let context = signing_context(b"this signature does this thing");
 //! let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
+//! # #[cfg(feature = "getrandom")]
 //! let signature: Signature = keypair.sign(context.bytes(message));
 //! # }
 //! ```
@@ -58,7 +59,9 @@
 //! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
+//! # #[cfg(feature = "getrandom")]
 //! # let signature: Signature = keypair.sign(context.bytes(message));
+//! # #[cfg(feature = "getrandom")]
 //! assert!(keypair.verify(context.bytes(message), &signature).is_ok());
 //! # }
 //! ```
@@ -76,8 +79,10 @@
 //! # let keypair: Keypair = Keypair::generate_with(&mut csprng);
 //! # let context = signing_context(b"this signature does this thing");
 //! # let message: &[u8] = "This is a test of the tsunami alert system.".as_bytes();
+//! # #[cfg(feature = "getrandom")]
 //! # let signature: Signature = keypair.sign(context.bytes(message));
 //! let public_key: PublicKey = keypair.public;
+//! # #[cfg(feature = "getrandom")]
 //! assert!(public_key.verify(context.bytes(message), &signature).is_ok());
 //! # }
 //! ```
@@ -91,6 +96,7 @@
 //! verify your signatures!)
 //!
 //! ```
+//! # #[cfg(feature = "getrandom")]
 //! # fn main() {
 //! # use rand::{Rng, SeedableRng};
 //! # use rand_chacha::ChaChaRng;
@@ -108,6 +114,8 @@
 //! let keypair_bytes:    [u8; KEYPAIR_LENGTH]    = keypair.to_bytes();
 //! let signature_bytes:  [u8; SIGNATURE_LENGTH]  = signature.to_bytes();
 //! # }
+//! # #[cfg(not(feature = "getrandom"))]
+//! # fn main() { }
 //! ```
 //!
 //! And similarly, decoded from bytes with `::from_bytes()`:
@@ -117,6 +125,7 @@
 //! # use rand_chacha::ChaChaRng;
 //! # use schnorrkel::{SecretKey, Keypair, Signature, PublicKey, SignatureError, signing_context};
 //! # use schnorrkel::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, KEYPAIR_LENGTH, SIGNATURE_LENGTH};
+//! # #[cfg(feature = "getrandom")]
 //! # fn do_test() -> Result<(SecretKey, PublicKey, Keypair, Signature), SignatureError> {
 //! # let mut csprng: ChaChaRng = ChaChaRng::from_seed([0u8; 32]);
 //! # let keypair_orig: Keypair = Keypair::generate_with(&mut csprng);
@@ -136,6 +145,7 @@
 //! # Ok((secret_key, public_key, keypair, signature))
 //! # }
 //! # fn main() {
+//! #     #[cfg(feature = "getrandom")]
 //! #     do_test();
 //! # }
 //! ```

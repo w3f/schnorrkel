@@ -171,6 +171,7 @@ impl MiniSecretKey {
     /// # Examples
     ///
     /// ```compile_fail
+    /// # #[cfg(feature = "getrandom")]
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -217,10 +218,13 @@ impl MiniSecretKey {
     /// ```
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode};
     ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate_with(OsRng);
     /// let secret_key: SecretKey = mini_secret_key.expand(ExpansionMode::Uniform);
+    /// # }
     /// # }
     /// ```
     pub fn expand(&self, mode: ExpansionMode) -> SecretKey {
@@ -389,6 +393,7 @@ impl From<&MiniSecretKey> for SecretKey {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "getrandom")
     /// # fn main() {
     /// use rand::{Rng, rngs::OsRng};
     /// use schnorrkel::{MiniSecretKey, SecretKey};
@@ -415,6 +420,8 @@ impl SecretKey {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// use schnorrkel::{MiniSecretKey, SecretKey};
     ///
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
@@ -424,6 +431,7 @@ impl SecretKey {
     /// let bytes: [u8; 64] = secret_key.to_bytes();
     /// let secret_key_again: SecretKey = SecretKey::from_bytes(&bytes[..]).unwrap();
     /// assert_eq!(&bytes[..], & secret_key_again.to_bytes()[..]);
+    /// # }
     /// ```
     #[inline]
     pub fn to_bytes(&self) -> [u8; SECRET_KEY_LENGTH] {
@@ -440,12 +448,15 @@ impl SecretKey {
     /// ```
     /// use schnorrkel::{MiniSecretKey, SecretKey, ExpansionMode, SignatureError};
     ///
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// let mini_secret_key: MiniSecretKey = MiniSecretKey::generate();
     /// let secret_key: SecretKey = mini_secret_key.expand(MiniSecretKey::ED25519_MODE);
     /// # // was SecretKey::from(&mini_secret_key);
     /// let bytes: [u8; 64] = secret_key.to_bytes();
     /// let secret_key_again: SecretKey = SecretKey::from_bytes(&bytes[..]).unwrap();
     /// assert_eq!(secret_key_again, secret_key);
+    /// # }
     /// ```
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<SecretKey> {
@@ -642,12 +653,15 @@ impl PublicKey {
     /// # Example
     ///
     /// ```
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// use schnorrkel::{SecretKey, PublicKey, PUBLIC_KEY_LENGTH, SignatureError};
     ///
     /// let public_key: PublicKey = SecretKey::generate().to_public();
     /// let public_key_bytes = public_key.to_bytes();
     /// let public_key_again: PublicKey = PublicKey::from_bytes(&public_key_bytes[..]).unwrap();
     /// assert_eq!(public_key_bytes, public_key_again.to_bytes());
+    /// # }
     /// ```
     #[inline]
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
@@ -741,12 +755,15 @@ impl Keypair {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "getrandom")]
+    /// # {
     /// use schnorrkel::{Keypair, KEYPAIR_LENGTH};
     ///
     /// let keypair: Keypair = Keypair::generate();
     /// let bytes: [u8; KEYPAIR_LENGTH] = keypair.to_bytes();
     /// let keypair_too = Keypair::from_bytes(&bytes[..]).unwrap();
     /// assert_eq!(&bytes[..], & keypair_too.to_bytes()[..]);
+    /// # }
     /// ```
     pub fn to_bytes(&self) -> [u8; KEYPAIR_LENGTH] {
         let mut bytes: [u8; KEYPAIR_LENGTH] = [0u8; KEYPAIR_LENGTH];
@@ -856,9 +873,11 @@ impl Keypair {
     /// # fn main() {
     ///
     /// use rand::{Rng, rngs::OsRng};
+    /// # #[cfg(feature = "getrandom")]
     /// use schnorrkel::Keypair;
     /// use schnorrkel::Signature;
     ///
+    /// # #[cfg(feature = "getrandom")]
     /// let keypair: Keypair = Keypair::generate_with(OsRng);
     ///
     /// # }
@@ -945,6 +964,7 @@ mod test {
         );
     }
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn keypair_zeroize() {
         let mut csprng = rand_core::OsRng;
@@ -965,6 +985,7 @@ mod test {
         assert!(!as_bytes(&keypair).iter().all(|x| *x == 0u8));
     }
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn pubkey_from_mini_secret_and_expanded_secret() {
         let mut csprng = rand_core::OsRng;

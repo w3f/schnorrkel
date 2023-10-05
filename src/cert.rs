@@ -234,6 +234,7 @@ impl PublicKey {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "getrandom")]
     #[test]
     fn adaptor_cert_public_vs_private_paths() {
         let t = signing_context(b"").bytes(b"MrMeow!");
