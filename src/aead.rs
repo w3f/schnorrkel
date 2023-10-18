@@ -51,7 +51,7 @@ impl SecretKey {
     /// Commit the results of a key exchange into a transcript
     #[inline(always)]
     pub(crate) fn raw_key_exchange(&self, public: &PublicKey) -> CompressedRistretto {
-        (&self.key * public.as_point()).compress()
+        (self.key * public.as_point()).compress()
     }
 
     /// Commit the results of a raw key exchange into a transcript
@@ -141,7 +141,7 @@ impl Keypair {
     where T: SigningTranscript, AEAD: KeyInit
     {
         let key = t.witness_scalar(b"make_esk", &[&self.secret.nonce]);
-        let ekey = SecretKey { key, nonce: self.secret.nonce.clone() }.to_keypair();
+        let ekey = SecretKey { key, nonce: self.secret.nonce }.to_keypair();
         ekey.commit_key_exchange(&mut t,b"epk",public);
         self.commit_key_exchange(&mut t,b"epk",public);
         (ekey.public.into_compressed(), make_aead(t))
@@ -172,7 +172,7 @@ impl Keypair {
     where T: SigningTranscript+Clone, AEAD: KeyInit
     {
         let (cert,secret) = self.issue_self_adaptor_cert(t);
-        let aead = secret.to_keypair().aead_unauthenticated(b"",&public);
+        let aead = secret.to_keypair().aead_unauthenticated(b"", public);
         (cert, aead)
     }
 }
