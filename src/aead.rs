@@ -25,7 +25,7 @@ regarded as a pointer, not a recommendation.
 
 // use rand_core::{RngCore,CryptoRng};
 
-use aead::{NewAead, generic_array::{GenericArray}};
+use aead::{KeyInit, KeySizeUser, generic_array::{GenericArray}};
 
 use curve25519_dalek::digest::generic_array::typenum::{U32};
 
@@ -40,11 +40,11 @@ use crate::cert::AdaptorCertPublic;
 
 
 fn make_aead<T,AEAD>(mut t: T) -> AEAD
-where T: SigningTranscript,AEAD: NewAead
+where T: SigningTranscript,AEAD: KeyInit
 {
-    let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
+    let mut key: GenericArray<u8, <AEAD as KeySizeUser>::KeySize> = Default::default();
     t.challenge_bytes(b"",key.as_mut_slice());
-    AEAD::new(key)
+    AEAD::new(&key)
 }
 
 impl SecretKey {
@@ -66,11 +66,11 @@ impl SecretKey {
     ///
     /// Requires the AEAD have a 32 byte public key and does not support a context.
     pub fn aead32_unauthenticated<AEAD>(&self, public: &PublicKey) -> AEAD
-    where AEAD: NewAead<KeySize=U32>
+    where AEAD: KeyInit<KeySize=U32>
     {
-        let mut key: GenericArray<u8, <AEAD as NewAead>::KeySize> = Default::default();
+        let mut key: GenericArray<u8, <AEAD as KeySizeUser>::KeySize> = Default::default();
         key.clone_from_slice( self.raw_key_exchange(public).as_bytes() );
-        AEAD::new(key)
+        AEAD::new(&key)
     }
 }
 
@@ -78,7 +78,7 @@ impl PublicKey {
     /// Initialize an AEAD to the public key `self` using an ephemeral key exchange.
     ///
     /// Returns the ephemeral public key and AEAD.
-    pub fn init_aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD)
+    pub fn init_aead_unauthenticated<AEAD: KeyInit>(&self, ctx: &[u8]) -> (CompressedRistretto,AEAD)
     {
         let ephemeral = Keypair::generate();
         let aead = ephemeral.aead_unauthenticated(ctx,self);
@@ -90,7 +90,7 @@ impl PublicKey {
     /// Returns the ephemeral public key and AEAD.
     /// Requires the AEAD have a 32 byte public key and does not support a context.
     pub fn init_aead32_unauthenticated<AEAD>(&self) -> (CompressedRistretto,AEAD)
-    where AEAD: NewAead<KeySize=U32>
+    where AEAD: KeyInit<KeySize=U32>
     {
         let secret = SecretKey::generate();
         let aead = secret.aead32_unauthenticated(self);
@@ -111,7 +111,7 @@ impl Keypair {
     }
 
     /// An AEAD from a key exchange with the specified public key.
-    pub fn aead_unauthenticated<AEAD: NewAead>(&self, ctx: &[u8], public: &PublicKey) -> AEAD {
+    pub fn aead_unauthenticated<AEAD: KeyInit>(&self, ctx: &[u8], public: &PublicKey) -> AEAD {
         let mut t = merlin::Transcript::new(b"KEX");
         t.append_message(b"ctx",ctx);
         self.commit_key_exchange(&mut t,b"kex",public);
@@ -125,7 +125,7 @@ impl Keypair {
         ephemeral_pk: &PublicKey,
         static_pk: &PublicKey,
     ) -> AEAD
-    where T: SigningTranscript, AEAD: NewAead
+    where T: SigningTranscript, AEAD: KeyInit
     {
         self.commit_key_exchange(&mut t,b"epk",ephemeral_pk);
         self.commit_key_exchange(&mut t,b"epk",static_pk);
@@ -138,7 +138,7 @@ impl Keypair {
         mut t: T,
         public: &PublicKey,
     ) -> (CompressedRistretto,AEAD)
-    where T: SigningTranscript, AEAD: NewAead
+    where T: SigningTranscript, AEAD: KeyInit
     {
         let key = t.witness_scalar(b"make_esk", &[&self.secret.nonce]);
         let ekey = SecretKey { key, nonce: self.secret.nonce.clone() }.to_keypair();
@@ -158,7 +158,7 @@ impl Keypair {
         cert_public: &AdaptorCertPublic,
         public: &PublicKey,
     ) -> SignatureResult<AEAD>
-    where T: SigningTranscript, AEAD: NewAead
+    where T: SigningTranscript, AEAD: KeyInit
     {
         let epk = public.open_adaptor_cert(t,cert_public) ?;
         Ok(self.aead_unauthenticated(b"",&epk))
@@ -169,7 +169,7 @@ impl Keypair {
     /// Along with the AEAD, we return the implicit Adaptor certificate
     /// from which the receiver recreates the ephemeral public key.
     pub fn sender_aead_with_adaptor_cert<T,AEAD>(&self, t: T, public: &PublicKey) -> (AdaptorCertPublic,AEAD)
-    where T: SigningTranscript+Clone, AEAD: NewAead
+    where T: SigningTranscript+Clone, AEAD: KeyInit
     {
         let (cert,secret) = self.issue_self_adaptor_cert(t);
         let aead = secret.to_keypair().aead_unauthenticated(b"",&public);
