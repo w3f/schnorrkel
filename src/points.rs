@@ -156,7 +156,7 @@ impl PartialEq<Self> for RistrettoBoth {
 
 impl PartialOrd<RistrettoBoth> for RistrettoBoth {
     fn partial_cmp(&self, other: &RistrettoBoth) -> Option<::core::cmp::Ordering> {
-        self.compressed.0.partial_cmp(&other.compressed.0)
+        Some(self.cmp(other))
     }
 }
 
