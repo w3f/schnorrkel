@@ -65,3 +65,4 @@ getrandom = ["rand_core/getrandom"]
 # wasm-bindgen = ["getrandom/wasm-bindgen"]
 # See https://github.com/rust-lang/cargo/issues/9210
 # and https://github.com/w3f/schnorrkel/issues/65#issuecomment-786923588
+aead = ["dep:aead", "getrandom"]
