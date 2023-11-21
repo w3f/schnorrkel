@@ -57,7 +57,7 @@ asm = ["sha2/asm"]
 serde = ["serde_crate", "serde_bytes", "cfg-if"]
 # We cannot make getrandom a direct dependency because rand_core makes
 # getrandom a feature name, which requires forwarding.
-getrandom = ["rand_core/getrandom"]
+getrandom = ["rand_core/getrandom", "aead?/getrandom"]
 # We thus cannot forward the wasm-bindgen feature of getrandom,
 # but our consumers could depend upon getrandom and activate its
 # wasm-bindgen feature themselve, which works due to cargo features
@@ -65,4 +65,4 @@ getrandom = ["rand_core/getrandom"]
 # wasm-bindgen = ["getrandom/wasm-bindgen"]
 # See https://github.com/rust-lang/cargo/issues/9210
 # and https://github.com/w3f/schnorrkel/issues/65#issuecomment-786923588
-aead = ["dep:aead", "getrandom"]
+aead = ["dep:aead"]

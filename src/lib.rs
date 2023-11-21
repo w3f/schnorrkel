@@ -274,7 +274,7 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
-#[cfg(feature = "aead")]
+#[cfg(all(feature = "aead", feature = "getrandom"))]
 pub mod aead;
 
 #[cfg(feature = "alloc")]
