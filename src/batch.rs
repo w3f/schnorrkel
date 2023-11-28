@@ -73,7 +73,7 @@ where
     T: SigningTranscript,
     I: IntoIterator<Item=T>,
 {
-    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, rand_hack())
+    verify_batch_rng(transcripts, signatures, public_keys, deduplicate_public_keys, getrandom_or_panic())
 }
 
 struct NotAnRng;

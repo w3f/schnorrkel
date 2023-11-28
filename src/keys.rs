@@ -336,7 +336,7 @@ impl MiniSecretKey {
     /// ```
     #[cfg(feature = "getrandom")]
     pub fn generate() -> MiniSecretKey {
-        Self::generate_with(super::rand_hack())
+        Self::generate_with(super::getrandom_or_panic())
     }
 }
 
@@ -565,7 +565,7 @@ impl SecretKey {
     /// bypassing the `MiniSecretKey` layer.
     #[cfg(feature = "getrandom")]
     pub fn generate() -> SecretKey {
-        Self::generate_with(super::rand_hack())
+        Self::generate_with(super::getrandom_or_panic())
     }
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
@@ -903,7 +903,7 @@ impl Keypair {
     /// suplied `csprng`, bypassing the `MiniSecretKey` layer.
     #[cfg(feature = "getrandom")]
     pub fn generate() -> Keypair {
-        Self::generate_with(super::rand_hack())
+        Self::generate_with(super::getrandom_or_panic())
     }
 }
 

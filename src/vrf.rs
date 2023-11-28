@@ -921,7 +921,7 @@ pub fn dleq_verify_batch(
             t.commit_point(b"",pk.as_compressed());
             p.commit(&mut t);
         }
-        t.build_rng().finalize(&mut rand_hack())
+        t.build_rng().finalize(&mut getrandom_or_panic())
     };
 
     // Select a random 128-bit scalar for each signature.

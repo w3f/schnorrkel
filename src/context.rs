@@ -78,7 +78,7 @@ pub trait SigningTranscript {
     /// Produce secret witness bytes from the protocol transcript
     /// and any "nonce seeds" kept with the secret keys.
     fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-        self.witness_bytes_rng(label, dest, nonce_seeds, super::rand_hack())
+        self.witness_bytes_rng(label, dest, nonce_seeds, super::getrandom_or_panic())
     }
 
     /// Produce secret witness bytes from the protocol transcript
