@@ -2,7 +2,7 @@
 
 We are pleased to announce the wire format stabilisation of the primary feature set of our [schnorrkel](https://github.com/w3f/schnorrkel) crate ([docs](https://docs.rs/schnorrkel)), which provides safer access to basic functionality now expected from signatures on blockchains.  In particular, schnorrkel provides Schnorr signatures, a fast Schnorr DLEQ proof based VRF, hierarchical deterministic key derivation (HDKD), and the safest currently known three round trip Schnorr multi-signature variant.
 
-We want more diverse functionality from signatures used in blockchain applications than from signatures used only in TLS, PGP, etc.  Schnorr signatures support more [functionality](https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) than ECDSA, and do so far more simply.  In particular, multi-signatures and threshold signatures are vastly simpler with Schnorr signatures.  
+We want more diverse functionality from signatures used in blockchain applications than from signatures used only in TLS, PGP, etc.  Schnorr signatures support more [functionality](https://github.com/sipa/bips/blob/bip-taproot/bip-0340.mediawiki) than ECDSA, and do so far more simply.  In particular, multi-signatures and threshold signatures are vastly simpler with Schnorr signatures.  
 
 Also, the security arguments for Schnorr signatures require only standard assumptions plus the hash function being a random oracle.  By comparison, ECDSA arguments employ ad hoc dubious assumptions like an elliptic curve point compression function being a random oracle.  The simpler arguments ror Schnorr more often provide clear answers about the security of Schnorr composed with other protocols.
 
