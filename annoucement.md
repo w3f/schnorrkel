@@ -28,7 +28,7 @@ In 2015, Mike Hamburg resolved this conflict in his [Decaf](https://eprint.iacr.
 
 We employ Ristretto throughout schnorrkel, which reduces malleability, simplifies the analysis of our higher level protocols, and makes it safer to compose schnorrkel protocols with each other and with other similar protocols.
 
-Also, there are minor practical hiccups with the hash functions designed for NIST competitions, but most especially that they create a byte stream oriented interface over a block oriented permutation.  This improves performance of computing MACs on data that arrives in order but piecemeal, but weakens the permutation's natural domain seperation.  We need strong domain seperation in more complex protocols like signatures and NIZKs.  [STROBE](https://strobe.sourceforge.io/) is a strong general purpose symmetric cryptography construction based on Keccak-f(1600), the permutation driving the SHA3 competition winner.  [Merlin](https://doc.dalek.rs/merlin/index.html) is a STROBE scheme for NIZKs, which does almost perfect domain seperation.  
+Also, there are minor practical hiccups with the hash functions designed for NIST competitions, but most especially that they create a byte stream oriented interface over a block oriented permutation.  This improves performance of computing MACs on data that arrives in order but piecemeal, but weakens the permutation's natural domain separation.  We need strong domain separation in more complex protocols like signatures and NIZKs.  [STROBE](https://strobe.sourceforge.io/) is a strong general purpose symmetric cryptography construction based on Keccak-f(1600), the permutation driving the SHA3 competition winner.  [Merlin](https://doc.dalek.rs/merlin/index.html) is a STROBE scheme for NIZKs, which does almost perfect domain separation.  
 
 In principle, ristretto and merlin together should let schnorrkel play nicely with other future dalek ecosystem crates, like [bulletproofs](https://github.com/dalek-cryptography/bulletproofs).  We've no current plans to exploit this, but this should simplify weak anonymity parachains analogous to Monero or Mimblewimble. 
 
@@ -107,7 +107,7 @@ As an aside, there are now several approaches to doing threshold multi-signature
 
 ### Future 
 
-In future, we want schnorrkel to grow by providing an even more diverse array of cryptographic building blocks, while retaining our existing safety promisses.  We therefore welcome discussions with other implementors around our future directions, like threshold multi-signatures, but also tooling for layer two solutions, like adaptor, blind, and ring signatures.
+In future, we want schnorrkel to grow by providing an even more diverse array of cryptographic building blocks, while retaining our existing safety promises.  We therefore welcome discussions with other implementors around our future directions, like threshold multi-signatures, but also tooling for layer two solutions, like adaptor, blind, and ring signatures.
 
 
 
