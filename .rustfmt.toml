@@ -28,3 +28,4 @@ trailing_comma = "Vertical"
 # Format comments
 comment_width = 100
 wrap_comments = true
+
