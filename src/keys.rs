@@ -622,6 +622,7 @@ impl AsRef<[u8]> for PublicKey {
     }
 }
 
+#[rustfmt::skip]
 impl PublicKey {
     const DESCRIPTION : &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
 
@@ -920,6 +921,7 @@ mod test {
     use curve25519_dalek::edwards::{CompressedEdwardsY};  // EdwardsPoint
     #[test]
     fn public_key_from_bytes() {
+        #[rustfmt::skip]
         static ED25519_PUBLIC_KEY : CompressedEdwardsY = CompressedEdwardsY([
             215, 090, 152, 001, 130, 177, 010, 183,
             213, 075, 254, 211, 201, 100, 007, 058,
