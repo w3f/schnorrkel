@@ -39,7 +39,9 @@ impl<'d> serde_crate::Deserialize<'d> for $t {
 } } // macro_rules! serde_boilerplate
 
 #[cfg(not(feature = "serde"))]
-macro_rules! serde_boilerplate { ($t:ty) => { } }
+macro_rules! serde_boilerplate {
+    ($t:ty) => {};
+}
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
@@ -86,7 +88,6 @@ mod test {
         079, 108, 213, 080, 124, 252, 084, 167,
         216, 085, 134, 144, 129, 149, 041, 081,
         063, 120, 126, 100, 092, 059, 050, 138, ];
-
 
     #[test]
     fn serialize_deserialize_signature() {
@@ -177,21 +178,21 @@ mod test {
     #[test]
     fn serialize_public_key_size() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
-        assert_eq!(serialized_size(&public_key).unwrap(), 32+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&public_key).unwrap(), 32 + 8); // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_signature_size() {
         let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
-        assert_eq!(serialized_size(&signature).unwrap(), 64+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&signature).unwrap(), 64 + 8); // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_secret_key_size() {
-        assert_eq!(serialized_size(&ED25519_SECRET_KEY).unwrap(), 32+8);
+        assert_eq!(serialized_size(&ED25519_SECRET_KEY).unwrap(), 32 + 8);
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Ed25519);
-        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64 + 8); // Sizes specific to bincode==1.0.1
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Uniform);
-        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64 + 8); // Sizes specific to bincode==1.0.1
     }
 }
