@@ -17,25 +17,22 @@
 // We're discussing including some variant in curve25519-dalek directly in
 // https://github.com/dalek-cryptography/curve25519-dalek/pull/220
 
-
 use core::fmt::{Debug};
 
-use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
-use subtle::{ConstantTimeEq,Choice};
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use subtle::{ConstantTimeEq, Choice};
 // use curve25519_dalek::scalar::Scalar;
 
-use crate::errors::{SignatureError,SignatureResult};
-
+use crate::errors::{SignatureError, SignatureResult};
 
 /// Compressed Ristretto point length
 pub const RISTRETTO_POINT_LENGTH: usize = 32;
-
 
 /// A `RistrettoBoth` contains both an uncompressed `RistrettoPoint`
 /// as well as the corresponding `CompressedRistretto`.  It provides
 /// a convenient middle ground for protocols that both hash compressed
 /// points to derive scalars for use with uncompressed points.
-#[derive(Copy, Clone, Default, Eq)]  // PartialEq optimized below
+#[derive(Copy, Clone, Default, Eq)] // PartialEq optimized below
 pub struct RistrettoBoth {
     compressed: CompressedRistretto,
     point: RistrettoPoint,
@@ -49,7 +46,7 @@ impl Debug for RistrettoBoth {
 
 impl ConstantTimeEq for RistrettoBoth {
     fn ct_eq(&self, other: &RistrettoBoth) -> Choice {
-       self.compressed.ct_eq(&other.compressed)
+        self.compressed.ct_eq(&other.compressed)
     }
 }
 
