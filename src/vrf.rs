@@ -438,6 +438,7 @@ impl PublicKey {
             p.borrow().commit(&mut t);
         }
 
+        #[rustfmt::skip]
         let zf = || ps.iter().map(|p| {
             let mut t0 = t.clone();
             p.borrow().commit(&mut t0);
@@ -451,7 +452,9 @@ impl PublicKey {
         // We need actual fns here because closures cannot easily take
         // closures as arguments, due to Rust lacking polymorphic
         // closures but giving all closures unique types.
+        #[rustfmt::skip]
         fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
+        #[rustfmt::skip]
         fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
         #[cfg(feature = "alloc")]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
