@@ -35,7 +35,7 @@ use curve25519_dalek::scalar::Scalar;
 /// abstract enough to support conventional hash functions as well.
 ///
 /// We warn however that conventional hash functions do not provide
-/// strong enough domain seperation for usage via `&mut` references.
+/// strong enough domain separation for usage via `&mut` references.
 ///
 /// We fold randomness into witness generation here too, which
 /// gives every function that takes a `SigningTranscript` a default
@@ -187,7 +187,7 @@ impl SigningContext {
     ///
     /// Avoid this method when processing large slices because it
     /// calls `merlin::Transcript::append_message` directly and
-    /// `merlin` is designed for domain seperation, not performance.
+    /// `merlin` is designed for domain separation, not performance.
     #[inline(always)]
     pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
