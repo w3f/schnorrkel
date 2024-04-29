@@ -130,10 +130,7 @@ impl Signature {
         }
         upper[31] &= 127;
 
-        Ok(Signature {
-            R: CompressedRistretto(lower),
-            s: check_scalar(upper)?,
-        })
+        Ok(Signature { R: CompressedRistretto(lower), s: check_scalar(upper)? })
     }
 
     /// Deprecated construction of a `Signature` from a slice of bytes
@@ -196,9 +193,7 @@ impl SecretKey {
     {
         let sig = self.sign(t.clone(), public_key);
         let sig = Signature::from_bytes(&sig.to_bytes())?;
-        PublicKey::from_bytes(&public_key.to_bytes())?
-            .verify(t, &sig)
-            .map(|()| sig)
+        PublicKey::from_bytes(&public_key.to_bytes())?.verify(t, &sig).map(|()| sig)
     }
 
     /// Sign a message with this `SecretKey`.
@@ -417,9 +412,7 @@ impl Keypair {
     {
         let sig = self.sign(t.clone());
         let sig = Signature::from_bytes(&sig.to_bytes())?;
-        PublicKey::from_bytes(&self.public.to_bytes())?
-            .verify(t, &sig)
-            .map(|()| sig)
+        PublicKey::from_bytes(&self.public.to_bytes())?.verify(t, &sig).map(|()| sig)
     }
 
     /// Sign a message with this `SecretKey`, but doublecheck the result.
@@ -473,9 +466,7 @@ mod test {
             "Verification of a signature on a different message passed!"
         );
         assert!(
-            !keypair
-                .verify(signing_context(b"bad").bytes(&good), &good_sig)
-                .is_ok(),
+            !keypair.verify(signing_context(b"bad").bytes(&good), &good_sig).is_ok(),
             "Verification of a signature on a different message passed!"
         );
     }
@@ -507,27 +498,19 @@ mod test {
         assert_eq!(bad_sig, bad_sig_d);
 
         assert!(
-            keypair
-                .verify(ctx.xof(prehashed_good.clone()), &good_sig)
-                .is_ok(),
+            keypair.verify(ctx.xof(prehashed_good.clone()), &good_sig).is_ok(),
             "Verification of a valid signature failed!"
         );
         assert!(
-            !keypair
-                .verify(ctx.xof(prehashed_good.clone()), &bad_sig)
-                .is_ok(),
+            !keypair.verify(ctx.xof(prehashed_good.clone()), &bad_sig).is_ok(),
             "Verification of a signature on a different message passed!"
         );
         assert!(
-            !keypair
-                .verify(ctx.xof(prehashed_bad.clone()), &good_sig)
-                .is_ok(),
+            !keypair.verify(ctx.xof(prehashed_bad.clone()), &good_sig).is_ok(),
             "Verification of a signature on a different message passed!"
         );
         assert!(
-            !keypair
-                .verify(signing_context(b"oops").xof(prehashed_good), &good_sig)
-                .is_ok(),
+            !keypair.verify(signing_context(b"oops").xof(prehashed_good), &good_sig).is_ok(),
             "Verification of a signature on a different message passed!"
         );
     }

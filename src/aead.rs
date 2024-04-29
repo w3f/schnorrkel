@@ -150,11 +150,7 @@ impl Keypair {
         AEAD: KeyInit,
     {
         let key = t.witness_scalar(b"make_esk", &[&self.secret.nonce]);
-        let ekey = SecretKey {
-            key,
-            nonce: self.secret.nonce,
-        }
-        .to_keypair();
+        let ekey = SecretKey { key, nonce: self.secret.nonce }.to_keypair();
         ekey.commit_key_exchange(&mut t, b"epk", public);
         self.commit_key_exchange(&mut t, b"epk", public);
         (ekey.public.into_compressed(), make_aead(t))

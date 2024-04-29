@@ -17,25 +17,22 @@
 // We're discussing including some variant in curve25519-dalek directly in
 // https://github.com/dalek-cryptography/curve25519-dalek/pull/220
 
-
 use core::fmt::{Debug};
 
-use curve25519_dalek::ristretto::{CompressedRistretto,RistrettoPoint};
-use subtle::{ConstantTimeEq,Choice};
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use subtle::{ConstantTimeEq, Choice};
 // use curve25519_dalek::scalar::Scalar;
 
-use crate::errors::{SignatureError,SignatureResult};
-
+use crate::errors::{SignatureError, SignatureResult};
 
 /// Compressed Ristretto point length
 pub const RISTRETTO_POINT_LENGTH: usize = 32;
-
 
 /// A `RistrettoBoth` contains both an uncompressed `RistrettoPoint`
 /// as well as the corresponding `CompressedRistretto`.  It provides
 /// a convenient middle ground for protocols that both hash compressed
 /// points to derive scalars for use with uncompressed points.
-#[derive(Copy, Clone, Default, Eq)]  // PartialEq optimized below
+#[derive(Copy, Clone, Default, Eq)] // PartialEq optimized below
 pub struct RistrettoBoth {
     compressed: CompressedRistretto,
     point: RistrettoPoint,
@@ -49,34 +46,42 @@ impl Debug for RistrettoBoth {
 
 impl ConstantTimeEq for RistrettoBoth {
     fn ct_eq(&self, other: &RistrettoBoth) -> Choice {
-       self.compressed.ct_eq(&other.compressed)
+        self.compressed.ct_eq(&other.compressed)
     }
 }
 
 impl RistrettoBoth {
-    const DESCRIPTION : &'static str = "A ristretto point represented as a 32-byte compressed point";
+    const DESCRIPTION: &'static str = "A ristretto point represented as a 32-byte compressed point";
 
     // I dislike getter methods, and prefer direct field access, but doing
     // getters here permits the fields being private, and gives us faster
     // equality comparisons.
 
     /// Access the compressed Ristretto form
-    pub fn as_compressed(&self) -> &CompressedRistretto { &self.compressed }
+    pub fn as_compressed(&self) -> &CompressedRistretto {
+        &self.compressed
+    }
 
     /// Extract the compressed Ristretto form
-    pub fn into_compressed(self) -> CompressedRistretto { self.compressed }
+    pub fn into_compressed(self) -> CompressedRistretto {
+        self.compressed
+    }
 
     /// Access the point form
-    pub fn as_point(&self) -> &RistrettoPoint { &self.point }
+    pub fn as_point(&self) -> &RistrettoPoint {
+        &self.point
+    }
 
     /// Extract the point form
-    pub fn into_point(self) -> RistrettoPoint { self.point }
+    pub fn into_point(self) -> RistrettoPoint {
+        self.point
+    }
 
     /// Decompress into the `RistrettoBoth` format that also retains the
     /// compressed form.
     pub fn from_compressed(compressed: CompressedRistretto) -> SignatureResult<RistrettoBoth> {
         Ok(RistrettoBoth {
-            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
+            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError)?,
             compressed,
         })
     }
@@ -84,10 +89,7 @@ impl RistrettoBoth {
     /// Compress into the `RistrettoBoth` format that also retains the
     /// uncompressed form.
     pub fn from_point(point: RistrettoPoint) -> RistrettoBoth {
-        RistrettoBoth {
-            compressed: point.compress(),
-            point,
-        }
+        RistrettoBoth { compressed: point.compress(), point }
     }
 
     /// Convert this public key to a byte array.
@@ -126,15 +128,21 @@ impl RistrettoBoth {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
-        RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DESCRIPTION,bytes)
+        RistrettoBoth::from_bytes_ser("RistrettoPoint", RistrettoBoth::DESCRIPTION, bytes)
     }
 
     /// Variant of `RistrettoBoth::from_bytes` that propagates more informative errors.
     #[inline]
-    pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
+    pub fn from_bytes_ser(
+        name: &'static str,
+        description: &'static str,
+        bytes: &[u8],
+    ) -> SignatureResult<RistrettoBoth> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
-            return Err(SignatureError::BytesLengthError{
-                name, description, length: RISTRETTO_POINT_LENGTH,
+            return Err(SignatureError::BytesLengthError {
+                name,
+                description,
+                length: RISTRETTO_POINT_LENGTH,
             });
         }
         let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);

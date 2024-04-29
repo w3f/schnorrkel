@@ -19,20 +19,13 @@ mod olaf_benches {
     use std::collections::{BTreeMap, BTreeSet};
 
     fn generate_parameters(max_signers: u16, min_signers: u16) -> Vec<Parameters> {
-        (1..=max_signers)
-            .map(|_| Parameters::new(max_signers, min_signers))
-            .collect()
+        (1..=max_signers).map(|_| Parameters::new(max_signers, min_signers)).collect()
     }
 
     fn round1(
         participants: u16,
         threshold: u16,
-    ) -> (
-        Vec<Parameters>,
-        Vec<PrivateData>,
-        Vec<PublicData>,
-        Vec<BTreeSet<PublicMessage>>,
-    ) {
+    ) -> (Vec<Parameters>, Vec<PrivateData>, Vec<PublicData>, Vec<BTreeSet<PublicMessage>>) {
         let parameters_list = generate_parameters(participants, threshold);
 
         let mut all_public_messages_vec = Vec::new();
@@ -86,12 +79,7 @@ mod olaf_benches {
         participants_round1_private_data: Vec<PrivateData>,
         participants_round1_public_data: &Vec<PublicData>,
         participants_round1_public_messages: &Vec<BTreeSet<PublicMessage>>,
-    ) -> (
-        Vec<round2::PublicData>,
-        Vec<Messages>,
-        Vec<Identifiers>,
-        Vec<Identifier>,
-    ) {
+    ) -> (Vec<round2::PublicData>, Vec<Messages>, Vec<Identifiers>, Vec<Identifier>) {
         let mut participants_round2_public_data = Vec::new();
         let mut participants_round2_public_messages = Vec::new();
         let mut participants_set_of_participants = Vec::new();
@@ -129,11 +117,7 @@ mod olaf_benches {
         participants_round2_private_messages: Vec<BTreeMap<Identifier, round2::PrivateMessage>>,
         identifiers_vec: &Vec<Identifier>,
     ) -> DKGResult<
-        Vec<(
-            GroupPublicKey,
-            BTreeMap<Identifier, GroupPublicKeyShare>,
-            round3::PrivateData,
-        )>,
+        Vec<(GroupPublicKey, BTreeMap<Identifier, GroupPublicKeyShare>, round3::PrivateData)>,
     > {
         let mut participant_data_round3 = Vec::new();
 

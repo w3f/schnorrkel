@@ -46,9 +46,7 @@ impl<'de> Visitor<'de> for IdentifierVisitor {
             Err(_) => return Err(E::custom("Invalid hexadecimal string")),
         };
         if bytes.len() != 32 {
-            return Err(E::custom(
-                "Hexadecimal string must be exactly 32 bytes long",
-            ));
+            return Err(E::custom("Hexadecimal string must be exactly 32 bytes long"));
         }
         let mut bytes_array = [0u8; 32];
         bytes_array.copy_from_slice(&bytes);
@@ -155,10 +153,7 @@ mod tests {
         let result: Result<Identifier, _> = serde_json::from_str(invalid_hex_scalar);
 
         // Assert that the deserialization fails
-        assert!(
-            result.is_err(),
-            "Deserialization should fail for invalid hex characters"
-        );
+        assert!(result.is_err(), "Deserialization should fail for invalid hex characters");
     }
 
     #[test]
@@ -168,9 +163,6 @@ mod tests {
         let result: Result<Identifier, _> = serde_json::from_str(invalid_length_hex);
 
         // Assert that the deserialization fails due to length mismatch
-        assert!(
-            result.is_err(),
-            "Deserialization should fail for incorrect hex length"
-        );
+        assert!(result.is_err(), "Deserialization should fail for incorrect hex length");
     }
 }

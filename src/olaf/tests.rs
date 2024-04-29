@@ -28,17 +28,11 @@ mod tests {
         let max_signers = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
         let min_signers = rng.gen_range(MININUM_THRESHOLD..=max_signers);
 
-        (1..=max_signers)
-            .map(|_| Parameters::new(max_signers, min_signers))
-            .collect()
+        (1..=max_signers).map(|_| Parameters::new(max_signers, min_signers)).collect()
     }
 
-    fn round1() -> (
-        Vec<Parameters>,
-        Vec<PrivateData>,
-        Vec<PublicData>,
-        Vec<BTreeSet<PublicMessage>>,
-    ) {
+    fn round1() -> (Vec<Parameters>, Vec<PrivateData>, Vec<PublicData>, Vec<BTreeSet<PublicMessage>>)
+    {
         let parameters_list = generate_parameters();
 
         let mut all_public_messages_vec = Vec::new();
@@ -92,12 +86,8 @@ mod tests {
         participants_round1_private_data: Vec<PrivateData>,
         participants_round1_public_data: &Vec<PublicData>,
         participants_round1_public_messages: &Vec<BTreeSet<PublicMessage>>,
-    ) -> DKGResult<(
-        Vec<round2::PublicData>,
-        Vec<Messages>,
-        Vec<Identifiers>,
-        Vec<Identifier>,
-    )> {
+    ) -> DKGResult<(Vec<round2::PublicData>, Vec<Messages>, Vec<Identifiers>, Vec<Identifier>)>
+    {
         let mut participants_round2_public_data = Vec::new();
         let mut participants_round2_public_messages = Vec::new();
         let mut participants_set_of_participants = Vec::new();
@@ -134,11 +124,7 @@ mod tests {
         participants_round2_private_messages: Vec<BTreeMap<Identifier, round2::PrivateMessage>>,
         identifiers_vec: &Vec<Identifier>,
     ) -> DKGResult<
-        Vec<(
-            GroupPublicKey,
-            BTreeMap<Identifier, GroupPublicKeyShare>,
-            round3::PrivateData,
-        )>,
+        Vec<(GroupPublicKey, BTreeMap<Identifier, GroupPublicKeyShare>, round3::PrivateData)>,
     > {
         let mut participant_data_round3 = Vec::new();
 
@@ -235,10 +221,8 @@ mod tests {
                 )
                 .unwrap();
 
-                let shared_public_keys: Vec<GroupPublicKey> = participants_data_round3
-                    .iter()
-                    .map(|state| state.0)
-                    .collect();
+                let shared_public_keys: Vec<GroupPublicKey> =
+                    participants_data_round3.iter().map(|state| state.0).collect();
 
                 assert!(
                     shared_public_keys.windows(2).all(|w| w[0] == w[1]),
@@ -300,15 +284,9 @@ mod tests {
                 mut participants_round1_public_messages,
             ) = round1();
 
-            let mut new_message = participants_round1_public_messages[0]
-                .first()
-                .unwrap()
-                .clone();
+            let mut new_message = participants_round1_public_messages[0].first().unwrap().clone();
 
-            new_message
-                .secret_polynomial_commitment
-                .coefficients_commitments
-                .pop();
+            new_message.secret_polynomial_commitment.coefficients_commitments.pop();
 
             participants_round1_public_messages[0].pop_first();
             participants_round1_public_messages[0].insert(new_message);
@@ -365,18 +343,14 @@ mod tests {
             let enc_keys: Vec<RistrettoPoint> = participants_round1_public_messages[1]
                 .iter()
                 .map(|msg| {
-                    *msg.secret_polynomial_commitment
-                        .coefficients_commitments
-                        .first()
-                        .unwrap()
+                    *msg.secret_polynomial_commitment.coefficients_commitments.first().unwrap()
                 })
                 .collect();
 
             let secret_share = SecretShare(Scalar::random(&mut OsRng));
 
-            let identifiers: BTreeSet<Identifier> = participants_sets_of_participants[1]
-                .others_identifiers
-                .clone();
+            let identifiers: BTreeSet<Identifier> =
+                participants_sets_of_participants[1].others_identifiers.clone();
 
             let index = identifiers
                 .iter()
@@ -386,10 +360,7 @@ mod tests {
             let enc_share = secret_share.encrypt(
                 &participants_round1_private_data[1].secret_key.key,
                 &enc_keys[index],
-                participants_sets_of_participants[0]
-                    .own_identifier
-                    .0
-                    .as_bytes(),
+                participants_sets_of_participants[0].own_identifier.0.as_bytes(),
             );
 
             let private_message = participants_round2_private_messages[1]
@@ -664,9 +635,7 @@ mod tests {
                     .map(|msg| msg.public_message().clone())
                     .collect();
 
-            participants_round2_public_data[0]
-                .round1_public_messages
-                .pop_first();
+            participants_round2_public_data[0].round1_public_messages.pop_first();
 
             let participants_round2_private_messages: Vec<
                 BTreeMap<Identifier, round2::PrivateMessage>,
@@ -881,11 +850,8 @@ mod tests {
             let private_message = round2_private_messages[0].pop_first().unwrap().1;
             round2_private_messages[0].insert(unknown_identifier, private_message);
 
-            let public_message = participants_round2_public_data[0]
-                .round1_public_messages
-                .pop_first()
-                .unwrap()
-                .1;
+            let public_message =
+                participants_round2_public_data[0].round1_public_messages.pop_first().unwrap().1;
 
             participants_round2_public_data[0]
                 .round1_public_messages

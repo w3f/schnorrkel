@@ -121,26 +121,20 @@ impl Display for SignatureError {
             InvalidKey => write!(f, "The provided key is not valid"),
             BytesLengthError { name, length, .. } => {
                 write!(f, "{name} must be {length} bytes in length")
-            }
+            },
             NotMarkedSchnorrkel => {
                 write!(f, "Signature bytes not marked as a schnorrkel signature")
-            }
+            },
             MuSigAbsent { musig_stage } => {
                 write!(f, "Absent {musig_stage} violated multi-signature protocol")
-            }
-            MuSigInconsistent {
-                musig_stage,
-                duplicate,
-            } => {
+            },
+            MuSigInconsistent { musig_stage, duplicate } => {
                 if duplicate {
                     write!(f, "Inconsistent duplicate {musig_stage} in multi-signature")
                 } else {
-                    write!(
-                        f,
-                        "Inconsistent {musig_stage} violated multi-signature protocol"
-                    )
+                    write!(f, "Inconsistent {musig_stage} violated multi-signature protocol")
                 }
-            }
+            },
         }
     }
 }

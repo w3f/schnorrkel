@@ -50,10 +50,7 @@ pub struct Parameters {
 impl Parameters {
     /// Create new parameters.
     pub fn new(participants: u16, threshold: u16) -> Parameters {
-        Parameters {
-            participants,
-            threshold,
-        }
+        Parameters { participants, threshold }
     }
 
     pub(crate) fn validate(&self) -> Result<(), DKGError> {
@@ -87,10 +84,7 @@ impl Identifiers {
         own_identifier: Identifier,
         others_identifiers: BTreeSet<Identifier>,
     ) -> Identifiers {
-        Identifiers {
-            own_identifier,
-            others_identifiers,
-        }
+        Identifiers { own_identifier, others_identifiers }
     }
 
     pub(crate) fn validate(&self, participants: u16) -> Result<(), DKGError> {
@@ -185,9 +179,7 @@ impl EncryptedSecretShare {
         let cipher: ChaCha20Poly1305 = make_aead::<Transcript, ChaCha20Poly1305>(transcript);
         let nonce = Nonce::from_slice(&bytes[..]);
 
-        let plaintext = cipher
-            .decrypt(nonce, &self.0[..])
-            .map_err(DKGError::DecryptionError)?;
+        let plaintext = cipher.decrypt(nonce, &self.0[..]).map_err(DKGError::DecryptionError)?;
 
         let mut bytes = [0; 32];
         bytes.copy_from_slice(&plaintext);
@@ -334,15 +326,8 @@ pub mod round1 {
             secret_key.sign(Transcript::new(b"Proof of Possession"), &public_key);
 
         (
-            PrivateData {
-                secret_key,
-                secret_polynomial,
-            },
-            PublicData {
-                parameters,
-                secret_polynomial_commitment,
-                proof_of_possession,
-            },
+            PrivateData { secret_key, secret_polynomial },
+            PublicData { parameters, secret_polynomial_commitment, proof_of_possession },
         )
     }
 }
@@ -415,9 +400,7 @@ pub mod round2 {
         ) -> DKGResult<PrivateMessage> {
             let encrypted_secret_share = secret_share.encrypt(&deckey, &enckey, context)?;
 
-            Ok(PrivateMessage {
-                encrypted_secret_share,
-            })
+            Ok(PrivateMessage { encrypted_secret_share })
         }
     }
 
@@ -527,27 +510,23 @@ pub mod round2 {
                 // Writes own data in the transcript
                 transcript.commit_point(b"SecretCommitment", &own_first_coefficient_compressed);
 
-                for coefficient_commitment in &round1_public_data
-                    .secret_polynomial_commitment
-                    .coefficients_commitments
+                for coefficient_commitment in
+                    &round1_public_data.secret_polynomial_commitment.coefficients_commitments
                 {
                     transcript
                         .commit_point(b"CoefficientCommitment", &coefficient_commitment.compress());
                 }
 
-                transcript.commit_point(
-                    b"ProofOfPossessionR",
-                    &round1_public_data.proof_of_possession.R,
-                );
+                transcript
+                    .commit_point(b"ProofOfPossessionR", &round1_public_data.proof_of_possession.R);
 
                 own_inserted = true;
             }
             // Writes the data of the other participants in the transcript
             transcript.commit_point(b"SecretCommitment", &message_first_coefficient_compressed);
 
-            for coefficient_commitment in &message
-                .secret_polynomial_commitment
-                .coefficients_commitments
+            for coefficient_commitment in
+                &message.secret_polynomial_commitment.coefficients_commitments
             {
                 transcript
                     .commit_point(b"CoefficientCommitment", &coefficient_commitment.compress());
@@ -560,18 +539,15 @@ pub mod round2 {
         if !own_inserted {
             transcript.commit_point(b"SecretCommitment", &own_first_coefficient_compressed);
 
-            for coefficient_commitment in &round1_public_data
-                .secret_polynomial_commitment
-                .coefficients_commitments
+            for coefficient_commitment in
+                &round1_public_data.secret_polynomial_commitment.coefficients_commitments
             {
                 transcript
                     .commit_point(b"CoefficientCommitment", &coefficient_commitment.compress());
             }
 
-            transcript.commit_point(
-                b"ProofOfPossessionR",
-                &round1_public_data.proof_of_possession.R,
-            );
+            transcript
+                .commit_point(b"ProofOfPossessionR", &round1_public_data.proof_of_possession.R);
         }
 
         // Scalar generated from transcript used to generate random identifiers to the participants
@@ -580,12 +556,7 @@ pub mod round2 {
         let (identifiers, round1_public_messages) =
             generate_identifiers(round1_public_data, round1_public_messages, &scalar);
 
-        PublicData {
-            identifiers,
-            round1_public_messages,
-            transcript: scalar,
-            public_keys,
-        }
+        PublicData { identifiers, round1_public_messages, transcript: scalar, public_keys }
     }
 
     fn generate_identifiers(
@@ -696,11 +667,7 @@ pub mod round2 {
             })
             .collect();
 
-        for (i, identifier) in round2_public_data
-            .identifiers
-            .others_identifiers
-            .iter()
-            .enumerate()
+        for (i, identifier) in round2_public_data.identifiers.others_identifiers.iter().enumerate()
         {
             let secret_share = secret_polynomial.evaluate(&identifier.0);
             private_messages.insert(
@@ -723,10 +690,7 @@ pub mod round2 {
 
         let public_message = PublicMessage { certificate };
 
-        Ok(Messages {
-            private_messages,
-            public_message,
-        })
+        Ok(Messages { private_messages, public_message })
     }
 }
 
@@ -801,11 +765,7 @@ pub mod round3 {
         round1_public_data: &round1::PublicData,
         round1_private_data: round1::PrivateData,
         round2_private_messages: &BTreeMap<Identifier, round2::PrivateMessage>,
-    ) -> DKGResult<(
-        GroupPublicKey,
-        BTreeMap<Identifier, GroupPublicKeyShare>,
-        PrivateData,
-    )> {
+    ) -> DKGResult<(GroupPublicKey, BTreeMap<Identifier, GroupPublicKeyShare>, PrivateData)> {
         round1_public_data.parameters.validate()?;
 
         round2_public_data
@@ -852,11 +812,7 @@ pub mod round3 {
             &round2_public_messages
                 .iter()
                 .map(|(id, msg)| {
-                    if !round2_public_data
-                        .identifiers
-                        .others_identifiers()
-                        .contains(id)
-                    {
+                    if !round2_public_data.identifiers.others_identifiers().contains(id) {
                         Err(DKGError::UnknownIdentifierRound2PublicMessages(*id))
                     } else {
                         Ok(msg.certificate)
@@ -912,17 +868,13 @@ pub mod round3 {
         let mut total_secret_share = Scalar::ZERO;
 
         for id in &identifiers.others_identifiers {
-            total_secret_share += secret_shares
-                .get(id)
-                .ok_or(DKGError::UnknownIdentifierRound2PrivateMessages)?
-                .0;
+            total_secret_share +=
+                secret_shares.get(id).ok_or(DKGError::UnknownIdentifierRound2PrivateMessages)?.0;
         }
 
         total_secret_share += own_secret_share;
 
-        let private_data = PrivateData {
-            total_secret_share: SecretShare(total_secret_share),
-        };
+        let private_data = PrivateData { total_secret_share: SecretShare(total_secret_share) };
 
         Ok(private_data)
     }
@@ -959,10 +911,8 @@ pub mod round3 {
 
         let own_group_public_key_share = round2_private_data.total_secret_share.0 * GENERATOR;
 
-        group_public_key_shares.insert(
-            round2_public_data.identifiers.own_identifier,
-            own_group_public_key_share,
-        );
+        group_public_key_shares
+            .insert(round2_public_data.identifiers.own_identifier, own_group_public_key_share);
 
         let shared_public_key = GroupPublicKey::from_point(
             *total_secret_polynomial_commitment

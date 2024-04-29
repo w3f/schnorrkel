@@ -31,10 +31,8 @@ impl Polynomial {
     }
 
     pub(crate) fn evaluate(&self, x: &Value) -> Value {
-        let mut value = *self
-            .coefficients
-            .last()
-            .expect("coefficients must have at least one element");
+        let mut value =
+            *self.coefficients.last().expect("coefficients must have at least one element");
 
         // Process all coefficients except the last one, using Horner's method
         for coeff in self.coefficients.iter().rev().skip(1) {
@@ -60,18 +58,18 @@ impl PolynomialCommitment {
             .map(|coefficient| GENERATOR * coefficient)
             .collect();
 
-        Self {
-            coefficients_commitments,
-        }
+        Self { coefficients_commitments }
     }
 
     pub(crate) fn evaluate(&self, identifier: &Value) -> ValueCommitment {
         let i = identifier;
 
-        let (_, result) = self.coefficients_commitments.iter().fold(
-            (Scalar::ONE, RistrettoPoint::identity()),
-            |(i_to_the_k, sum_so_far), comm_k| (i * i_to_the_k, sum_so_far + comm_k * i_to_the_k),
-        );
+        let (_, result) = self
+            .coefficients_commitments
+            .iter()
+            .fold((Scalar::ONE, RistrettoPoint::identity()), |(i_to_the_k, sum_so_far), comm_k| {
+                (i * i_to_the_k, sum_so_far + comm_k * i_to_the_k)
+            });
         result
     }
 
@@ -87,18 +85,14 @@ impl PolynomialCommitment {
         let mut total_commitment = vec![RistrettoPoint::identity(); max_length];
 
         for polynomial_commitment in polynomials_commitments {
-            for (i, coeff_commitment) in polynomial_commitment
-                .coefficients_commitments
-                .iter()
-                .enumerate()
+            for (i, coeff_commitment) in
+                polynomial_commitment.coefficients_commitments.iter().enumerate()
             {
                 total_commitment[i] += coeff_commitment;
             }
         }
 
-        PolynomialCommitment {
-            coefficients_commitments: total_commitment,
-        }
+        PolynomialCommitment { coefficients_commitments: total_commitment }
     }
 }
 
@@ -123,10 +117,7 @@ mod tests {
 
         assert_eq!(polynomial.coefficients.len(), degree as usize + 1);
 
-        assert_eq!(
-            polynomial_commitment.coefficients_commitments.len(),
-            degree as usize + 1
-        );
+        assert_eq!(polynomial_commitment.coefficients_commitments.len(), degree as usize + 1);
     }
 
     #[test]
@@ -187,15 +178,10 @@ mod tests {
         let quadratic_commitment = Scalar::from(1u64) * GENERATOR;
 
         // Note the order and inclusion of the constant term
-        let coefficients_commitments = vec![
-            constant_coefficient_commitment,
-            linear_commitment,
-            quadratic_commitment,
-        ];
+        let coefficients_commitments =
+            vec![constant_coefficient_commitment, linear_commitment, quadratic_commitment];
 
-        let polynomial_commitment = PolynomialCommitment {
-            coefficients_commitments,
-        };
+        let polynomial_commitment = PolynomialCommitment { coefficients_commitments };
 
         let value = Scalar::from(2u64);
 
@@ -204,9 +190,6 @@ mod tests {
 
         let result = polynomial_commitment.evaluate(&value);
 
-        assert_eq!(
-            result, expected,
-            "The evaluated commitment does not match the expected result"
-        );
+        assert_eq!(result, expected, "The evaluated commitment does not match the expected result");
     }
 }
