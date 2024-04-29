@@ -23,10 +23,12 @@ pub enum DKGError {
     InvalidSecretShare(Identifier),
     /// Invalid secret.
     InvalidSecret,
+    /// Unknown identifier in round 1 public messages.
+    UnknownIdentifierRound1PublicMessages(Identifier),
     /// Unknown identifier in round 2 public messages.
     UnknownIdentifierRound2PublicMessages(Identifier),
     /// Unknown identifier in round 2 private messages.
-    UnknownIdentifierRound2PrivateMessages(Identifier),
+    UnknownIdentifierRound2PrivateMessages,
     /// Identifier cannot be a zero scalar.
     InvalidIdentifier,
     /// Incorrect number of identifiers.
