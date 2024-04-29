@@ -398,16 +398,10 @@ impl VRFInOut {
         struct ZeroFakeRng;
         #[rustfmt::skip]
         impl rand_core::RngCore for ZeroFakeRng {
-            fn next_u32(&mut self) -> u32 {
-                panic!()
-            }
-            fn next_u64(&mut self) -> u64 {
-                panic!()
-            }
+            fn next_u32(&mut self) -> u32 {  panic!()  }
+            fn next_u64(&mut self) -> u64 {  panic!()  }
             fn fill_bytes(&mut self, dest: &mut [u8]) {
-                for i in dest.iter_mut() {
-                    *i = 0;
-                }
+                for i in dest.iter_mut() {  *i = 0;  }
             }
             fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
                 self.fill_bytes(dest);
@@ -459,13 +453,11 @@ impl PublicKey {
             p.borrow().commit(&mut t);
         }
 
-        let zf = || {
-            ps.iter().map(|p| {
-                let mut t0 = t.clone();
-                p.borrow().commit(&mut t0);
-                challenge_scalar_128(t0)
-            })
-        };
+        let zf = || ps.iter().map(|p| {
+            let mut t0 = t.clone();
+            p.borrow().commit(&mut t0);
+            challenge_scalar_128(t0)
+        });
         #[cfg(feature = "alloc")]
         let zs: Vec<Scalar> = zf().collect();
         #[cfg(feature = "alloc")]
@@ -474,15 +466,11 @@ impl PublicKey {
         // We need actual fns here because closures cannot easily take
         // closures as arguments, due to Rust lacking polymorphic
         // closures but giving all closures unique types.
-        fn get_input(p: &VRFInOut) -> &RistrettoPoint {
-            p.input.as_point()
-        }
-        fn get_output(p: &VRFInOut) -> &RistrettoPoint {
-            p.output.as_point()
-        }
+        fn get_input(p: &VRFInOut) -> &RistrettoPoint { p.input.as_point() }
+        fn get_output(p: &VRFInOut) -> &RistrettoPoint { p.output.as_point() }
         #[cfg(feature = "alloc")]
         let go = |io: fn(p: &VRFInOut) -> &RistrettoPoint| {
-            let ps = ps.iter().map(|p| io(p.borrow()));
+            let ps = ps.iter().map( |p| io(p.borrow()) );
             RistrettoBoth::from_point(if vartime {
                 RistrettoPoint::vartime_multiscalar_mul(zf(), ps)
             } else {
@@ -494,14 +482,14 @@ impl PublicKey {
             let _ = vartime; // ignore unused variable
             use curve25519_dalek::traits::Identity;
             let mut acc = RistrettoPoint::identity();
-            for (z, p) in zf().zip(ps) {
+            for (z,p) in zf().zip(ps) {
                 acc += z * io(p.borrow());
             }
             RistrettoBoth::from_point(acc)
         };
 
-        let input = go(get_input);
-        let output = go(get_output);
+        let input = go( get_input );
+        let output = go( get_output );
         VRFInOut { input, output }
     }
 }
@@ -613,16 +601,12 @@ impl VRFProofBatchable {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
-        if !kusama {
-            t.commit_point(b"vrf:pk", public.as_compressed());
-        }
+        if !kusama {  t.commit_point(b"vrf:pk", public.as_compressed());  }
 
         t.commit_point(b"vrf:R=g^r", &self.R);
         t.commit_point(b"vrf:h^r", &self.Hr);
 
-        if kusama {
-            t.commit_point(b"vrf:pk", public.as_compressed());
-        }
+        if kusama {  t.commit_point(b"vrf:pk", public.as_compressed());  }
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
         VRFProof {
@@ -669,21 +653,17 @@ impl Keypair {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
-        if !kusama {
-            t.commit_point(b"vrf:pk", self.public.as_compressed());
-        }
+        if !kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
 
         // We compute R after adding pk and all h.
-        let mut r = t.witness_scalar(b"proving\x000", &[&self.secret.nonce]);
+        let mut r = t.witness_scalar(b"proving\x000",&[&self.secret.nonce]);
         let R = (&r * constants::RISTRETTO_BASEPOINT_TABLE).compress();
         t.commit_point(b"vrf:R=g^r", &R);
 
         let Hr = (r * p.input.as_point()).compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
-        if kusama {
-            t.commit_point(b"vrf:pk", self.public.as_compressed());
-        }
+        if kusama {  t.commit_point(b"vrf:pk", self.public.as_compressed());  }
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
@@ -833,9 +813,7 @@ impl PublicKey {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
         t.commit_point(b"vrf:h", p.input.as_compressed());
-        if !kusama {
-            t.commit_point(b"vrf:pk", self.as_compressed());
-        }
+        if !kusama {  t.commit_point(b"vrf:pk", self.as_compressed());  }
 
         // We recompute R aka u from the proof
         // let R = (&proof.c * self.as_point()) + (&proof.s * &constants::RISTRETTO_BASEPOINT_TABLE);
@@ -843,8 +821,7 @@ impl PublicKey {
             &proof.c,
             self.as_point(),
             &proof.s,
-        )
-        .compress();
+        ).compress();
         t.commit_point(b"vrf:R=g^r", &R);
 
         // We also recompute h^r aka u using the proof
@@ -861,9 +838,7 @@ impl PublicKey {
         let Hr = Hr.compress();
         t.commit_point(b"vrf:h^r", &Hr);
 
-        if kusama {
-            t.commit_point(b"vrf:pk", self.as_compressed());
-        }
+        if kusama {  t.commit_point(b"vrf:pk", self.as_compressed());  }
         // We add h^sk last to save an allocation if we ever need to hash multiple h together.
         t.commit_point(b"vrf:h^sk", p.output.as_compressed());
 
@@ -936,14 +911,15 @@ impl PublicKey {
         O: Borrow<VRFPreOut>,
     {
         let mut ts = transcripts.into_iter();
-        let ps = ts
-            .by_ref()
-            .zip(outs)
-            .map(|(t, out)| out.borrow().attach_input_hash(self, t))
+        let ps = ts.by_ref().zip(outs)
+            .map(|(t, out)| out.borrow().attach_input_hash(self,t))
             .collect::<SignatureResult<Vec<VRFInOut>>>()?;
         assert!(ts.next().is_none(), "Too few VRF outputs for VRF inputs.");
-        assert!(ps.len() == outs.len(), "Too few VRF inputs for VRF outputs.");
-        let p = self.vrfs_merge(&ps[..], true);
+        assert!(
+            ps.len() == outs.len(),
+            "Too few VRF inputs for VRF outputs."
+        );
+        let p = self.vrfs_merge(&ps[..],true);
         let proof_batchable = self.dleq_verify(extra, &p, proof, KUSAMA_VRF)?;
         Ok((ps.into_boxed_slice(), proof_batchable))
     }
@@ -982,8 +958,8 @@ pub fn dleq_verify_batch(
     // inout and putput points, and the system random number generator.
     let mut csprng = {
         let mut t = Transcript::new(b"VB-RNG");
-        for (pk, p) in public_keys.iter().zip(ps) {
-            t.commit_point(b"", pk.as_compressed());
+        for (pk,p) in public_keys.iter().zip(ps) {
+            t.commit_point(b"",pk.as_compressed());
             p.commit(&mut t);
         }
         t.build_rng().finalize(&mut getrandom_or_panic())
@@ -999,47 +975,39 @@ pub fn dleq_verify_batch(
     };
     let zz: Vec<Scalar> = proofs.iter().map(rnd_128bit_scalar).collect();
 
-    let z_s: Vec<Scalar> = zz.iter().zip(proofs).map(|(z, proof)| z * proof.s).collect();
+    let z_s: Vec<Scalar> = zz.iter().zip(proofs)
+        .map(|(z, proof)| z * proof.s)
+        .collect();
 
     // Compute the basepoint coefficient, ∑ s[i] z[i] (mod l)
     let B_coefficient: Scalar = z_s.iter().sum();
 
     let t0 = Transcript::new(b"VRF");
-    let z_c: Vec<Scalar> = zz
-        .iter()
-        .enumerate()
-        .map(|(i, z)| z * proofs[i].shorten_dleq(t0.clone(), &public_keys[i], &ps[i], kusama).c)
+    let z_c: Vec<Scalar> = zz.iter().enumerate()
+        .map( |(i, z)| z * proofs[i].shorten_dleq(t0.clone(), &public_keys[i], &ps[i], kusama).c )
         .collect();
 
     // Compute (∑ z[i] s[i] (mod l)) B + ∑ (z[i] c[i] (mod l)) A[i] - ∑ z[i] R[i] = 0
     let mut b = RistrettoPoint::optional_multiscalar_mul(
-        zz.iter().map(|z| -z).chain(z_c.iter().cloned()).chain(once(B_coefficient)),
-        proofs
-            .iter()
-            .map(|proof| proof.R.decompress())
+        zz.iter().map(|z| -z)
+            .chain(z_c.iter().cloned())
+            .chain(once(B_coefficient)),
+        proofs.iter().map(|proof| proof.R.decompress())
             .chain(public_keys.iter().map(|pk| Some(*pk.as_point())))
             .chain(once(Some(constants::RISTRETTO_BASEPOINT_POINT))),
-    )
-    .map(|id| id.is_identity())
-    .unwrap_or(false);
+    ).map(|id| id.is_identity()).unwrap_or(false);
 
     // Compute (∑ z[i] s[i] (mod l)) Input[i] + ∑ (z[i] c[i] (mod l)) Output[i] - ∑ z[i] Hr[i] = 0
     b &= RistrettoPoint::optional_multiscalar_mul(
-        zz.iter().map(|z| -z).chain(z_c).chain(z_s),
-        proofs
-            .iter()
-            .map(|proof| proof.Hr.decompress())
+        zz.iter().map(|z| -z)
+            .chain(z_c)
+            .chain(z_s),
+        proofs.iter().map(|proof| proof.Hr.decompress())
             .chain(ps.iter().map(|p| Some(*p.output.as_point())))
             .chain(ps.iter().map(|p| Some(*p.input.as_point()))),
-    )
-    .map(|id| id.is_identity())
-    .unwrap_or(false);
+    ).map(|id| id.is_identity()).unwrap_or(false);
 
-    if b {
-        Ok(())
-    } else {
-        Err(SignatureError::EquationFalse)
-    }
+    if b { Ok(()) } else { Err(SignatureError::EquationFalse) }
 }
 
 /// Batch verify VRFs by different signers

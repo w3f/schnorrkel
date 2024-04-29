@@ -18,7 +18,6 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
-
 use crate::context::{SigningTranscript, SigningContext};
 
 // === Actual signature type === //
@@ -429,8 +428,8 @@ impl Keypair {
 
 #[cfg(test)]
 mod test {
-    use curve25519_dalek::digest::Update;
     use sha3::Shake128;
+    use curve25519_dalek::digest::{Update};
 
     use super::super::*;
 

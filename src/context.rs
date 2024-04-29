@@ -97,49 +97,33 @@ pub trait SigningTranscript {
 /// alternative implementations.
 #[rustfmt::skip]
 impl<T> SigningTranscript for &mut T
-where
-    T: SigningTranscript + ?Sized,
+where T: SigningTranscript + ?Sized,
 {
     #[inline(always)]
-    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        (**self).commit_bytes(label, bytes)
-    }
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
+        {  (**self).commit_bytes(label,bytes)  }
     #[inline(always)]
-    fn proto_name(&mut self, label: &'static [u8]) {
-        (**self).proto_name(label)
-    }
+    fn proto_name(&mut self, label: &'static [u8])
+        {  (**self).proto_name(label)  }
     #[inline(always)]
-    fn commit_point(&mut self, label: &'static [u8], compressed: &CompressedRistretto) {
-        (**self).commit_point(label, compressed)
-    }
+    fn commit_point(&mut self, label: &'static [u8], compressed: &CompressedRistretto)
+        {  (**self).commit_point(label, compressed)  }
     #[inline(always)]
-    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        (**self).challenge_bytes(label, dest)
-    }
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8])
+        {  (**self).challenge_bytes(label,dest)  }
     #[inline(always)]
-    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar {
-        (**self).challenge_scalar(label)
-    }
+    fn challenge_scalar(&mut self, label: &'static [u8]) -> Scalar
+        {  (**self).challenge_scalar(label)  }
     #[inline(always)]
-    fn witness_scalar(&self, label: &'static [u8], nonce_seeds: &[&[u8]]) -> Scalar {
-        (**self).witness_scalar(label, nonce_seeds)
-    }
+    fn witness_scalar(&self, label: &'static [u8], nonce_seeds: &[&[u8]]) -> Scalar
+        {  (**self).witness_scalar(label,nonce_seeds)  }
     #[inline(always)]
-    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-        (**self).witness_bytes(label, dest, nonce_seeds)
-    }
+    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]])
+        {  (**self).witness_bytes(label,dest,nonce_seeds)  }
     #[inline(always)]
-    fn witness_bytes_rng<R>(
-        &self,
-        label: &'static [u8],
-        dest: &mut [u8],
-        nonce_seeds: &[&[u8]],
-        rng: R,
-    ) where
-        R: RngCore + CryptoRng,
-    {
-        (**self).witness_bytes_rng(label, dest, nonce_seeds, rng)
-    }
+    fn witness_bytes_rng<R>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: R)
+    where R: RngCore+CryptoRng
+        {  (**self).witness_bytes_rng(label,dest,nonce_seeds,rng)  }
 }
 
 /// We delegate `SigningTranscript` methods to the corresponding
@@ -385,29 +369,19 @@ where
 impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: RngCore+CryptoRng
 {
-    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
-        self.t.commit_bytes(label, bytes)
-    }
+    fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8])
+        {  self.t.commit_bytes(label, bytes)  }
 
-    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8]) {
-        self.t.challenge_bytes(label, dest)
-    }
+    fn challenge_bytes(&mut self, label: &'static [u8], dest: &mut [u8])
+        {  self.t.challenge_bytes(label, dest)  }
 
-    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]]) {
-        self.witness_bytes_rng(label, dest, nonce_seeds, &mut *self.rng.borrow_mut())
-    }
+    fn witness_bytes(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]])
+       {  self.witness_bytes_rng(label, dest, nonce_seeds, &mut *self.rng.borrow_mut())  }
 
-    fn witness_bytes_rng<RR>(
-        &self,
-        label: &'static [u8],
-        dest: &mut [u8],
-        nonce_seeds: &[&[u8]],
-        rng: RR,
-    ) where
-        RR: RngCore + CryptoRng,
-    {
-        self.t.witness_bytes_rng(label, dest, nonce_seeds, rng)
-    }
+    fn witness_bytes_rng<RR>(&self, label: &'static [u8], dest: &mut [u8], nonce_seeds: &[&[u8]], rng: RR)
+    where RR: RngCore+CryptoRng
+       {  self.t.witness_bytes_rng(label,dest,nonce_seeds,rng)  }
+
 }
 
 /// Attach a `CryptoRng` to a `SigningTranscript` to replace the default `ThreadRng`.

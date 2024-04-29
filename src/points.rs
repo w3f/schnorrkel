@@ -59,30 +59,22 @@ impl RistrettoBoth {
     // equality comparisons.
 
     /// Access the compressed Ristretto form
-    pub fn as_compressed(&self) -> &CompressedRistretto {
-        &self.compressed
-    }
+    pub fn as_compressed(&self) -> &CompressedRistretto { &self.compressed }
 
     /// Extract the compressed Ristretto form
-    pub fn into_compressed(self) -> CompressedRistretto {
-        self.compressed
-    }
+    pub fn into_compressed(self) -> CompressedRistretto { self.compressed }
 
     /// Access the point form
-    pub fn as_point(&self) -> &RistrettoPoint {
-        &self.point
-    }
+    pub fn as_point(&self) -> &RistrettoPoint { &self.point }
 
     /// Extract the point form
-    pub fn into_point(self) -> RistrettoPoint {
-        self.point
-    }
+    pub fn into_point(self) -> RistrettoPoint { self.point }
 
     /// Decompress into the `RistrettoBoth` format that also retains the
     /// compressed form.
     pub fn from_compressed(compressed: CompressedRistretto) -> SignatureResult<RistrettoBoth> {
         Ok(RistrettoBoth {
-            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError)?,
+            point: compressed.decompress().ok_or(SignatureError::PointDecompressionError) ?,
             compressed,
         })
     }
@@ -90,7 +82,10 @@ impl RistrettoBoth {
     /// Compress into the `RistrettoBoth` format that also retains the
     /// uncompressed form.
     pub fn from_point(point: RistrettoPoint) -> RistrettoBoth {
-        RistrettoBoth { compressed: point.compress(), point }
+        RistrettoBoth {
+            compressed: point.compress(),
+            point,
+        }
     }
 
     /// Convert this public key to a byte array.
@@ -129,21 +124,15 @@ impl RistrettoBoth {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
-        RistrettoBoth::from_bytes_ser("RistrettoPoint", RistrettoBoth::DESCRIPTION, bytes)
+        RistrettoBoth::from_bytes_ser("RistrettoPoint",RistrettoBoth::DESCRIPTION,bytes)
     }
 
     /// Variant of `RistrettoBoth::from_bytes` that propagates more informative errors.
     #[inline]
-    pub fn from_bytes_ser(
-        name: &'static str,
-        description: &'static str,
-        bytes: &[u8],
-    ) -> SignatureResult<RistrettoBoth> {
+    pub fn from_bytes_ser(name: &'static str, description: &'static str, bytes: &[u8]) -> SignatureResult<RistrettoBoth> {
         if bytes.len() != RISTRETTO_POINT_LENGTH {
-            return Err(SignatureError::BytesLengthError {
-                name,
-                description,
-                length: RISTRETTO_POINT_LENGTH,
+            return Err(SignatureError::BytesLengthError{
+                name, description, length: RISTRETTO_POINT_LENGTH,
             });
         }
         let mut compressed = CompressedRistretto([0u8; RISTRETTO_POINT_LENGTH]);

@@ -237,16 +237,16 @@ use curve25519_dalek::scalar::Scalar;
 #[macro_use]
 mod serdey;
 
-pub mod keys;
 pub mod points;
 mod scalars;
+pub mod keys;
 
-pub mod cert;
 pub mod context;
-pub mod derive;
-pub mod errors;
 pub mod sign;
 pub mod vrf;
+pub mod derive;
+pub mod cert;
+pub mod errors;
 
 #[cfg(all(feature = "alloc", feature = "aead"))]
 pub mod olaf;

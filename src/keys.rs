@@ -630,29 +630,21 @@ impl PublicKey {
     const DESCRIPTION: &'static str = "A Ristretto Schnorr public key represented as a 32-byte Ristretto compressed point";
 
     /// Access the compressed Ristretto form
-    pub fn as_compressed(&self) -> &CompressedRistretto {
-        self.0.as_compressed()
-    }
+    pub fn as_compressed(&self) -> &CompressedRistretto { self.0.as_compressed() }
 
     /// Extract the compressed Ristretto form
-    pub fn into_compressed(self) -> CompressedRistretto {
-        self.0.into_compressed()
-    }
+    pub fn into_compressed(self) -> CompressedRistretto { self.0.into_compressed() }
 
     /// Access the point form
-    pub fn as_point(&self) -> &RistrettoPoint {
-        self.0.as_point()
-    }
+    pub fn as_point(&self) -> &RistrettoPoint { self.0.as_point() }
 
     /// Extract the point form
-    pub fn into_point(self) -> RistrettoPoint {
-        self.0.into_point()
-    }
+    pub fn into_point(self) -> RistrettoPoint { self.0.into_point() }
 
     /// Decompress into the `PublicKey` format that also retains the
     /// compressed form.
     pub fn from_compressed(compressed: CompressedRistretto) -> SignatureResult<PublicKey> {
-        Ok(PublicKey(RistrettoBoth::from_compressed(compressed)?))
+        Ok(PublicKey(RistrettoBoth::from_compressed(compressed) ?))
     }
 
     /// Compress into the `PublicKey` format that also retains the
@@ -703,7 +695,7 @@ impl PublicKey {
     /// is an `SignatureError` describing the error that occurred.
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> SignatureResult<PublicKey> {
-        Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey", PublicKey::DESCRIPTION, bytes)?))
+        Ok(PublicKey(RistrettoBoth::from_bytes_ser("PublicKey",PublicKey::DESCRIPTION,bytes) ?))
     }
 }
 
