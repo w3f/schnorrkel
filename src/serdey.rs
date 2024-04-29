@@ -11,51 +11,60 @@
 //! ### Various and tooling related to serde
 
 #[cfg(feature = "serde")]
-macro_rules! serde_boilerplate { ($t:ty) => {
-impl serde_crate::Serialize for $t {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde_crate::Serializer {
-        let bytes = &self.to_bytes()[..];
-        serde_bytes::Bytes::new(bytes).serialize(serializer)
-    }
-}
-
-impl<'d> serde_crate::Deserialize<'d> for $t {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: serde_crate::Deserializer<'d> {
-        cfg_if::cfg_if!{
-            if #[cfg(feature = "std")] {
-                let bytes = <std::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
-            } else if #[cfg(feature = "alloc")] {
-                let bytes = <alloc::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
-            } else {
-                let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
+macro_rules! serde_boilerplate {
+    ($t:ty) => {
+        impl serde::Serialize for $t {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                let bytes = &self.to_bytes()[..];
+                serde_bytes::Bytes::new(bytes).serialize(serializer)
             }
         }
 
-        Self::from_bytes(bytes.as_ref())
-                .map_err(crate::errors::serde_error_from_signature_error)
-    }
-}
-} } // macro_rules! serde_boilerplate
+        impl<'d> serde::Deserialize<'d> for $t {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'d>,
+            {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "std")] {
+                        let bytes = <std::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
+                    } else if #[cfg(feature = "alloc")] {
+                        let bytes = <alloc::borrow::Cow<'_, [u8]>>::deserialize(deserializer)?;
+                    } else {
+                        let bytes = <&::serde_bytes::Bytes>::deserialize(deserializer)?;
+                    }
+                }
+
+                Self::from_bytes(bytes.as_ref())
+                    .map_err(crate::errors::serde_error_from_signature_error)
+            }
+        }
+    };
+} // macro_rules! serde_boilerplate
 
 #[cfg(not(feature = "serde"))]
-macro_rules! serde_boilerplate { ($t:ty) => { } }
+macro_rules! serde_boilerplate {
+    ($t:ty) => {};
+}
 
 #[cfg(all(test, feature = "serde"))]
 mod test {
     use std::vec::Vec;
 
-    use bincode::{serialize, serialized_size, deserialize};
-    use serde_json::{to_value, from_value, to_string, from_str};
+    use bincode::{deserialize, serialize, serialized_size};
+    use serde_json::{from_str, from_value, to_string, to_value};
 
-    use curve25519_dalek::ristretto::{CompressedRistretto};
+    use curve25519_dalek::ristretto::CompressedRistretto;
 
     use crate::*;
 
-    static COMPRESSED_PUBLIC_KEY : CompressedRistretto = CompressedRistretto([
-        208, 120, 140, 129, 177, 179, 237, 159,
-        252, 160, 028, 013, 206, 005, 211, 241,
-        192, 218, 001, 097, 130, 241, 020, 169,
-        119, 046, 246, 029, 079, 080, 077, 084]);
+    static COMPRESSED_PUBLIC_KEY: CompressedRistretto = CompressedRistretto([
+        208, 120, 140, 129, 177, 179, 237, 159, 252, 160, 028, 013, 206, 005, 211, 241, 192, 218,
+        001, 097, 130, 241, 020, 169, 119, 046, 246, 029, 079, 080, 077, 084,
+    ]);
 
     /*
     static ED25519_PUBLIC_KEY: CompressedEdwardsY = CompressedEdwardsY([
@@ -66,22 +75,17 @@ mod test {
     */
 
     static ED25519_SECRET_KEY: MiniSecretKey = MiniSecretKey([
-        062, 070, 027, 163, 092, 182, 011, 003,
-        077, 234, 098, 004, 011, 127, 079, 228,
-        243, 187, 150, 073, 201, 137, 076, 022,
-        085, 251, 152, 002, 241, 042, 072, 054, ]);
+        062, 070, 027, 163, 092, 182, 011, 003, 077, 234, 098, 004, 011, 127, 079, 228, 243, 187,
+        150, 073, 201, 137, 076, 022, 085, 251, 152, 002, 241, 042, 072, 054,
+    ]);
 
     /// Ed25519 signature with the above keypair of a blank message.
     static SIGNATURE_BYTES: [u8; SIGNATURE_LENGTH] = [
-        010, 126, 151, 143, 157, 064, 047, 001,
-        196, 140, 179, 058, 226, 152, 018, 102,
-        160, 123, 080, 016, 210, 086, 196, 028,
-        053, 231, 012, 157, 169, 019, 158, 063,
-        045, 154, 238, 007, 053, 185, 227, 229,
-        079, 108, 213, 080, 124, 252, 084, 167,
-        216, 085, 134, 144, 129, 149, 041, 081,
-        063, 120, 126, 100, 092, 059, 050, 138, ];
-
+        010, 126, 151, 143, 157, 064, 047, 001, 196, 140, 179, 058, 226, 152, 018, 102, 160, 123,
+        080, 016, 210, 086, 196, 028, 053, 231, 012, 157, 169, 019, 158, 063, 045, 154, 238, 007,
+        053, 185, 227, 229, 079, 108, 213, 080, 124, 252, 084, 167, 216, 085, 134, 144, 129, 149,
+        041, 081, 063, 120, 126, 100, 092, 059, 050, 138,
+    ];
 
     #[test]
     fn serialize_deserialize_signature() {
@@ -172,21 +176,21 @@ mod test {
     #[test]
     fn serialize_public_key_size() {
         let public_key = PublicKey::from_compressed(COMPRESSED_PUBLIC_KEY).unwrap();
-        assert_eq!(serialized_size(&public_key).unwrap(), 32+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&public_key).unwrap(), 32 + 8); // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_signature_size() {
         let signature: Signature = Signature::from_bytes(&SIGNATURE_BYTES).unwrap();
-        assert_eq!(serialized_size(&signature).unwrap(), 64+8);  // Size specific to bincode==1.0.1
+        assert_eq!(serialized_size(&signature).unwrap(), 64 + 8); // Size specific to bincode==1.0.1
     }
 
     #[test]
     fn serialize_secret_key_size() {
-        assert_eq!(serialized_size(&ED25519_SECRET_KEY).unwrap(), 32+8);
+        assert_eq!(serialized_size(&ED25519_SECRET_KEY).unwrap(), 32 + 8);
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Ed25519);
-        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64 + 8); // Sizes specific to bincode==1.0.1
         let secret_key = ED25519_SECRET_KEY.expand(ExpansionMode::Uniform);
-        assert_eq!(serialized_size(&secret_key).unwrap(), 64+8);  // Sizes specific to bincode==1.0.1
+        assert_eq!(serialized_size(&secret_key).unwrap(), 64 + 8); // Sizes specific to bincode==1.0.1
     }
 }

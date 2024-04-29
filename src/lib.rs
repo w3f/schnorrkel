@@ -231,22 +231,25 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use getrandom_or_panic::{RngCore,CryptoRng,getrandom_or_panic};
 use curve25519_dalek::scalar::Scalar;
+use getrandom_or_panic::{getrandom_or_panic, CryptoRng, RngCore};
 
 #[macro_use]
 mod serdey;
 
+pub mod keys;
 pub mod points;
 mod scalars;
-pub mod keys;
 
+pub mod cert;
 pub mod context;
+pub mod derive;
+pub mod errors;
 pub mod sign;
 pub mod vrf;
-pub mod derive;
-pub mod cert;
-pub mod errors;
+
+#[cfg(all(feature = "alloc", feature = "aead"))]
+pub mod olaf;
 
 #[cfg(all(feature = "aead", feature = "getrandom"))]
 pub mod aead;
@@ -256,17 +259,20 @@ mod batch;
 
 // Not safe because need randomness
 
-#[cfg_attr(not(test), deprecated(since = "0.11.0", note = "This module will be replaced in the future"))]
+#[cfg_attr(
+    not(test),
+    deprecated(since = "0.11.0", note = "This module will be replaced in the future")
+)]
 #[cfg(feature = "std")]
 pub mod musig;
 
+pub use crate::context::signing_context; // SigningContext,SigningTranscript
+pub use crate::errors::{SignatureError, SignatureResult};
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair,ExpansionMode}; + *_LENGTH
-pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
-pub use crate::sign::{Signature,SIGNATURE_LENGTH};
-pub use crate::errors::{SignatureError,SignatureResult};
+pub use crate::sign::{Signature, SIGNATURE_LENGTH};
 
 #[cfg(feature = "alloc")]
-pub use crate::batch::{verify_batch,verify_batch_rng,verify_batch_deterministic,PreparedBatch};
+pub use crate::batch::{verify_batch, verify_batch_deterministic, verify_batch_rng, PreparedBatch};
 
 pub(crate) fn scalar_from_canonical_bytes(bytes: [u8; 32]) -> Option<Scalar> {
     let key = Scalar::from_canonical_bytes(bytes);
