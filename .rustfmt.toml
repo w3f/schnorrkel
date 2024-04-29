@@ -20,7 +20,9 @@ match_block_trailing_comma = true
 trailing_comma = "Vertical"
 # trailing_semicolon = false
 # use_field_init_shorthand = true
-# where_single_line = true
+
+# where_single_line = true  # does not work on fn
+# brace_style = "AlwaysNextLine"  # does not work on method fn
 
 # Format comments
 comment_width = 100
