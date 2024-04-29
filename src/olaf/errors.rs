@@ -66,6 +66,8 @@ pub enum DKGError {
     },
     /// Decryption error when decrypting an encrypted secret share.
     DecryptionError(chacha20poly1305::Error),
+    /// Encryption error when encrypting the secret share.
+    EncryptionError(chacha20poly1305::Error),
     /// Incorrect number of coefficient commitments.
     InvalidSecretPolynomialCommitment {
         /// The expected value.

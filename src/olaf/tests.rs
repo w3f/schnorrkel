@@ -396,7 +396,7 @@ mod tests {
                 .get_mut(&participants_sets_of_participants[0].own_identifier)
                 .unwrap();
 
-            private_message.encrypted_secret_share = enc_share;
+            private_message.encrypted_secret_share = enc_share.unwrap();
 
             let result = round3(
                 &participants_sets_of_participants,
@@ -956,7 +956,7 @@ mod tests {
             let original_share = SecretShare(Scalar::random(&mut rng));
 
             let encrypted_share = original_share.encrypt(&deckey, &enckey, context);
-            let decrypted_share = encrypted_share.decrypt(&deckey, &enckey, context);
+            let decrypted_share = encrypted_share.unwrap().decrypt(&deckey, &enckey, context);
 
             assert_eq!(
                 original_share.0,

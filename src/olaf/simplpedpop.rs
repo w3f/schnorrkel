@@ -139,7 +139,7 @@ impl SecretShare {
         decryption_key: &Scalar,
         encryption_key: &RistrettoPoint,
         context: &[u8],
-    ) -> EncryptedSecretShare {
+    ) -> DKGResult<EncryptedSecretShare> {
         let shared_secret = decryption_key * encryption_key;
 
         let mut transcript = Transcript::new(b"encryption");
@@ -152,9 +152,11 @@ impl SecretShare {
         let cipher: ChaCha20Poly1305 = make_aead::<Transcript, ChaCha20Poly1305>(transcript);
         let nonce = Nonce::from_slice(&bytes[..]);
 
-        let ciphertext: Vec<u8> = cipher.encrypt(nonce, &self.0.as_bytes()[..]).unwrap();
+        let ciphertext: Vec<u8> = cipher
+            .encrypt(nonce, &self.0.as_bytes()[..])
+            .map_err(DKGError::EncryptionError)?;
 
-        EncryptedSecretShare(ciphertext)
+        Ok(EncryptedSecretShare(ciphertext))
     }
 }
 
@@ -397,12 +399,12 @@ pub mod round2 {
             deckey: Scalar,
             enckey: RistrettoPoint,
             context: &[u8],
-        ) -> PrivateMessage {
-            let encrypted_secret_share = secret_share.encrypt(&deckey, &enckey, context);
+        ) -> DKGResult<PrivateMessage> {
+            let encrypted_secret_share = secret_share.encrypt(&deckey, &enckey, context)?;
 
-            PrivateMessage {
+            Ok(PrivateMessage {
                 encrypted_secret_share,
-            }
+            })
         }
     }
 
@@ -477,7 +479,7 @@ pub mod round2 {
             &round1_private_data.secret_polynomial,
             round1_private_data.secret_key,
             secret_commitment,
-        );
+        )?;
 
         Ok((public_data, messages))
     }
@@ -664,8 +666,9 @@ pub mod round2 {
         secret_polynomial: &SecretPolynomial,
         secret_key: SecretKey,
         secret_commitment: &SecretCommitment,
-    ) -> Messages {
+    ) -> DKGResult<Messages> {
         let mut private_messages = BTreeMap::new();
+
         let enc_keys: Vec<RistrettoPoint> = round2_public_data
             .round1_public_messages
             .values()
@@ -691,7 +694,7 @@ pub mod round2 {
                     secret_key.key,
                     enc_keys[i],
                     identifier.0.as_bytes(),
-                ),
+                )?,
             );
         }
 
@@ -704,10 +707,10 @@ pub mod round2 {
 
         let public_message = PublicMessage { certificate };
 
-        Messages {
+        Ok(Messages {
             private_messages,
             public_message,
-        }
+        })
     }
 }
 
