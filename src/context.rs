@@ -91,6 +91,7 @@ pub trait SigningTranscript {
 /// We delegates any mutable reference to its base type, like `&mut Rng`
 /// or similar to `BorrowMut<..>` do, but doing so here simplifies
 /// alternative implementations.
+#[rustfmt::skip]
 impl<T> SigningTranscript for &mut T
 where T: SigningTranscript + ?Sized,
 {
@@ -341,6 +342,7 @@ where T: SigningTranscript, R: RngCore+CryptoRng
     rng: RefCell<R>,
 }
 
+#[rustfmt::skip]
 impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>
 where T: SigningTranscript, R: RngCore+CryptoRng
 {
