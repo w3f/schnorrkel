@@ -125,7 +125,8 @@ fn derive_secret_key_from_secret<R: RngCore + CryptoRng>(secret: &Secret, mut rn
     bytes[..32].copy_from_slice(&secret_bytes[..]);
     bytes[32..].copy_from_slice(&nonce[..]);
 
-    SecretKey::from_bytes(&bytes[..]).unwrap() // This never fails because bytes has length 64 and the key is a scalar
+    SecretKey::from_bytes(&bytes[..])
+        .expect("This never fails because bytes has length 64 and the key is a scalar")
 }
 
 /// A secret share, which corresponds to an evaluation of a value that identifies a participant in a secret polynomial.
@@ -263,7 +264,7 @@ pub mod round1 {
             self.secret_polynomial_commitment
                 .coefficients_commitments
                 .first()
-                .unwrap()
+                .expect("This never fails because the minimum threshold of the protocol is 2")
                 .compress()
                 .0
                 .cmp(
@@ -271,7 +272,9 @@ pub mod round1 {
                         .secret_polynomial_commitment
                         .coefficients_commitments
                         .first()
-                        .unwrap()
+                        .expect(
+                            "This never fails because the minimum threshold of the protocol is 2",
+                        )
                         .compress()
                         .0,
                 )
@@ -299,7 +302,12 @@ pub mod round1 {
         let secret_polynomial = loop {
             let temp_polynomial = Polynomial::generate(&mut rng, *parameters.threshold() - 1);
             // There must be a secret, which is the constant coefficient of the secret polynomial
-            if temp_polynomial.coefficients.first().unwrap() != &Scalar::ZERO {
+            if temp_polynomial
+                .coefficients
+                .first()
+                .expect("This never fails because the minimum threshold of the protocol is 2")
+                != &Scalar::ZERO
+            {
                 break temp_polynomial;
             }
         };
@@ -307,14 +315,19 @@ pub mod round1 {
         let secret_polynomial_commitment = PolynomialCommitment::commit(&secret_polynomial);
 
         // This secret key will be used to sign the proof of possession and the certificate
-        let secret_key =
-            derive_secret_key_from_secret(secret_polynomial.coefficients.first().unwrap(), rng);
+        let secret_key = derive_secret_key_from_secret(
+            secret_polynomial
+                .coefficients
+                .first()
+                .expect("This never fails because the minimum threshold of the protocol is 2"),
+            rng,
+        );
 
         let public_key = PublicKey::from_point(
             *secret_polynomial_commitment
                 .coefficients_commitments
                 .first()
-                .unwrap(),
+                .expect("This never fails because the minimum threshold of the protocol is 2"),
         );
 
         let proof_of_possession =
@@ -472,7 +485,7 @@ pub mod round2 {
             .secret_polynomial_commitment
             .coefficients_commitments
             .first()
-            .unwrap();
+            .expect("This never fails because the minimum threshold of the protocol is 2");
 
         let messages = generate_messages(
             &public_data,
@@ -496,7 +509,7 @@ pub mod round2 {
             .secret_polynomial_commitment
             .coefficients_commitments
             .first()
-            .unwrap()
+            .expect("This never fails because the minimum threshold of the protocol is 2")
             .compress();
 
         // Writes the data of all the participants in the transcript ordered by their identifiers
@@ -505,7 +518,7 @@ pub mod round2 {
                 .secret_polynomial_commitment
                 .coefficients_commitments
                 .first()
-                .unwrap()
+                .expect("This never fails because the minimum threshold of the protocol is 2")
                 .compress();
 
             if own_first_coefficient_compressed.0 < message_first_coefficient_compressed.0
@@ -590,7 +603,7 @@ pub mod round2 {
                 msg.secret_polynomial_commitment
                     .coefficients_commitments
                     .first()
-                    .unwrap()
+                    .expect("This never fails because the minimum threshold of the protocol is 2")
                     .compress()
                     .0
             })
@@ -600,7 +613,7 @@ pub mod round2 {
             .secret_polynomial_commitment
             .coefficients_commitments
             .first()
-            .unwrap();
+            .expect("This never fails because the minimum threshold of the protocol is 2");
 
         secret_commitments.insert(own_secret_commitment.compress().0);
 
@@ -618,7 +631,10 @@ pub mod round2 {
             others_identifiers.insert(Identifier(random_scalar));
         }
 
-        let own_identifier = *others_identifiers.iter().nth(index).unwrap();
+        let own_identifier = *others_identifiers
+            .iter()
+            .nth(index)
+            .expect("This never fails because the index < len");
         others_identifiers.remove(&own_identifier);
 
         for (id, message) in others_identifiers.iter().zip(round1_public_messages_set) {
@@ -644,7 +660,7 @@ pub mod round2 {
                     .secret_polynomial_commitment
                     .coefficients_commitments
                     .first()
-                    .unwrap(),
+                    .expect("This never fails because the minimum threshold of the protocol is 2"),
             );
             public_keys.push(public_key);
             proofs_of_possession.push(round1_public_message.proof_of_possession);
@@ -676,7 +692,7 @@ pub mod round2 {
                 *msg.secret_polynomial_commitment
                     .coefficients_commitments
                     .first()
-                    .unwrap()
+                    .expect("This never fails because the minimum threshold of the protocol is 2")
             })
             .collect();
 
@@ -861,16 +877,6 @@ pub mod round3 {
         let mut secret_shares = BTreeMap::new();
 
         for (i, (identifier, private_message)) in round2_private_messages.iter().enumerate() {
-            if !round2_public_data
-                .identifiers
-                .others_identifiers
-                .contains(identifier)
-            {
-                return Err(DKGError::UnknownIdentifierRound2PrivateMessages(
-                    *identifier,
-                ));
-            }
-
             let secret_share = private_message.encrypted_secret_share.decrypt(
                 secret,
                 &round2_public_data.public_keys[i].into_point(),
@@ -884,7 +890,7 @@ pub mod round3 {
             let evaluation = round2_public_data
                 .round1_public_messages
                 .get(identifier)
-                .unwrap()
+                .ok_or(DKGError::UnknownIdentifierRound1PublicMessages(*identifier))?
                 .secret_polynomial_commitment
                 .evaluate(&round2_public_data.identifiers.own_identifier.0);
 
@@ -906,8 +912,10 @@ pub mod round3 {
         let mut total_secret_share = Scalar::ZERO;
 
         for id in &identifiers.others_identifiers {
-            // This never fails because we previously checked
-            total_secret_share += secret_shares.get(id).unwrap().0;
+            total_secret_share += secret_shares
+                .get(id)
+                .ok_or(DKGError::UnknownIdentifierRound2PrivateMessages)?
+                .0;
         }
 
         total_secret_share += own_secret_share;
@@ -960,7 +968,7 @@ pub mod round3 {
             *total_secret_polynomial_commitment
                 .coefficients_commitments
                 .first()
-                .unwrap(),
+                .expect("This never fails because the minimum threshold of the protocol is 2"),
         );
 
         Ok((shared_public_key, group_public_key_shares))

@@ -827,7 +827,7 @@ mod tests {
             ) = round1();
 
             let (
-                participants_round2_public_data,
+                mut participants_round2_public_data,
                 participants_round2_messages,
                 participants_sets_of_participants,
                 identifiers_vec,
@@ -844,13 +844,6 @@ mod tests {
                     .iter()
                     .map(|msg| msg.public_message().clone())
                     .collect();
-
-            let mut identifiers_vec2 = identifiers_vec.clone();
-
-            identifiers_vec2.pop();
-
-            let unknown_identifier = Identifier(Scalar::ONE);
-            identifiers_vec2.push(unknown_identifier);
 
             let participants_round2_private_messages: Vec<
                 BTreeMap<Identifier, round2::PrivateMessage>,
@@ -876,12 +869,27 @@ mod tests {
 
                 for (i, round_messages) in participants_round2_private_messages.iter().enumerate() {
                     if let Some(message) = round_messages.get(&participants.own_identifier) {
-                        messages_for_participant.insert(identifiers_vec2[i], message.clone());
+                        messages_for_participant.insert(identifiers_vec[i], message.clone());
                     }
                 }
 
                 round2_private_messages.push(messages_for_participant);
             }
+
+            let unknown_identifier = Identifier(Scalar::ONE);
+
+            let private_message = round2_private_messages[0].pop_first().unwrap().1;
+            round2_private_messages[0].insert(unknown_identifier, private_message);
+
+            let public_message = participants_round2_public_data[0]
+                .round1_public_messages
+                .pop_first()
+                .unwrap()
+                .1;
+
+            participants_round2_public_data[0]
+                .round1_public_messages
+                .insert(unknown_identifier, public_message);
 
             let result = round3::run(
                 &received_round2_public_messages,
@@ -895,7 +903,7 @@ mod tests {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => assert_eq!(
                     e,
-                    DKGError::UnknownIdentifierRound2PrivateMessages(unknown_identifier),
+                    DKGError::UnknownIdentifierRound2PrivateMessages,
                     "Expected DKGError::UnknownIdentifierRound2PrivateMessages."
                 ),
             }
