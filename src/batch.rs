@@ -77,6 +77,7 @@ where
 }
 
 struct NotAnRng;
+#[rustfmt::skip]
 impl rand_core::RngCore for NotAnRng {
     fn next_u32(&mut self) -> u32 { rand_core::impls::next_u32_via_fill(self) }
 
@@ -120,6 +121,7 @@ where
 /// Verify a batch of `signatures` on `messages` with their respective `public_keys`.
 ///
 /// Inputs and return agree with `verify_batch` except the user supplies their own random number generator.
+#[rustfmt::skip]
 pub fn verify_batch_rng<T,I,R>(
     transcripts: I,
     signatures: &[Signature],
@@ -151,10 +153,12 @@ trait HasR {
     #[allow(non_snake_case)]
     fn get_R(&self) -> &CompressedRistretto;
 }
+#[rustfmt::skip]
 impl HasR for Signature {
     #[allow(non_snake_case)]
     fn get_R(&self) -> &CompressedRistretto { &self.R }
 }
+#[rustfmt::skip]
 impl HasR for CompressedRistretto {
     #[allow(non_snake_case)]
     fn get_R(&self) -> &CompressedRistretto { self }
@@ -163,6 +167,7 @@ impl HasR for CompressedRistretto {
 /// First phase of batch verification that computes the delinierizing
 /// coefficents and challenge hashes
 #[allow(non_snake_case)]
+#[rustfmt::skip]
 fn prepare_batch<T,I,R>(
     transcripts: I,
     signatures: &[impl HasR],
@@ -221,6 +226,7 @@ where
 
 /// Last phase of batch verification that checks the verification equation
 #[allow(non_snake_case)]
+#[rustfmt::skip]
 fn verify_batch_equation(
     bs: Scalar,
     zs: Vec<Scalar>,
@@ -293,6 +299,7 @@ impl PreparedBatch{
 
     /// Create a half-aggregated aka prepared batch signature from many other signatures.
     #[allow(non_snake_case)]
+    #[rustfmt::skip]
     pub fn new<T,I,R>(
         transcripts: I,
         signatures: &[Signature],
@@ -319,6 +326,7 @@ impl PreparedBatch{
 
     /// Verify a half-aggregated aka prepared batch signature
     #[allow(non_snake_case)]
+    #[rustfmt::skip]
     pub fn verify<T,I>(
         &self,
         transcripts: I,
