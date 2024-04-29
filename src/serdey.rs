@@ -11,6 +11,7 @@
 //! ### Various and tooling related to serde
 
 #[cfg(feature = "serde")]
+#[rustfmt::skip]
 macro_rules! serde_boilerplate { ($t:ty) => {
 impl serde_crate::Serialize for $t {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: serde_crate::Serializer {
@@ -51,6 +52,7 @@ mod test {
 
     use crate::*;
 
+    #[rustfmt::skip]
     static COMPRESSED_PUBLIC_KEY : CompressedRistretto = CompressedRistretto([
         208, 120, 140, 129, 177, 179, 237, 159,
         252, 160, 028, 013, 206, 005, 211, 241,
@@ -58,6 +60,7 @@ mod test {
         119, 046, 246, 029, 079, 080, 077, 084]);
 
     /*
+    #[rustfmt::skip]
     static ED25519_PUBLIC_KEY: CompressedEdwardsY = CompressedEdwardsY([
         130, 039, 155, 015, 062, 076, 188, 063,
         124, 122, 026, 251, 233, 253, 225, 220,
@@ -65,6 +68,7 @@ mod test {
         160, 083, 172, 058, 219, 042, 086, 120, ]);
     */
 
+    #[rustfmt::skip]
     static ED25519_SECRET_KEY: MiniSecretKey = MiniSecretKey([
         062, 070, 027, 163, 092, 182, 011, 003,
         077, 234, 098, 004, 011, 127, 079, 228,
@@ -72,6 +76,7 @@ mod test {
         085, 251, 152, 002, 241, 042, 072, 054, ]);
 
     /// Ed25519 signature with the above keypair of a blank message.
+    #[rustfmt::skip]
     static SIGNATURE_BYTES: [u8; SIGNATURE_LENGTH] = [
         010, 126, 151, 143, 157, 064, 047, 001,
         196, 140, 179, 058, 226, 152, 018, 102,
