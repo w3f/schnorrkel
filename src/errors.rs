@@ -111,10 +111,10 @@ pub enum SignatureError {
     },
 }
 
+#[rustfmt::skip]
 impl Display for SignatureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::SignatureError::*;
-        #[rustfmt::skip]
         match *self {
             EquationFalse =>
                 write!(f, "Verification equation failed"),
