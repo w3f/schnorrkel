@@ -6,6 +6,7 @@ use_small_heuristics = "Max"
 # Imports
 imports_granularity = "Preserve"
 reorder_imports = false
+reorder_modules = false
 
 # Consistency
 newline_style = "Unix"
