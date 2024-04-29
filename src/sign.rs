@@ -11,14 +11,15 @@
 
 //! ### Schnorr signature creation and verification, including batch verification.
 
-use core::fmt::Debug;
+use core::fmt::{Debug};
 
 use curve25519_dalek::constants;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use super::*;
-use crate::context::{SigningContext, SigningTranscript};
+
+use crate::context::{SigningTranscript, SigningContext};
 
 // === Actual signature type === //
 

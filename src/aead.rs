@@ -25,15 +25,18 @@ regarded as a pointer, not a recommendation.
 
 // use rand_core::{RngCore,CryptoRng};
 
-use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
-
-use curve25519_dalek::digest::generic_array::typenum::U32;
-
-use curve25519_dalek::{
-    ristretto::CompressedRistretto, // RistrettoPoint
+use aead::{
+    KeyInit, KeySizeUser,
+    generic_array::{GenericArray},
 };
 
-use super::{Keypair, PublicKey, SecretKey, SignatureResult};
+use curve25519_dalek::digest::generic_array::typenum::{U32};
+
+use curve25519_dalek::{
+    ristretto::{CompressedRistretto}, // RistrettoPoint
+};
+
+use super::{SecretKey, PublicKey, Keypair, SignatureResult};
 use crate::context::SigningTranscript;
 
 use crate::cert::AdaptorCertPublic;

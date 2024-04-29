@@ -231,8 +231,8 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+use getrandom_or_panic::{RngCore, CryptoRng, getrandom_or_panic};
 use curve25519_dalek::scalar::Scalar;
-use getrandom_or_panic::{getrandom_or_panic, CryptoRng, RngCore};
 
 #[macro_use]
 mod serdey;
@@ -266,13 +266,13 @@ mod batch;
 #[cfg(feature = "std")]
 pub mod musig;
 
-pub use crate::context::signing_context; // SigningContext,SigningTranscript
-pub use crate::errors::{SignatureError, SignatureResult};
 pub use crate::keys::*; // {MiniSecretKey,SecretKey,PublicKey,Keypair,ExpansionMode}; + *_LENGTH
+pub use crate::context::{signing_context}; // SigningContext,SigningTranscript
 pub use crate::sign::{Signature, SIGNATURE_LENGTH};
+pub use crate::errors::{SignatureError, SignatureResult};
 
 #[cfg(feature = "alloc")]
-pub use crate::batch::{verify_batch, verify_batch_deterministic, verify_batch_rng, PreparedBatch};
+pub use crate::batch::{verify_batch, verify_batch_rng, verify_batch_deterministic, PreparedBatch};
 
 pub(crate) fn scalar_from_canonical_bytes(bytes: [u8; 32]) -> Option<Scalar> {
     let key = Scalar::from_canonical_bytes(bytes);

@@ -163,6 +163,7 @@ where
 /// which should also be secure in combination with HDKD.
 /// We always use non-malleable VRF inputs in our convenience methods.
 #[derive(Clone)]
+#[rustfmt::skip]
 pub struct Malleable<T: SigningTranscript>(pub T);
 impl<T> VRFSigningTranscript for Malleable<T>
 where
@@ -395,6 +396,7 @@ impl VRFInOut {
     pub fn make_merlin_rng(&self, context: &[u8]) -> merlin::TranscriptRng {
         // Very insecure hack except for our commit_witness_bytes below
         struct ZeroFakeRng;
+        #[rustfmt::skip]
         impl rand_core::RngCore for ZeroFakeRng {
             fn next_u32(&mut self) -> u32 {
                 panic!()
@@ -444,7 +446,8 @@ impl PublicKey {
     ///
     /// TODO: Add constant time 128 bit batched multiplication to dalek.
     /// TODO: Is rand_chacha's `gen::<u128>()` standardizable enough to
-    /// prefer it over merlin for the output?  
+    /// prefer it over merlin for the output?
+    #[rustfmt::skip]
     pub fn vrfs_merge<B>(&self, ps: &[B], vartime: bool) -> VRFInOut
     where
         B: Borrow<VRFInOut>,
@@ -603,15 +606,9 @@ impl VRFProofBatchable {
 
     /// Return the shortened `VRFProof` for retransmitting in not batched situations
     #[allow(non_snake_case)]
-    pub fn shorten_dleq<T>(
-        &self,
-        mut t: T,
-        public: &PublicKey,
-        p: &VRFInOut,
-        kusama: bool,
-    ) -> VRFProof
-    where
-        T: SigningTranscript,
+    #[rustfmt::skip]
+    pub fn shorten_dleq<T>(&self, mut t: T, public: &PublicKey, p: &VRFInOut, kusama: bool) -> VRFProof
+    where T: SigningTranscript,
     {
         t.proto_name(b"DLEQProof");
         // t.commit_point(b"vrf:g",constants::RISTRETTO_BASEPOINT_TABLE.basepoint().compress());
@@ -664,12 +661,8 @@ impl Keypair {
     /// using one of the `vrf_create_*` methods on `SecretKey`.
     /// If so, we produce a proof that this multiplication was done correctly.
     #[allow(non_snake_case)]
-    pub fn dleq_proove<T>(
-        &self,
-        mut t: T,
-        p: &VRFInOut,
-        kusama: bool,
-    ) -> (VRFProof, VRFProofBatchable)
+    #[rustfmt::skip]
+    pub fn dleq_proove<T>(&self, mut t: T, p: &VRFInOut, kusama: bool) -> (VRFProof, VRFProofBatchable)
     where
         T: SigningTranscript,
     {
@@ -826,6 +819,7 @@ impl PublicKey {
     /// risk the same flaws as DLEQ based blind signatures, and this
     /// version exploits the slightly faster basepoint arithmetic.
     #[allow(non_snake_case)]
+    #[rustfmt::skip]
     pub fn dleq_verify<T>(
         &self,
         mut t: T,
@@ -927,7 +921,8 @@ impl PublicKey {
 
     /// Verify a common VRF short proof for several input transcripts and corresponding outputs.
     #[cfg(feature = "alloc")]
-    pub fn vrfs_verify_extra<T, E, I, O>(
+    #[rustfmt::skip]
+    pub fn vrfs_verify_extra<T,E,I,O>(
         &self,
         transcripts: I,
         outs: &[O],
@@ -972,6 +967,7 @@ impl PublicKey {
 /// separate calls.
 #[cfg(feature = "alloc")]
 #[allow(non_snake_case)]
+#[rustfmt::skip]
 pub fn dleq_verify_batch(
     ps: &[VRFInOut],
     proofs: &[VRFProofBatchable],

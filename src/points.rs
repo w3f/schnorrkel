@@ -50,6 +50,7 @@ impl ConstantTimeEq for RistrettoBoth {
     }
 }
 
+#[rustfmt::skip]
 impl RistrettoBoth {
     const DESCRIPTION: &'static str = "A ristretto point represented as a 32-byte compressed point";
 

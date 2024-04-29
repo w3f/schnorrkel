@@ -34,7 +34,7 @@ use curve25519_dalek::scalar::Scalar;
 /// abstract enough to support conventional hash functions as well.
 ///
 /// We warn however that conventional hash functions do not provide
-/// strong enough domain seperation for usage via `&mut` references.
+/// strong enough domain separation for usage via `&mut` references.
 ///
 /// We fold randomness into witness generation here too, which
 /// gives every function that takes a `SigningTranscript` a default
@@ -95,6 +95,7 @@ pub trait SigningTranscript {
 /// We delegates any mutable reference to its base type, like `&mut Rng`
 /// or similar to `BorrowMut<..>` do, but doing so here simplifies
 /// alternative implementations.
+#[rustfmt::skip]
 impl<T> SigningTranscript for &mut T
 where
     T: SigningTranscript + ?Sized,
@@ -212,7 +213,7 @@ impl SigningContext {
     ///
     /// Avoid this method when processing large slices because it
     /// calls `merlin::Transcript::append_message` directly and
-    /// `merlin` is designed for domain seperation, not performance.
+    /// `merlin` is designed for domain separation, not performance.
     #[inline(always)]
     pub fn bytes(&self, bytes: &[u8]) -> Transcript {
         let mut t = self.0.clone();
@@ -380,10 +381,9 @@ where
     rng: RefCell<R>,
 }
 
-impl<T, R> SigningTranscript for SigningTranscriptWithRng<T, R>
-where
-    T: SigningTranscript,
-    R: RngCore + CryptoRng,
+#[rustfmt::skip]
+impl<T,R> SigningTranscript for SigningTranscriptWithRng<T,R>
+where T: SigningTranscript, R: RngCore+CryptoRng
 {
     fn commit_bytes(&mut self, label: &'static [u8], bytes: &[u8]) {
         self.t.commit_bytes(label, bytes)
