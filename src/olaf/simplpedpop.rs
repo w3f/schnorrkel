@@ -14,7 +14,8 @@
 //! after getting out of scope (security reasons). Public messages are destined to all the other participants, while private
 //! messages are destined to a single participant.
 
-use crate::{aead::make_aead, context::SigningTranscript, SecretKey, Signature};
+use crate::{context::SigningTranscript, SecretKey, Signature};
+use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
 use alloc::{collections::BTreeSet, vec::Vec};
 use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
@@ -144,8 +145,16 @@ impl SecretShare {
         let mut bytes = [0; 12];
         transcript.challenge_bytes(b"nonce", &mut bytes);
 
-        let cipher: ChaCha20Poly1305 = make_aead::<Transcript, ChaCha20Poly1305>(transcript);
         let nonce = Nonce::from_slice(&bytes[..]);
+
+        let mut key: GenericArray<
+            u8,
+            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
+        > = Default::default();
+
+        transcript.challenge_bytes(b"", key.as_mut_slice());
+
+        let cipher = ChaCha20Poly1305::new(&key);
 
         let ciphertext: Vec<u8> = cipher
             .encrypt(nonce, &self.0.as_bytes()[..])
@@ -176,8 +185,16 @@ impl EncryptedSecretShare {
         let mut bytes = [0; 12];
         transcript.challenge_bytes(b"nonce", &mut bytes);
 
-        let cipher: ChaCha20Poly1305 = make_aead::<Transcript, ChaCha20Poly1305>(transcript);
-        let nonce = Nonce::from_slice(&bytes[..]);
+        let nonce = Nonce::from_slice(&bytes);
+
+        let mut key: GenericArray<
+            u8,
+            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
+        > = Default::default();
+
+        transcript.challenge_bytes(b"", key.as_mut_slice());
+
+        let cipher = ChaCha20Poly1305::new(&key);
 
         let plaintext = cipher.decrypt(nonce, &self.0[..]).map_err(DKGError::DecryptionError)?;
 

@@ -41,7 +41,7 @@ use crate::context::SigningTranscript;
 
 use crate::cert::AdaptorCertPublic;
 
-pub(crate) fn make_aead<T, AEAD>(mut t: T) -> AEAD
+fn make_aead<T, AEAD>(mut t: T) -> AEAD
 where
     T: SigningTranscript,
     AEAD: KeyInit,
