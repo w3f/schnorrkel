@@ -34,9 +34,7 @@ serde_bytes = { version = "0.11.5", default-features = false, optional = true }
 cfg-if = { version = "1.0.0", optional = true }
 sha2 = { version = "0.10.7", default-features = false }
 failure = { version = "0.1.8", default-features = false, optional = true }
-zeroize = { version = "1.6", default-features = false, features = [
-    "zeroize_derive",
-] }
+zeroize = { version = "1.6", default-features = false, features = ["zeroize_derive"] }
 derive-getters = "0.3.0"
 chacha20poly1305 = { version = "0.10.1", default-features = false }
 hex = { version = "0.4", default-features = true, optional = true }
@@ -59,15 +57,6 @@ name = "olaf_benchmarks"
 required-features = ["alloc", "aead"]
 
 [features]
-std = [
-    "alloc",
-    "getrandom",
-    "serde_bytes/std",
-    "rand_core/std",
-    "getrandom_or_panic/std",
-    "chacha20poly1305/std",
-    "hex/std",
-]
 default = ["std", "getrandom"]
 preaudit_deprecated = []
 nightly = []
@@ -76,6 +65,15 @@ alloc = [
     "rand_core/alloc",
     "getrandom_or_panic/alloc",
     "serde_bytes/alloc",
+]
+std = [
+    "alloc",
+    "getrandom",
+    "serde_bytes/std",
+    "rand_core/std",
+    "getrandom_or_panic/std",
+    "chacha20poly1305/std",
+    "hex/std",
 ]
 asm = ["sha2/asm"]
 serde = ["dep:serde", "serde_bytes", "cfg-if"]
