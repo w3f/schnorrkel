@@ -248,10 +248,10 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
-//#[cfg(all(feature = "alloc", feature = "aead"))]
+#[cfg(all(feature = "alloc", feature = "aead"))]
 pub mod olaf;
 
-//#[cfg(all(feature = "aead", feature = "getrandom"))]
+#[cfg(all(feature = "aead", feature = "getrandom"))]
 pub mod aead;
 
 #[cfg(feature = "alloc")]
