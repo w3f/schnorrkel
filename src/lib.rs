@@ -248,11 +248,14 @@ pub mod derive;
 pub mod cert;
 pub mod errors;
 
+#[cfg(feature = "alloc")]
+mod batch;
+
 #[cfg(all(feature = "aead", feature = "getrandom"))]
 pub mod aead;
 
-#[cfg(feature = "alloc")]
-mod batch;
+#[cfg(all(feature = "alloc", feature = "aead"))]
+pub mod olaf;
 
 // Not safe because need randomness
 
