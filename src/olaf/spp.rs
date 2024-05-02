@@ -56,10 +56,6 @@ impl Keypair {
         let mut recipiants_hash = [0u8; 16];
         t.challenge_bytes(b"finalize", &mut recipiants_hash);
 
-        for i in [0..parameters.participants] {
-            let mut p = t.clone
-        }
-
         // uses identifier(recipiants_hash, i)
         let point_polynomial = ...
         let scalar_evaluations = ...
