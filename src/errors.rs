@@ -150,7 +150,7 @@ impl failure::Fail for SignatureError {}
 #[cfg(feature = "serde")]
 pub fn serde_error_from_signature_error<E>(err: SignatureError) -> E
 where
-    E: serde_crate::de::Error,
+    E: serde::de::Error,
 {
     E::custom(err)
 }
