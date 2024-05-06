@@ -17,7 +17,7 @@ use super::{
         evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
         sum_commitments,
     },
-    GENERATOR, MINIMUM_THRESHOLD,
+    GENERATOR,
 };
 
 impl Keypair {
@@ -126,16 +126,16 @@ impl Keypair {
         &self,
         messages: &[AllMessage],
     ) -> DKGResult<(DKGOutput, Scalar)> {
-        if messages.len() < MINIMUM_THRESHOLD as usize {
-            return Err(DKGError::InvalidNumberOfMessages);
-        }
-
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;
         let participants = parameters.participants as usize;
 
         first_message.content.parameters.validate()?;
+
+        if messages.len() < participants {
+            return Err(DKGError::InvalidNumberOfMessages);
+        }
 
         let mut secret_shares = Vec::with_capacity(participants);
         let mut verifying_keys = Vec::with_capacity(participants);

@@ -42,6 +42,7 @@ pub(crate) fn generate_coefficients<R: RngCore + CryptoRng>(
     while first == Scalar::ZERO {
         first = Scalar::random(rng);
     }
+
     coefficients.push(first);
     coefficients.extend(iter::repeat_with(|| Scalar::random(rng)).take(size - 1));
 
