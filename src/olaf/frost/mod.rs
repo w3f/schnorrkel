@@ -22,16 +22,16 @@ impl Keypair {
     /// perform the first round. Batching entails generating more than one
     /// nonce/commitment pair at a time.  Nonces should be stored in secret storage
     /// for later use, whereas the commitments are published.
-    pub fn preprocess<R>(
-        num_nonces: u8,
-        secret: &Scalar,
-    ) -> (Vec<SigningNonces>, Vec<SigningCommitments>) {
+    pub fn preprocess(&self, num_nonces: u8) -> (Vec<SigningNonces>, Vec<SigningCommitments>) {
+        let mut rng = crate::getrandom_or_panic();
+
         let mut signing_nonces: Vec<SigningNonces> = Vec::with_capacity(num_nonces as usize);
+
         let mut signing_commitments: Vec<SigningCommitments> =
             Vec::with_capacity(num_nonces as usize);
 
         for _ in 0..num_nonces {
-            let nonces = SigningNonces::new(secret);
+            let nonces = SigningNonces::new(&self.secret.key, &mut rng);
             signing_commitments.push(SigningCommitments::from(&nonces));
             signing_nonces.push(nonces);
         }
