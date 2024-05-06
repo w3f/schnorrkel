@@ -80,7 +80,7 @@ impl Keypair {
                     i as usize,
                 )
             })
-            .collect::<DKGResult<_>>()?;
+            .collect::<DKGResult<Vec<Vec<u8>>>>()?;
 
         let pk = &PublicKey::from_point(
             *point_polynomial

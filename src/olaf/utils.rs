@@ -38,14 +38,11 @@ pub(crate) fn generate_coefficients<R: RngCore + CryptoRng>(
 ) -> Vec<Scalar> {
     let mut coefficients = Vec::with_capacity(size);
 
-    // Ensure the first coefficient is not zero
     let mut first = Scalar::random(rng);
     while first == Scalar::ZERO {
         first = Scalar::random(rng);
     }
     coefficients.push(first);
-
-    // Generate the remaining coefficients
     coefficients.extend(iter::repeat_with(|| Scalar::random(rng)).take(size - 1));
 
     coefficients
@@ -153,4 +150,36 @@ pub(crate) fn decrypt<T: SigningTranscript>(
     bytes.copy_from_slice(&plaintext);
 
     Ok(Scalar::from_bytes_mod_order(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use merlin::Transcript;
+    use crate::Keypair;
+    use rand_core::OsRng;
+    use super::*;
+
+    #[test]
+    fn test_encryption_decryption() {
+        let mut rng = OsRng;
+        let ephemeral_key = Keypair::generate();
+        let recipient = Keypair::generate();
+        let encryption_nonce = [1; ENCRYPTION_NONCE_LENGTH];
+        let t = Transcript::new(b"label");
+        let key_exchange = ephemeral_key.secret.key * recipient.public.as_point();
+        let plaintext = Scalar::random(&mut rng);
+
+        let encrypted_share = encrypt(
+            &plaintext,
+            &ephemeral_key.secret.key,
+            t.clone(),
+            &recipient.public,
+            &encryption_nonce,
+            0,
+        )
+        .unwrap();
+
+        decrypt(t, &recipient.public, &key_exchange, &encrypted_share, &encryption_nonce, 0)
+            .unwrap();
+    }
 }

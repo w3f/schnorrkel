@@ -1,214 +1,349 @@
 #[cfg(test)]
 mod tests {
-    use crate::olaf::data_structures::{
-        AllMessage, DKGOutput, DKGOutputContent, MessageContent, Parameters,
-        CHACHA20POLY1305_LENGTH, ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
-    };
-    use crate::olaf::utils::{decrypt, encrypt};
-    use crate::olaf::GENERATOR;
-    use crate::{Keypair, PublicKey};
-    use alloc::vec::Vec;
-    use curve25519_dalek::ristretto::RistrettoPoint;
-    use curve25519_dalek::scalar::Scalar;
-    use merlin::Transcript;
-    use rand::rngs::OsRng;
+    mod simplpedpop {
+        use crate::olaf::data_structures::{
+            AllMessage, Parameters, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
+        };
+        use crate::olaf::errors::DKGError;
+        use crate::olaf::{GENERATOR, MINIMUM_THRESHOLD};
+        use crate::{Keypair, PublicKey};
+        use alloc::vec::Vec;
+        use curve25519_dalek::ristretto::RistrettoPoint;
+        use curve25519_dalek::traits::Identity;
+        use merlin::Transcript;
 
-    #[test]
-    fn test_simplpedpop_protocol() {
-        // Create participants
-        let threshold = 2;
-        let participants = 2;
-        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+        #[test]
+        fn test_simplpedpop_protocol() {
+            let threshold = 2;
+            let participants = 2;
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
 
-        // Each participant creates an AllMessage
-        let mut all_messages = Vec::new();
-        for i in 0..participants {
-            let message: AllMessage =
-                keypairs[i].simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap();
-            all_messages.push(message);
-        }
+            let mut all_messages = Vec::new();
+            for i in 0..participants {
+                let message: AllMessage =
+                    keypairs[i].simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap();
+                all_messages.push(message);
+            }
 
-        let mut dkg_outputs = Vec::new();
+            let mut dkg_outputs = Vec::new();
 
-        for kp in keypairs.iter() {
-            let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-            dkg_outputs.push(dkg_output);
-        }
+            for kp in keypairs.iter() {
+                let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+                dkg_outputs.push(dkg_output);
+            }
 
-        // Verify that all DKG outputs are equal for group_public_key and verifying_keys
-        assert!(
-            dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key
-                == w[1].0.content.group_public_key
-                && w[0].0.content.verifying_keys.len() == w[1].0.content.verifying_keys.len()
-                && w[0]
-                    .0
-                    .content
-                    .verifying_keys
-                    .iter()
-                    .zip(w[1].0.content.verifying_keys.iter())
-                    .all(|(a, b)| a == b)),
-            "All DKG outputs should have identical group public keys and verifying keys."
-        );
+            // Verify that all DKG outputs are equal for group_public_key and verifying_keys
+            assert!(
+                dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key
+                    == w[1].0.content.group_public_key
+                    && w[0].0.content.verifying_keys.len() == w[1].0.content.verifying_keys.len()
+                    && w[0]
+                        .0
+                        .content
+                        .verifying_keys
+                        .iter()
+                        .zip(w[1].0.content.verifying_keys.iter())
+                        .all(|(a, b)| a == b)),
+                "All DKG outputs should have identical group public keys and verifying keys."
+            );
 
-        // Verify that all verifying_keys are valid
-        for i in 0..participants {
-            for j in 0..participants {
-                assert_eq!(
-                    dkg_outputs[i].0.content.verifying_keys[j].compress(),
-                    (dkg_outputs[j].1 * GENERATOR).compress(),
-                    "Verification of total secret shares failed!"
-                );
+            // Verify that all verifying_keys are valid
+            for i in 0..participants {
+                for j in 0..participants {
+                    assert_eq!(
+                        dkg_outputs[i].0.content.verifying_keys[j].compress(),
+                        (dkg_outputs[j].1 * GENERATOR).compress(),
+                        "Verification of total secret shares failed!"
+                    );
+                }
             }
         }
-    }
 
-    #[test]
-    fn test_serialize_deserialize_all_message() {
-        let sender = Keypair::generate();
-        let encryption_nonce = [1u8; ENCRYPTION_NONCE_LENGTH];
-        let parameters = Parameters { participants: 2, threshold: 1 };
-        let recipients_hash = [2u8; RECIPIENTS_HASH_LENGTH];
-        let point_polynomial =
-            vec![RistrettoPoint::random(&mut OsRng), RistrettoPoint::random(&mut OsRng)];
-        let ciphertexts = vec![vec![1; CHACHA20POLY1305_LENGTH], vec![1; CHACHA20POLY1305_LENGTH]];
-        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
-        let signature = sender.sign(Transcript::new(b"sig"));
-        let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
+        #[test]
+        fn test_insufficient_messages_below_threshold() {
+            let threshold = 3;
+            let participants = 5;
 
-        let message_content = MessageContent::new(
-            sender.public,
-            encryption_nonce,
-            parameters,
-            recipients_hash,
-            point_polynomial,
-            ciphertexts,
-            ephemeral_key,
-            proof_of_possession,
-        );
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-        let message = AllMessage::new(message_content, signature);
-
-        let bytes = message.to_bytes();
-
-        let deserialized_message = AllMessage::from_bytes(&bytes).expect("Failed to deserialize");
-
-        assert_eq!(message.content.sender, deserialized_message.content.sender);
-
-        assert_eq!(message.content.encryption_nonce, deserialized_message.content.encryption_nonce);
-
-        assert_eq!(
-            message.content.parameters.participants,
-            deserialized_message.content.parameters.participants
-        );
-
-        assert_eq!(
-            message.content.parameters.threshold,
-            deserialized_message.content.parameters.threshold
-        );
-
-        assert_eq!(message.content.recipients_hash, deserialized_message.content.recipients_hash);
-
-        assert!(message
-            .content
-            .point_polynomial
-            .iter()
-            .zip(deserialized_message.content.point_polynomial.iter())
-            .all(|(a, b)| a.compress() == b.compress()));
-
-        assert!(message
-            .content
-            .ciphertexts
-            .iter()
-            .zip(deserialized_message.content.ciphertexts.iter())
-            .all(|(a, b)| a == b));
-
-        assert_eq!(
-            message.content.proof_of_possession,
-            deserialized_message.content.proof_of_possession
-        );
-
-        assert_eq!(message.signature, deserialized_message.signature);
-    }
-
-    #[test]
-    fn test_dkg_output_serialization() {
-        let mut rng = OsRng;
-        let group_public_key = RistrettoPoint::random(&mut rng);
-        let verifying_keys = vec![
-            RistrettoPoint::random(&mut rng),
-            RistrettoPoint::random(&mut rng),
-            RistrettoPoint::random(&mut rng),
-        ];
-
-        let dkg_output_content = DKGOutputContent {
-            group_public_key: PublicKey::from_point(group_public_key),
-            verifying_keys,
-        };
-
-        let keypair = Keypair::generate();
-        let signature = keypair.sign(Transcript::new(b"test"));
-
-        let dkg_output =
-            DKGOutput { sender: keypair.public, content: dkg_output_content, signature };
-
-        // Serialize the DKGOutput
-        let bytes = dkg_output.to_bytes();
-
-        // Deserialize the DKGOutput
-        let deserialized_dkg_output =
-            DKGOutput::from_bytes(&bytes).expect("Deserialization failed");
-
-        // Check if the deserialized content matches the original
-        assert_eq!(
-            deserialized_dkg_output.content.group_public_key.as_compressed(),
-            dkg_output.content.group_public_key.as_compressed(),
-            "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_dkg_output.content.verifying_keys.len(),
-            dkg_output.content.verifying_keys.len(),
-            "Verifying keys counts do not match"
-        );
-
-        assert!(
-            deserialized_dkg_output
-                .content
-                .verifying_keys
+            let messages: Vec<AllMessage> = keypairs
                 .iter()
-                .zip(dkg_output.content.verifying_keys.iter())
-                .all(|(a, b)| a == b),
-            "Verifying keys do not match"
-        );
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .take(MINIMUM_THRESHOLD as usize - 1)
+                .collect();
 
-        assert_eq!(
-            deserialized_dkg_output.signature.s, dkg_output.signature.s,
-            "Signatures do not match"
-        );
-    }
+            let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-    #[test]
-    fn test_encryption_decryption() {
-        let mut rng = OsRng;
-        let ephemeral_key = Keypair::generate();
-        let recipient = Keypair::generate();
-        let encryption_nonce = [1; ENCRYPTION_NONCE_LENGTH];
-        let t = Transcript::new(b"label");
-        let key_exchange = ephemeral_key.secret.key * recipient.public.as_point();
-        let plaintext = Scalar::random(&mut rng);
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InvalidNumberOfMessages => assert!(true),
+                    _ => {
+                        panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
+                    },
+                },
+            }
+        }
 
-        let encrypted_share = encrypt(
-            &plaintext,
-            &ephemeral_key.secret.key,
-            t.clone(),
-            &recipient.public,
-            &encryption_nonce,
-            0,
-        )
-        .unwrap();
+        #[test]
+        fn test_different_parameters() {
+            // Define threshold and participants
+            let threshold = 3;
+            let participants = 5;
 
-        decrypt(t, &recipient.public, &key_exchange, &encrypted_share, &encryption_nonce, 0)
-            .unwrap();
+            // Generate keypairs for participants
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            // Each participant creates an AllMessage with different parameters
+            let mut messages: Vec<AllMessage> = Vec::new();
+            for i in 0..participants {
+                let mut parameters = Parameters::generate(participants as u16, threshold);
+                // Modify parameters for the first participant
+                if i == 0 {
+                    parameters.threshold += 1; // Modify threshold
+                }
+                let message = keypairs[i]
+                    .simplpedpop_contribute_all(parameters.threshold, public_keys.clone())
+                    .unwrap();
+                messages.push(message);
+            }
+
+            // Call simplpedpop_recipient_all
+            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+
+            // Check if the result is an error
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::DifferentParameters => assert!(true),
+                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_different_recipients_hash() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].content.recipients_hash = [1; RECIPIENTS_HASH_LENGTH];
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::DifferentRecipientsHash => assert!(true),
+                    _ => {
+                        panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
+                    },
+                },
+            }
+        }
+
+        #[test]
+        fn test_incorrect_number_of_commitments() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].content.point_polynomial.pop();
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::IncorrectNumberOfCommitments => assert!(true),
+                    _ => panic!("Expected DKGError::IncorrectNumberOfCommitments, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_incorrect_number_of_encrypted_shares() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].content.ciphertexts.pop();
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::IncorrectNumberOfEncryptedShares => assert!(true),
+                    _ => panic!(
+                        "Expected DKGError::IncorrectNumberOfEncryptedShares, but got {:?}",
+                        e
+                    ),
+                },
+            }
+        }
+
+        #[test]
+        fn test_invalid_secret_share() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].content.ciphertexts[0] = vec![1; CHACHA20POLY1305_LENGTH];
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages[0..participants - 1]);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InvalidSecretShare => assert!(true),
+                    _ => panic!("Expected DKGError::InvalidSecretShare, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_invalid_proof_of_possession() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].content.proof_of_possession =
+                keypairs[1].secret.sign(Transcript::new(b"invalid"), &keypairs[1].public);
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages[0..participants - 1]);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InvalidProofOfPossession(_) => assert!(true),
+                    _ => panic!("Expected DKGError::InvalidProofOfPossession, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_invalid_signature() {
+            let threshold = 3;
+            let participants = 5;
+
+            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+            let mut messages: Vec<AllMessage> = keypairs
+                .iter()
+                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+                .collect();
+
+            messages[1].signature =
+                keypairs[1].secret.sign(Transcript::new(b"invalid"), &keypairs[1].public);
+
+            let result = keypairs[0].simplpedpop_recipient_all(&messages[0..participants - 1]);
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InvalidSignature(_) => assert!(true),
+                    _ => panic!("Expected DKGError::InvalidSignature, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_invalid_threshold() {
+            let keypair = Keypair::generate();
+            let result = keypair.simplpedpop_contribute_all(
+                1,
+                vec![
+                    PublicKey::from_point(RistrettoPoint::identity()),
+                    PublicKey::from_point(RistrettoPoint::identity()),
+                ],
+            );
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InsufficientThreshold => assert!(true),
+                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                },
+            }
+        }
+
+        #[test]
+        fn test_invalid_participants() {
+            let keypair = Keypair::generate();
+            let result = keypair.simplpedpop_contribute_all(
+                2,
+                vec![PublicKey::from_point(RistrettoPoint::identity())],
+            );
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::InvalidNumberOfParticipants => assert!(true),
+                    _ => {
+                        panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
+                    },
+                },
+            }
+        }
+
+        #[test]
+        fn test_threshold_greater_than_participants() {
+            let keypair = Keypair::generate();
+            let result = keypair.simplpedpop_contribute_all(
+                3,
+                vec![
+                    PublicKey::from_point(RistrettoPoint::identity()),
+                    PublicKey::from_point(RistrettoPoint::identity()),
+                ],
+            );
+
+            match result {
+                Ok(_) => panic!("Expected an error, but got Ok."),
+                Err(e) => match e {
+                    DKGError::ExcessiveThreshold => assert!(true),
+                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                },
+            }
+        }
     }
 }

@@ -150,19 +150,16 @@ impl MessageContent {
     pub fn from_bytes(bytes: &[u8]) -> Result<MessageContent, DKGError> {
         let mut cursor = 0;
 
-        // Deserialize PublicKey
         let sender = PublicKey::from_bytes(&bytes[cursor..cursor + PUBLIC_KEY_LENGTH])
             .map_err(DKGError::InvalidPublicKey)?;
         cursor += PUBLIC_KEY_LENGTH;
 
-        // Deserialize encryption_nonce
         let encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH] = bytes
             [cursor..cursor + ENCRYPTION_NONCE_LENGTH]
             .try_into()
             .map_err(DKGError::DeserializationError)?;
         cursor += ENCRYPTION_NONCE_LENGTH;
 
-        // Deserialize Parameters
         let participants = u16::from_le_bytes(
             bytes[cursor..cursor + U16_LENGTH]
                 .try_into()
@@ -283,15 +280,12 @@ impl DKGOutputContent {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        // Serialize the group public key
         let compressed_public_key = self.group_public_key.as_compressed(); // Assuming PublicKey can be compressed directly
         bytes.extend(compressed_public_key.to_bytes().iter());
 
-        // Serialize the number of verifying keys
         let key_count = self.verifying_keys.len() as u16;
         bytes.extend(key_count.to_le_bytes());
 
-        // Serialize each verifying key
         for key in &self.verifying_keys {
             let compressed_key = key.compress();
             bytes.extend(compressed_key.to_bytes());
@@ -306,7 +300,6 @@ impl DKGOutputContent {
     pub fn from_bytes(bytes: &[u8]) -> Result<DKGOutputContent, DKGError> {
         let mut cursor = 0;
 
-        // Deserialize the group public key
         let public_key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH]; // Ristretto points are 32 bytes when compressed
         cursor += PUBLIC_KEY_LENGTH;
         let compressed_public_key = CompressedRistretto::from_slice(public_key_bytes)
@@ -314,13 +307,11 @@ impl DKGOutputContent {
         let group_public_key =
             compressed_public_key.decompress().ok_or(DKGError::InvalidRistrettoPoint)?;
 
-        // Deserialize the number of verifying keys
         let key_count_bytes = &bytes[cursor..cursor + U16_LENGTH];
         cursor += U16_LENGTH;
         let key_count =
             u16::from_le_bytes(key_count_bytes.try_into().map_err(DKGError::DeserializationError)?);
 
-        // Deserialize each verifying key
         let mut verifying_keys = Vec::with_capacity(key_count as usize);
         for _ in 0..key_count {
             let key_bytes = &bytes[cursor..cursor + COMPRESSED_RISTRETTO_LENGTH];
@@ -335,5 +326,138 @@ impl DKGOutputContent {
             group_public_key: PublicKey::from_point(group_public_key),
             verifying_keys,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use merlin::Transcript;
+    use rand_core::OsRng;
+    use crate::Keypair;
+    use super::*;
+
+    #[test]
+    fn test_serialize_deserialize_all_message() {
+        let sender = Keypair::generate();
+        let encryption_nonce = [1u8; ENCRYPTION_NONCE_LENGTH];
+        let parameters = Parameters { participants: 2, threshold: 1 };
+        let recipients_hash = [2u8; RECIPIENTS_HASH_LENGTH];
+        let point_polynomial =
+            vec![RistrettoPoint::random(&mut OsRng), RistrettoPoint::random(&mut OsRng)];
+        let ciphertexts = vec![vec![1; CHACHA20POLY1305_LENGTH], vec![1; CHACHA20POLY1305_LENGTH]];
+        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
+        let signature = sender.sign(Transcript::new(b"sig"));
+        let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
+
+        let message_content = MessageContent::new(
+            sender.public,
+            encryption_nonce,
+            parameters,
+            recipients_hash,
+            point_polynomial,
+            ciphertexts,
+            ephemeral_key,
+            proof_of_possession,
+        );
+
+        let message = AllMessage::new(message_content, signature);
+
+        let bytes = message.to_bytes();
+
+        let deserialized_message = AllMessage::from_bytes(&bytes).expect("Failed to deserialize");
+
+        assert_eq!(message.content.sender, deserialized_message.content.sender);
+
+        assert_eq!(message.content.encryption_nonce, deserialized_message.content.encryption_nonce);
+
+        assert_eq!(
+            message.content.parameters.participants,
+            deserialized_message.content.parameters.participants
+        );
+
+        assert_eq!(
+            message.content.parameters.threshold,
+            deserialized_message.content.parameters.threshold
+        );
+
+        assert_eq!(message.content.recipients_hash, deserialized_message.content.recipients_hash);
+
+        assert!(message
+            .content
+            .point_polynomial
+            .iter()
+            .zip(deserialized_message.content.point_polynomial.iter())
+            .all(|(a, b)| a.compress() == b.compress()));
+
+        assert!(message
+            .content
+            .ciphertexts
+            .iter()
+            .zip(deserialized_message.content.ciphertexts.iter())
+            .all(|(a, b)| a == b));
+
+        assert_eq!(
+            message.content.proof_of_possession,
+            deserialized_message.content.proof_of_possession
+        );
+
+        assert_eq!(message.signature, deserialized_message.signature);
+    }
+
+    #[test]
+    fn test_dkg_output_serialization() {
+        let mut rng = OsRng;
+        let group_public_key = RistrettoPoint::random(&mut rng);
+        let verifying_keys = vec![
+            RistrettoPoint::random(&mut rng),
+            RistrettoPoint::random(&mut rng),
+            RistrettoPoint::random(&mut rng),
+        ];
+
+        let dkg_output_content = DKGOutputContent {
+            group_public_key: PublicKey::from_point(group_public_key),
+            verifying_keys,
+        };
+
+        let keypair = Keypair::generate();
+        let signature = keypair.sign(Transcript::new(b"test"));
+
+        let dkg_output =
+            DKGOutput { sender: keypair.public, content: dkg_output_content, signature };
+
+        // Serialize the DKGOutput
+        let bytes = dkg_output.to_bytes();
+
+        // Deserialize the DKGOutput
+        let deserialized_dkg_output =
+            DKGOutput::from_bytes(&bytes).expect("Deserialization failed");
+
+        // Check if the deserialized content matches the original
+        assert_eq!(
+            deserialized_dkg_output.content.group_public_key.as_compressed(),
+            dkg_output.content.group_public_key.as_compressed(),
+            "Group public keys do not match"
+        );
+
+        assert_eq!(
+            deserialized_dkg_output.content.verifying_keys.len(),
+            dkg_output.content.verifying_keys.len(),
+            "Verifying keys counts do not match"
+        );
+
+        assert!(
+            deserialized_dkg_output
+                .content
+                .verifying_keys
+                .iter()
+                .zip(dkg_output.content.verifying_keys.iter())
+                .all(|(a, b)| a == b),
+            "Verifying keys do not match"
+        );
+
+        assert_eq!(
+            deserialized_dkg_output.signature.s, dkg_output.signature.s,
+            "Signatures do not match"
+        );
     }
 }
