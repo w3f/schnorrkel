@@ -19,11 +19,10 @@ use self::{
     },
 };
 
-use super::GENERATOR;
+use super::{Identifier, GENERATOR};
 
 pub(super) type VerifyingShare = PublicKey;
 pub(super) type VerifyingKey = PublicKey;
-pub(super) type Identifier = u16;
 
 impl Keypair {
     /// Done once by each participant, to generate _their_ nonces and commitments

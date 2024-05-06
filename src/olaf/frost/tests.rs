@@ -16,6 +16,7 @@ mod tests {
         Keypair, Signature,
     };
     use alloc::{collections::BTreeMap, vec::Vec};
+    use curve25519_dalek::Scalar;
     use rand_core::{CryptoRng, RngCore};
 
     /// Test FROST signing with the given shares.
@@ -318,8 +319,10 @@ mod tests {
         mut signature_shares: BTreeMap<Identifier, SignatureShare>,
         pubkey_package: PublicKeyPackage,
     ) {
+        let invalid_identifier = Identifier(Scalar::ZERO);
         // Insert a new share (copied from other existing share) with an invalid identifier
-        signature_shares.insert(0, signature_shares.values().next().unwrap().clone());
+        signature_shares
+            .insert(invalid_identifier, signature_shares.values().next().unwrap().clone());
         // Should error, but not panic
         aggregate(&signing_package, &signature_shares, &pubkey_package)
             .expect_err("should not work");

@@ -152,7 +152,7 @@ impl From<&SigningNonces> for SigningCommitments {
 pub(super) struct SigningPackage {
     /// The set of commitments participants published in the first round of the
     /// protocol.
-    pub(super) signing_commitments: BTreeMap<u16, SigningCommitments>,
+    pub(super) signing_commitments: BTreeMap<Identifier, SigningCommitments>,
     /// Message which each participant will sign.
     ///
     /// Each signer should perform protocol-specific verification on the
@@ -197,7 +197,7 @@ impl SigningPackage {
         self.signing_commitments
             .keys()
             .map(|identifier| {
-                transcript.append_message(b"identifier", &identifier.to_be_bytes());
+                transcript.append_message(b"identifier", identifier.0.as_bytes());
                 (*identifier, transcript.clone())
             })
             .collect()
@@ -243,7 +243,7 @@ impl SignatureShare {
 pub(super) struct KeyPackage {
     /// Denotes the participant identifier each secret share key package is owned by.
     #[zeroize(skip)]
-    pub(super) identifier: u16,
+    pub(super) identifier: Identifier,
     /// This participant's signing share. This is secret.
     pub(super) signing_share: SecretKey,
     /// This participant's public key.
@@ -333,7 +333,7 @@ pub(super) fn encode_group_commitments(
     let mut transcript = Transcript::new(b"encode_group_commitments");
 
     for (item_identifier, item) in signing_commitments {
-        transcript.append_message(b"identifier", &item_identifier.to_be_bytes());
+        transcript.append_message(b"identifier", item_identifier.0.as_bytes());
         transcript.commit_point(b"hiding", &item.hiding.0.compress());
         transcript.commit_point(b"binding", &item.binding.0.compress());
     }
@@ -373,7 +373,7 @@ impl PublicKeyPackage {
     ) -> Result<PublicKeyPackage, FROSTError> {
         let verifying_keys: BTreeMap<_, _> = identifiers
             .iter()
-            .map(|id| (*id, PublicKey::from_point(commitment.evaluate(&Scalar::from(*id)))))
+            .map(|id| (*id, PublicKey::from_point(commitment.evaluate(&id.0))))
             .collect();
 
         Ok(PublicKeyPackage::new(

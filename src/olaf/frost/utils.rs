@@ -130,12 +130,12 @@ pub(super) fn compute_lagrange_coefficient(
         }
 
         if let Some(x) = x {
-            num *= Scalar::from(x) - Scalar::from(*x_j);
-            den *= Scalar::from(x_i) - Scalar::from(*x_j);
+            num *= x.0 - x_j.0;
+            den *= x_i.0 - x_j.0;
         } else {
             // Both signs inverted just to avoid requiring Neg (-*xj)
-            num *= Scalar::from(*x_j);
-            den *= Scalar::from(*x_j) - Scalar::from(x_i);
+            num *= x_j.0;
+            den *= x_j.0 - x_i.0;
         }
     }
     if !x_i_found {
