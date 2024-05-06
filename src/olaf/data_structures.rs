@@ -7,17 +7,17 @@ use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
 use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
 use super::{errors::DKGError, MINIMUM_THRESHOLD};
 
-pub(crate) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
-pub(crate) const U16_LENGTH: usize = 2;
-pub(crate) const ENCRYPTION_NONCE_LENGTH: usize = 12;
-pub(crate) const RECIPIENTS_HASH_LENGTH: usize = 16;
-pub(crate) const CHACHA20POLY1305_LENGTH: usize = 64;
+pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
+pub(super) const U16_LENGTH: usize = 2;
+pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
+pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
+pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Parameters {
-    pub(crate) participants: u16,
-    pub(crate) threshold: u16,
+    pub(super) participants: u16,
+    pub(super) threshold: u16,
 }
 
 impl Parameters {
@@ -26,7 +26,7 @@ impl Parameters {
         Parameters { participants, threshold }
     }
 
-    pub(crate) fn validate(&self) -> Result<(), DKGError> {
+    pub(super) fn validate(&self) -> Result<(), DKGError> {
         if self.threshold < MINIMUM_THRESHOLD {
             return Err(DKGError::InsufficientThreshold);
         }
@@ -42,7 +42,7 @@ impl Parameters {
         Ok(())
     }
 
-    pub(crate) fn commit<T: SigningTranscript>(&self, t: &mut T) {
+    pub(super) fn commit<T: SigningTranscript>(&self, t: &mut T) {
         t.commit_bytes(b"threshold", &self.threshold.to_le_bytes());
         t.commit_bytes(b"participants", &self.participants.to_le_bytes());
     }
@@ -54,8 +54,8 @@ impl Parameters {
 /// participant, but typical thresholds lie between 1/2 and 2/3,
 /// so this doubles or tripples bandwidth usage.
 pub struct AllMessage {
-    pub(crate) content: MessageContent,
-    pub(crate) signature: Signature,
+    pub(super) content: MessageContent,
+    pub(super) signature: Signature,
 }
 
 impl AllMessage {
@@ -89,14 +89,14 @@ impl AllMessage {
 
 /// The contents of the message destined to all participants.
 pub struct MessageContent {
-    pub(crate) sender: PublicKey,
-    pub(crate) encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
-    pub(crate) parameters: Parameters,
-    pub(crate) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
-    pub(crate) point_polynomial: Vec<RistrettoPoint>,
-    pub(crate) ciphertexts: Vec<Vec<u8>>,
-    pub(crate) ephemeral_key: PublicKey,
-    pub(crate) proof_of_possession: Signature,
+    pub(super) sender: PublicKey,
+    pub(super) encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
+    pub(super) parameters: Parameters,
+    pub(super) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
+    pub(super) point_polynomial: Vec<RistrettoPoint>,
+    pub(super) ciphertexts: Vec<Vec<u8>>,
+    pub(super) ephemeral_key: PublicKey,
+    pub(super) proof_of_possession: Signature,
 }
 
 impl MessageContent {
@@ -218,9 +218,9 @@ impl MessageContent {
 
 /// The signed output of the SimplPedPoP protocol.
 pub struct DKGOutput {
-    pub(crate) sender: PublicKey,
-    pub(crate) content: DKGOutputContent,
-    pub(crate) signature: Signature,
+    pub(super) sender: PublicKey,
+    pub(super) content: DKGOutputContent,
+    pub(super) signature: Signature,
 }
 
 impl DKGOutput {
@@ -267,8 +267,8 @@ impl DKGOutput {
 /// The content of the signed output of the SimplPedPoP protocol.
 #[derive(Debug)]
 pub struct DKGOutputContent {
-    pub(crate) group_public_key: PublicKey,
-    pub(crate) verifying_keys: Vec<PublicKey>,
+    pub(super) group_public_key: PublicKey,
+    pub(super) verifying_keys: Vec<PublicKey>,
 }
 
 impl DKGOutputContent {
