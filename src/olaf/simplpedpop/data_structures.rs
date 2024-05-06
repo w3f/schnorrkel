@@ -4,8 +4,11 @@
 
 use alloc::vec::Vec;
 use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
-use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
-use super::{errors::DKGError, MINIMUM_THRESHOLD};
+use crate::{
+    context::SigningTranscript, olaf::MINIMUM_THRESHOLD, PublicKey, Signature, PUBLIC_KEY_LENGTH,
+    SIGNATURE_LENGTH,
+};
+use super::{errors::DKGError};
 
 pub(crate) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
 pub(crate) const U16_LENGTH: usize = 2;

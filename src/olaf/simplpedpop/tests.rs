@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
     mod simplpedpop {
-        use crate::olaf::data_structures::{
+        use crate::olaf::simplpedpop::data_structures::{
             AllMessage, Parameters, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
         };
-        use crate::olaf::errors::DKGError;
-        use crate::olaf::GENERATOR;
+        use crate::olaf::simplpedpop::errors::DKGError;
+        use crate::olaf::simplpedpop::GENERATOR;
         use crate::{Keypair, PublicKey};
         use alloc::vec::Vec;
         use curve25519_dalek::ristretto::RistrettoPoint;

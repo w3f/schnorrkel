@@ -3,11 +3,8 @@
 
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint};
 
-pub mod errors;
 pub mod simplpedpop;
-mod tests;
-pub mod data_structures;
-mod utils;
+pub mod frost;
 
 const MINIMUM_THRESHOLD: u16 = 2;
 const GENERATOR: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;

@@ -1,24 +1,27 @@
 //! Implementation of the SimplPedPoP protocol (<https://eprint.iacr.org/2023/899>), a DKG based on PedPoP, which in turn is based
 //! on Pedersen's DKG. All of them have as the fundamental building block the Shamir's Secret Sharing scheme.
 
+pub mod errors;
+mod tests;
+pub mod data_structures;
+mod utils;
+
 use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
 use rand_core::RngCore;
 use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey};
-use super::{
-    data_structures::{
-        AllMessage, DKGOutput, DKGOutputContent, MessageContent, Parameters,
-        ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
-    },
-    errors::{DKGError, DKGResult},
-    utils::{
-        decrypt, derive_secret_key_from_secret, encrypt, evaluate_polynomial,
-        evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
-        sum_commitments,
-    },
-    GENERATOR,
+use data_structures::{
+    AllMessage, DKGOutput, DKGOutputContent, MessageContent, Parameters, ENCRYPTION_NONCE_LENGTH,
+    RECIPIENTS_HASH_LENGTH,
 };
+use errors::{DKGError, DKGResult};
+use utils::{
+    decrypt, derive_secret_key_from_secret, encrypt, evaluate_polynomial,
+    evaluate_polynomial_commitment, generate_coefficients, generate_identifier, sum_commitments,
+};
+
+use super::GENERATOR;
 
 impl Keypair {
     /// First round of the SimplPedPoP protocol.
@@ -154,7 +157,7 @@ impl Keypair {
             if &message.content.parameters != parameters {
                 return Err(DKGError::DifferentParameters);
             }
-            if &message.content.recipients_hash != &first_message.content.recipients_hash {
+            if message.content.recipients_hash != first_message.content.recipients_hash {
                 return Err(DKGError::DifferentRecipientsHash);
             }
 
@@ -239,11 +242,8 @@ impl Keypair {
         verify_batch(&mut signatures_transcripts, &signatures, &senders, false)
             .map_err(DKGError::InvalidSignature)?;
 
-        for i in 0..participants {
-            verifying_keys.push(evaluate_polynomial_commitment(
-                &identifiers[i],
-                &total_polynomial_commitment,
-            ));
+        for id in identifiers.iter() {
+            verifying_keys.push(evaluate_polynomial_commitment(id, &total_polynomial_commitment));
         }
 
         let dkg_output_content =

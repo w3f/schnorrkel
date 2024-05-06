@@ -1,4 +1,4 @@
-//! Errors of the Olaf protocol.
+//! Errors of the SimplPedPoP protocol.
 
 use core::array::TryFromSliceError;
 use crate::SignatureError;
