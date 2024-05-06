@@ -10,7 +10,7 @@ use super::{
     errors::{DKGError, DKGResult},
 };
 
-pub(crate) fn generate_identifier(recipients_hash: &[u8; 16], index: u16) -> Scalar {
+pub(super) fn generate_identifier(recipients_hash: &[u8; 16], index: u16) -> Scalar {
     let mut pos = merlin::Transcript::new(b"Identifier");
     pos.append_message(b"RecipientsHash", recipients_hash);
     pos.append_message(b"i", &index.to_le_bytes()[..]);
@@ -19,7 +19,7 @@ pub(crate) fn generate_identifier(recipients_hash: &[u8; 16], index: u16) -> Sca
 
 /// Evaluate the polynomial with the given coefficients (constant term first)
 /// at the point x=identifier using Horner's method.
-pub(crate) fn evaluate_polynomial(identifier: &Scalar, coefficients: &[Scalar]) -> Scalar {
+pub(super) fn evaluate_polynomial(identifier: &Scalar, coefficients: &[Scalar]) -> Scalar {
     let mut value = Scalar::ZERO;
 
     let ell_scalar = identifier;
@@ -32,7 +32,7 @@ pub(crate) fn evaluate_polynomial(identifier: &Scalar, coefficients: &[Scalar]) 
 }
 
 /// Return a vector of randomly generated polynomial coefficients ([`Scalar`]s).
-pub(crate) fn generate_coefficients<R: RngCore + CryptoRng>(
+pub(super) fn generate_coefficients<R: RngCore + CryptoRng>(
     size: usize,
     rng: &mut R,
 ) -> Vec<Scalar> {
@@ -49,7 +49,7 @@ pub(crate) fn generate_coefficients<R: RngCore + CryptoRng>(
     coefficients
 }
 
-pub(crate) fn derive_secret_key_from_secret<R: RngCore + CryptoRng>(
+pub(super) fn derive_secret_key_from_secret<R: RngCore + CryptoRng>(
     secret: &Scalar,
     mut rng: R,
 ) -> SecretKey {
@@ -66,7 +66,7 @@ pub(crate) fn derive_secret_key_from_secret<R: RngCore + CryptoRng>(
         .expect("This never fails because bytes has length 64 and the key is a scalar")
 }
 
-pub(crate) fn evaluate_polynomial_commitment(
+pub(super) fn evaluate_polynomial_commitment(
     identifier: &Scalar,
     commitment: &[RistrettoPoint],
 ) -> RistrettoPoint {
@@ -80,23 +80,7 @@ pub(crate) fn evaluate_polynomial_commitment(
     result
 }
 
-pub(crate) fn sum_commitments(
-    commitments: &[&Vec<RistrettoPoint>],
-) -> Result<Vec<RistrettoPoint>, DKGError> {
-    let mut group_commitment =
-        vec![
-            RistrettoPoint::identity();
-            commitments.first().ok_or(DKGError::IncorrectNumberOfCommitments)?.len()
-        ];
-    for commitment in commitments {
-        for (i, c) in group_commitment.iter_mut().enumerate() {
-            *c += commitment.get(i).ok_or(DKGError::IncorrectNumberOfCommitments)?;
-        }
-    }
-    Ok(group_commitment)
-}
-
-pub(crate) fn encrypt<T: SigningTranscript>(
+pub(super) fn encrypt<T: SigningTranscript>(
     scalar_evaluation: &Scalar,
     ephemeral_key: &Scalar,
     mut transcript: T,
@@ -124,7 +108,7 @@ pub(crate) fn encrypt<T: SigningTranscript>(
     Ok(ciphertext)
 }
 
-pub(crate) fn decrypt<T: SigningTranscript>(
+pub(super) fn decrypt<T: SigningTranscript>(
     mut transcript: T,
     recipient: &PublicKey,
     key_exchange: &RistrettoPoint,

@@ -18,10 +18,10 @@ use data_structures::{
 use errors::{DKGError, DKGResult};
 use utils::{
     decrypt, derive_secret_key_from_secret, encrypt, evaluate_polynomial,
-    evaluate_polynomial_commitment, generate_coefficients, generate_identifier, sum_commitments,
+    evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
 };
 
-use super::GENERATOR;
+use super::{sum_commitments, GENERATOR};
 
 impl Keypair {
     /// First round of the SimplPedPoP protocol.

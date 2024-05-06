@@ -3,13 +3,15 @@
 pub mod errors;
 mod data_structures;
 mod utils;
+mod tests;
 
-use alloc::vec::Vec;
-use crate::{Keypair, PublicKey};
+use alloc::{collections::BTreeMap, vec::Vec};
+use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
+use crate::{Keypair, PublicKey, Signature};
 use self::{
     data_structures::{
-        BindingFactor, BindingFactorList, KeyPackage, SignatureShare, SigningCommitments,
-        SigningNonces, SigningPackage,
+        BindingFactor, BindingFactorList, KeyPackage, PublicKeyPackage, SignatureShare,
+        SigningCommitments, SigningNonces, SigningPackage,
     },
     errors::FROSTError,
     utils::{
@@ -17,6 +19,9 @@ use self::{
     },
 };
 
+use super::GENERATOR;
+
+pub(super) type VerifyingShare = PublicKey;
 pub(super) type VerifyingKey = PublicKey;
 pub(super) type Identifier = u16;
 
@@ -142,5 +147,145 @@ impl Keypair {
         );
 
         Ok(signature_share)
+    }
+}
+
+/// Aggregates the signature shares to produce a final signature that
+/// can be verified with the group public key.
+///
+/// `signature_shares` maps the identifier of each participant to the
+/// [`round2::SignatureShare`] they sent. These identifiers must come from whatever mapping
+/// the coordinator has between communication channels and participants, i.e.
+/// they must have assurance that the [`round2::SignatureShare`] came from
+/// the participant with that identifier.
+///
+/// This operation is performed by a coordinator that can communicate with all
+/// the signing participants before publishing the final signature. The
+/// coordinator can be one of the participants or a semi-trusted third party
+/// (who is trusted to not perform denial of service attacks, but does not learn
+/// any secret information). Note that because the coordinator is trusted to
+/// report misbehaving parties in order to avoid publishing an invalid
+/// signature, if the coordinator themselves is a signer and misbehaves, they
+/// can avoid that step. However, at worst, this results in a denial of
+/// service attack due to publishing an invalid signature.
+pub fn aggregate(
+    signing_package: &SigningPackage,
+    signature_shares: &BTreeMap<Identifier, SignatureShare>,
+    pubkeys: &PublicKeyPackage,
+) -> Result<Signature, FROSTError> {
+    // Check if signing_package.signing_commitments and signature_shares have
+    // the same set of identifiers, and if they are all in pubkeys.verifying_shares.
+    if signing_package.signing_commitments.len() != signature_shares.len() {
+        return Err(FROSTError::UnknownIdentifier);
+    }
+
+    if !signing_package.signing_commitments.keys().all(|id| {
+        #[cfg(feature = "cheater-detection")]
+        return signature_shares.contains_key(id) && pubkeys.verifying_shares().contains_key(id);
+        #[cfg(not(feature = "cheater-detection"))]
+        return signature_shares.contains_key(id);
+    }) {
+        return Err(FROSTError::UnknownIdentifier);
+    }
+
+    // Encodes the signing commitment list produced in round one as part of generating [`BindingFactor`], the
+    // binding factor.
+    let binding_factor_list: BindingFactorList =
+        BindingFactorList::compute_binding_factor_list(signing_package, &pubkeys.verifying_key);
+
+    // Compute the group commitment from signing commitments produced in round one.
+    let group_commitment = compute_group_commitment(signing_package, &binding_factor_list)?;
+
+    // The aggregation of the signature shares by summing them up, resulting in
+    // a plain Schnorr signature.
+    //
+    // Implements [`aggregate`] from the spec.
+    //
+    // [`aggregate`]: https://www.ietf.org/archive/id/draft-irtf-cfrg-frost-14.html#section-5.3
+    let mut s = Scalar::ZERO;
+
+    for signature_share in signature_shares.values() {
+        s += signature_share.share;
+    }
+
+    let signature = Signature { R: group_commitment.0.compress(), s };
+
+    // Verify the aggregate signature
+    let verification_result =
+        verify_signature(&signing_package.message, &signature, &pubkeys.verifying_key);
+
+    // Only if the verification of the aggregate signature failed; verify each share to find the cheater.
+    // This approach is more efficient since we don't need to verify all shares
+    // if the aggregate signature is valid (which should be the common case).
+    #[cfg(feature = "cheater-detection")]
+    if let Err(err) = verification_result {
+        // Compute the per-message challenge.
+        let challenge = challenge(
+            &group_commitment.0,
+            pubkeys.verifying_key(),
+            signing_package.message().as_slice(),
+        );
+
+        // Verify the signature shares.
+        for (signature_share_identifier, signature_share) in signature_shares {
+            // Look up the public key for this signer, where `signer_pubkey` = _G.ScalarBaseMult(s[i])_,
+            // and where s[i] is a secret share of the constant term of _f_, the secret polynomial.
+            let signer_pubkey = pubkeys
+                .verifying_shares
+                .get(signature_share_identifier)
+                .ok_or(FROSTError::UnknownIdentifier)?;
+
+            // Compute Lagrange coefficient.
+            let lambda_i = derive_interpolating_value(signature_share_identifier, signing_package)?;
+
+            let binding_factor = binding_factor_list
+                .get(signature_share_identifier)
+                .ok_or(FROSTError::UnknownIdentifier)?;
+
+            // Compute the commitment share.
+            let R_share = signing_package
+                .signing_commitment(signature_share_identifier)
+                .ok_or(FROSTError::UnknownIdentifier)?
+                .to_group_commitment_share(binding_factor);
+
+            // Compute relation values to verify this signature share.
+            signature_share.verify(
+                *signature_share_identifier,
+                &R_share,
+                signer_pubkey,
+                lambda_i,
+                &challenge,
+            )?;
+        }
+
+        // We should never reach here; but we return the verification error to be safe.
+        return Err(err);
+    }
+
+    #[cfg(not(feature = "cheater-detection"))]
+    verification_result?;
+
+    Ok(signature)
+}
+
+// TODO: Integrate this into Keypair
+/// Verify a purported `signature` with a pre-hashed [`Challenge`] made by the group public key.
+pub(super) fn verify_signature(
+    msg: &[u8],
+    signature: &Signature,
+    public_key: &VerifyingKey,
+) -> Result<(), FROSTError> {
+    let challenge = challenge(&signature.R.decompress().unwrap(), public_key, msg);
+
+    // Verify check is h * ( - z * B + R  + c * A) == 0
+    //                 h * ( z * B - c * A - R) == 0
+    let zB = GENERATOR * signature.s;
+    let cA = public_key.as_point() * challenge;
+    let check = zB - cA - signature.R.decompress().unwrap();
+
+    if check == RistrettoPoint::identity() {
+        Ok(())
+    } else {
+        Err(FROSTError::InvalidSignature)
     }
 }
