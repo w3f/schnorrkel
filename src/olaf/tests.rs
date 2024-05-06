@@ -2,10 +2,9 @@
 mod tests {
     mod simplpedpop {
         use crate::olaf::data_structures::{
-            AllMessage, Parameters, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
+            AllMessage, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
         };
         use crate::olaf::errors::DKGError;
-        use crate::olaf::GENERATOR;
         use crate::{Keypair, PublicKey};
         use alloc::vec::Vec;
         use curve25519_dalek::ristretto::RistrettoPoint;
@@ -52,8 +51,8 @@ mod tests {
             for i in 0..participants {
                 for j in 0..participants {
                     assert_eq!(
-                        dkg_outputs[i].0.content.verifying_keys[j].compress(),
-                        (dkg_outputs[j].1 * GENERATOR).compress(),
+                        dkg_outputs[i].0.content.verifying_keys[j],
+                        (dkg_outputs[j].1.to_public()),
                         "Verification of total secret shares failed!"
                     );
                 }
@@ -90,29 +89,21 @@ mod tests {
 
         #[test]
         fn test_different_parameters() {
-            // Define threshold and participants
             let threshold = 3;
             let participants = 5;
 
-            // Generate keypairs for participants
             let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
             let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            // Each participant creates an AllMessage with different parameters
             let mut messages: Vec<AllMessage> = Vec::new();
             for i in 0..participants {
-                let mut parameters = Parameters::generate(participants as u16, threshold);
-                // Modify parameters for the first participant
-                if i == 0 {
-                    parameters.threshold += 1; // Modify threshold
-                }
-                let message = keypairs[i]
-                    .simplpedpop_contribute_all(parameters.threshold, public_keys.clone())
-                    .unwrap();
+                let message =
+                    keypairs[i].simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap();
                 messages.push(message);
             }
 
-            // Call simplpedpop_recipient_all
+            messages[1].content.parameters.threshold += 1;
+
             let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
             // Check if the result is an error
@@ -120,7 +111,7 @@ mod tests {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => match e {
                     DKGError::DifferentParameters => assert!(true),
-                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                    _ => panic!("Expected DKGError::DifferentParameters, but got {:?}", e),
                 },
             }
         }
@@ -303,7 +294,7 @@ mod tests {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => match e {
                     DKGError::InsufficientThreshold => assert!(true),
-                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                    _ => panic!("Expected DKGError::InsufficientThreshold, but got {:?}", e),
                 },
             }
         }
@@ -321,7 +312,7 @@ mod tests {
                 Err(e) => match e {
                     DKGError::InvalidNumberOfParticipants => assert!(true),
                     _ => {
-                        panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
+                        panic!("Expected DKGError::InvalidNumberOfParticipants, but got {:?}", e)
                     },
                 },
             }
@@ -342,7 +333,7 @@ mod tests {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => match e {
                     DKGError::ExcessiveThreshold => assert!(true),
-                    _ => panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e),
+                    _ => panic!("Expected DKGError::ExcessiveThreshold, but got {:?}", e),
                 },
             }
         }

@@ -268,12 +268,12 @@ impl DKGOutput {
 #[derive(Debug)]
 pub struct DKGOutputContent {
     pub(crate) group_public_key: PublicKey,
-    pub(crate) verifying_keys: Vec<RistrettoPoint>,
+    pub(crate) verifying_keys: Vec<PublicKey>,
 }
 
 impl DKGOutputContent {
     /// Creates the content of the SimplPedPoP output.
-    pub fn new(group_public_key: PublicKey, verifying_keys: Vec<RistrettoPoint>) -> Self {
+    pub fn new(group_public_key: PublicKey, verifying_keys: Vec<PublicKey>) -> Self {
         Self { group_public_key, verifying_keys }
     }
     /// Serializes the DKGOutputContent into bytes.
@@ -287,8 +287,7 @@ impl DKGOutputContent {
         bytes.extend(key_count.to_le_bytes());
 
         for key in &self.verifying_keys {
-            let compressed_key = key.compress();
-            bytes.extend(compressed_key.to_bytes());
+            bytes.extend(key.to_bytes());
         }
 
         bytes
@@ -314,11 +313,9 @@ impl DKGOutputContent {
 
         let mut verifying_keys = Vec::with_capacity(key_count as usize);
         for _ in 0..key_count {
-            let key_bytes = &bytes[cursor..cursor + COMPRESSED_RISTRETTO_LENGTH];
-            cursor += COMPRESSED_RISTRETTO_LENGTH;
-            let compressed_key = CompressedRistretto::from_slice(key_bytes)
-                .map_err(DKGError::DeserializationError)?;
-            let key = compressed_key.decompress().ok_or(DKGError::InvalidRistrettoPoint)?;
+            let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
+            cursor += PUBLIC_KEY_LENGTH;
+            let key = PublicKey::from_bytes(key_bytes).map_err(DKGError::InvalidPublicKey)?;
             verifying_keys.push(key);
         }
 
@@ -409,9 +406,9 @@ mod tests {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
-            RistrettoPoint::random(&mut rng),
-            RistrettoPoint::random(&mut rng),
-            RistrettoPoint::random(&mut rng),
+            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
+            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
+            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
         ];
 
         let dkg_output_content = DKGOutputContent {

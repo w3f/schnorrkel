@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
 use rand_core::RngCore;
-use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey};
+use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
 use super::{
     data_structures::{
         AllMessage, DKGOutput, DKGOutputContent, MessageContent, Parameters,
@@ -13,7 +13,7 @@ use super::{
     },
     errors::{DKGError, DKGResult},
     utils::{
-        decrypt, derive_secret_key_from_secret, encrypt, evaluate_polynomial,
+        decrypt, derive_secret_key_from_scalar, encrypt, evaluate_polynomial,
         evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
         sum_commitments,
     },
@@ -92,7 +92,7 @@ impl Keypair {
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
-        let secret_key = derive_secret_key_from_secret(secret, &mut rng);
+        let secret_key = derive_secret_key_from_scalar(secret, &mut rng);
 
         let secret_commitment = point_polynomial
             .first()
@@ -125,7 +125,7 @@ impl Keypair {
     pub fn simplpedpop_recipient_all(
         &self,
         messages: &[AllMessage],
-    ) -> DKGResult<(DKGOutput, Scalar)> {
+    ) -> DKGResult<(DKGOutput, SecretKey)> {
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;
@@ -154,7 +154,7 @@ impl Keypair {
             if &message.content.parameters != parameters {
                 return Err(DKGError::DifferentParameters);
             }
-            if &message.content.recipients_hash != &first_message.content.recipients_hash {
+            if message.content.recipients_hash != first_message.content.recipients_hash {
                 return Err(DKGError::DifferentRecipientsHash);
             }
 
@@ -239,11 +239,9 @@ impl Keypair {
         verify_batch(&mut signatures_transcripts, &signatures, &senders, false)
             .map_err(DKGError::InvalidSignature)?;
 
-        for i in 0..participants {
-            verifying_keys.push(evaluate_polynomial_commitment(
-                &identifiers[i],
-                &total_polynomial_commitment,
-            ));
+        for id in &identifiers {
+            let evaluation = evaluate_polynomial_commitment(id, &total_polynomial_commitment);
+            verifying_keys.push(PublicKey::from_point(evaluation));
         }
 
         let dkg_output_content =
@@ -254,6 +252,9 @@ impl Keypair {
         let signature = self.sign(dkg_output_transcript);
         let dkg_output = DKGOutput::new(self.public, dkg_output_content, signature);
 
-        Ok((dkg_output, total_secret_share))
+        let secret_key =
+            derive_secret_key_from_scalar(&total_secret_share, &mut crate::getrandom_or_panic());
+
+        Ok((dkg_output, secret_key))
     }
 }

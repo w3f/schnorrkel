@@ -49,15 +49,15 @@ pub(crate) fn generate_coefficients<R: RngCore + CryptoRng>(
     coefficients
 }
 
-pub(crate) fn derive_secret_key_from_secret<R: RngCore + CryptoRng>(
-    secret: &Scalar,
+pub(crate) fn derive_secret_key_from_scalar<R: RngCore + CryptoRng>(
+    scalar: &Scalar,
     mut rng: R,
 ) -> SecretKey {
     let mut bytes = [0u8; 64];
     let mut nonce: [u8; 32] = [0u8; 32];
 
     rng.fill_bytes(&mut nonce);
-    let secret_bytes = secret.to_bytes();
+    let secret_bytes = scalar.to_bytes();
 
     bytes[..32].copy_from_slice(&secret_bytes[..]);
     bytes[32..].copy_from_slice(&nonce[..]);
