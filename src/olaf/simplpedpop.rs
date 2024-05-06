@@ -37,53 +37,50 @@ impl Keypair {
         // exactly the same order.
         //
         // Instead we create a kind of session id by hashing the list
-        // provided, but we provide only hash to recipiants, not the
-        // full recipiants list.
-        let mut t = merlin::Transcript::new(b"RecipientsHash");
-        parameters.commit(&mut t);
+        // provided, but we provide only hash to recipients, not the
+        // full recipients list.
+        let mut recipients_transcript = merlin::Transcript::new(b"RecipientsHash");
+        parameters.commit(&mut recipients_transcript);
         for r in recipients.iter() {
-            t.commit_point(b"recipient", r.as_compressed());
+            recipients_transcript.commit_point(b"recipient", r.as_compressed());
         }
         let mut recipients_hash = [0u8; RECIPIENTS_HASH_LENGTH];
-        t.challenge_bytes(b"finalize", &mut recipients_hash);
+        recipients_transcript.challenge_bytes(b"finalize", &mut recipients_hash);
 
         let coefficients = generate_coefficients(parameters.threshold as usize - 1, &mut rng);
-        let mut scalar_evaluations = Vec::new();
 
-        for i in 0..parameters.participants {
-            let identifier = generate_identifier(&recipients_hash, i);
-            let scalar_evaluation = evaluate_polynomial(&identifier, &coefficients);
-            scalar_evaluations.push(scalar_evaluation);
-        }
+        let scalar_evaluations: Vec<Scalar> = (0..parameters.participants)
+            .map(|i| {
+                let identifier = generate_identifier(&recipients_hash, i);
+                evaluate_polynomial(&identifier, &coefficients)
+            })
+            .collect();
 
-        // Create the vector of commitments
         let point_polynomial: Vec<RistrettoPoint> =
             coefficients.iter().map(|c| GENERATOR * *c).collect();
 
-        let mut enc0 = merlin::Transcript::new(b"Encryption");
-        parameters.commit(&mut enc0);
-        enc0.commit_point(b"contributor", self.public.as_compressed());
+        let mut encryption_transcript = merlin::Transcript::new(b"Encryption");
+        parameters.commit(&mut encryption_transcript);
+        encryption_transcript.commit_point(b"contributor", self.public.as_compressed());
 
         let mut encryption_nonce = [0u8; ENCRYPTION_NONCE_LENGTH];
         rng.fill_bytes(&mut encryption_nonce);
-        enc0.append_message(b"nonce", &encryption_nonce);
+        encryption_transcript.append_message(b"nonce", &encryption_nonce);
 
         let ephemeral_key = Keypair::generate();
 
-        let mut ciphertexts = Vec::new();
-
-        for i in 0..parameters.participants {
-            let ciphertext = encrypt(
-                &scalar_evaluations[i as usize],
-                &ephemeral_key.secret.key,
-                enc0.clone(),
-                &recipients[i as usize],
-                &encryption_nonce,
-                i as usize,
-            )?;
-
-            ciphertexts.push(ciphertext);
-        }
+        let ciphertexts: Vec<Vec<u8>> = (0..parameters.participants)
+            .map(|i| {
+                encrypt(
+                    &scalar_evaluations[i as usize],
+                    &ephemeral_key.secret.key,
+                    encryption_transcript.clone(),
+                    &recipients[i as usize],
+                    &encryption_nonce,
+                    i as usize,
+                )
+            })
+            .collect::<DKGResult<_>>()?;
 
         let pk = &PublicKey::from_point(
             *point_polynomial
@@ -101,9 +98,10 @@ impl Keypair {
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
-        let mut t_pop = Transcript::new(b"pop");
-        t_pop.append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-        let proof_of_possession = secret_key.sign(t_pop, pk);
+        let mut pop_transcript = Transcript::new(b"pop");
+        pop_transcript
+            .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
+        let proof_of_possession = secret_key.sign(pop_transcript, pk);
 
         let message_content = MessageContent::new(
             self.public,
@@ -116,9 +114,9 @@ impl Keypair {
             proof_of_possession,
         );
 
-        let mut t_sig = Transcript::new(b"signature");
-        t_sig.append_message(b"message", &message_content.to_bytes());
-        let signature = self.sign(t_sig);
+        let mut signature_transcript = Transcript::new(b"signature");
+        signature_transcript.append_message(b"message", &message_content.to_bytes());
+        let signature = self.sign(signature_transcript);
 
         Ok(AllMessage::new(message_content, signature))
     }
@@ -132,88 +130,72 @@ impl Keypair {
             return Err(DKGError::InvalidNumberOfMessages);
         }
 
-        let participants = messages[0].content.parameters.participants as usize;
-        let threshold = messages[0].content.parameters.threshold as usize;
+        let first_message = &messages[0];
+        let parameters = &first_message.content.parameters;
+        let threshold = parameters.threshold as usize;
+        let participants = parameters.participants as usize;
 
-        if messages.len() != participants {
-            return Err(DKGError::IncorrectNumberOfMessages);
-        }
+        first_message.content.parameters.validate()?;
 
-        messages[0].content.parameters.validate()?;
-
-        let first_params = &messages[0].content.parameters;
-        let recipients_hash = &messages[0].content.recipients_hash;
-
-        let mut secret_shares = Vec::new();
-
-        let mut verifying_keys = Vec::new();
-
+        let mut secret_shares = Vec::with_capacity(participants);
+        let mut verifying_keys = Vec::with_capacity(participants);
         let mut public_keys = Vec::with_capacity(participants);
         let mut proofs_of_possession = Vec::with_capacity(participants);
-
         let mut senders = Vec::with_capacity(participants);
         let mut signatures = Vec::with_capacity(participants);
-
-        let mut t_sigs = Vec::with_capacity(participants);
-        let mut t_pops = Vec::with_capacity(participants);
-
+        let mut signatures_transcripts = Vec::with_capacity(participants);
+        let mut pops_transcripts = Vec::with_capacity(participants);
         let mut group_point = RistrettoPoint::identity();
         let mut total_secret_share = Scalar::ZERO;
-        let mut total_polynomial_commitment: Vec<RistrettoPoint> = Vec::new();
+        let mut total_polynomial_commitment = Vec::new();
+        let mut identifiers = Vec::new();
 
         for (j, message) in messages.iter().enumerate() {
-            if &message.content.parameters != first_params {
+            if &message.content.parameters != parameters {
                 return Err(DKGError::DifferentParameters);
             }
-            if &message.content.recipients_hash != recipients_hash {
+            if &message.content.recipients_hash != &first_message.content.recipients_hash {
                 return Err(DKGError::DifferentRecipientsHash);
             }
-            // The public keys are the secret commitments of the participants
-            let public_key =
-                PublicKey::from_point(
-                    *message.content.point_polynomial.first().expect(
-                        "This never fails because the minimum threshold of the protocol is 2",
-                    ),
-                );
 
+            let content = &message.content;
+            let point_polynomial = &content.point_polynomial;
+            let ciphertexts = &content.ciphertexts;
+
+            let public_key = PublicKey::from_point(
+                *point_polynomial
+                    .first()
+                    .expect("This never fails because the minimum threshold is 2"),
+            );
             public_keys.push(public_key);
-            proofs_of_possession.push(message.content.proof_of_possession);
+            proofs_of_possession.push(content.proof_of_possession);
 
-            senders.push(message.content.sender);
+            senders.push(content.sender);
             signatures.push(message.signature);
 
-            // Recreate the encryption environment
-            let mut enc = merlin::Transcript::new(b"Encryption");
-            message.content.parameters.commit(&mut enc);
-            enc.commit_point(b"contributor", message.content.sender.as_compressed());
-
-            let point_polynomial = &message.content.point_polynomial;
-            let ciphertexts = &message.content.ciphertexts;
+            let mut encryption_transcript = merlin::Transcript::new(b"Encryption");
+            parameters.commit(&mut encryption_transcript);
+            encryption_transcript.commit_point(b"contributor", content.sender.as_compressed());
+            encryption_transcript.append_message(b"nonce", &content.encryption_nonce);
 
             if point_polynomial.len() != threshold - 1 {
                 return Err(DKGError::IncorrectNumberOfCommitments);
             }
-
             if ciphertexts.len() != participants {
                 return Err(DKGError::IncorrectNumberOfEncryptedShares);
             }
 
-            let encryption_nonce = message.content.encryption_nonce;
-            enc.append_message(b"nonce", &encryption_nonce);
+            let mut signature_transcript = Transcript::new(b"signature");
+            signature_transcript.append_message(b"message", &content.to_bytes());
+            signatures_transcripts.push(signature_transcript);
 
-            let message_bytes = &message.content.to_bytes();
-
-            let mut t_sig = Transcript::new(b"signature");
-            t_sig.append_message(b"message", message_bytes);
-
-            let mut t_pop = Transcript::new(b"pop");
+            let mut pop_transcript = Transcript::new(b"pop");
             let secret_commitment = point_polynomial
                 .first()
                 .expect("This never fails because the minimum threshold is 2");
-            t_pop.append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-
-            t_sigs.push(t_sig);
-            t_pops.push(t_pop);
+            pop_transcript
+                .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
+            pops_transcripts.push(pop_transcript);
 
             if total_polynomial_commitment.is_empty() {
                 total_polynomial_commitment = point_polynomial.clone();
@@ -222,23 +204,24 @@ impl Keypair {
                     sum_commitments(&[&total_polynomial_commitment, point_polynomial])?;
             }
 
-            let ephemeral_key = message.content.ephemeral_key;
-            let key_exchange = self.secret.key * message.content.ephemeral_key.into_point();
-
+            let key_exchange = self.secret.key * content.ephemeral_key.into_point();
             for (i, ciphertext) in ciphertexts.iter().enumerate() {
-                let identifier = generate_identifier(recipients_hash, i as u16);
+                if identifiers.len() != participants {
+                    let identifier =
+                        generate_identifier(&first_message.content.recipients_hash, i as u16);
+                    identifiers.push(identifier);
+                }
 
                 if let Ok(secret_share) = decrypt(
-                    enc.clone(),
-                    &ephemeral_key,
+                    encryption_transcript.clone(),
                     &self.public,
                     &key_exchange,
                     ciphertext,
-                    &encryption_nonce,
+                    &content.encryption_nonce,
                     i,
                 ) {
                     if secret_share * GENERATOR
-                        == evaluate_polynomial_commitment(&identifier, point_polynomial)
+                        == evaluate_polynomial_commitment(&identifiers[i], point_polynomial)
                     {
                         secret_shares.push(secret_share);
                         break;
@@ -246,38 +229,29 @@ impl Keypair {
                 }
             }
 
-            total_secret_share += secret_shares[j];
-
+            total_secret_share += secret_shares.get(j).ok_or(DKGError::InvalidSecretShare)?;
             group_point += secret_commitment;
         }
 
-        for i in 0..participants {
-            let identifier = generate_identifier(recipients_hash, i as u16);
-            verifying_keys
-                .push(evaluate_polynomial_commitment(&identifier, &total_polynomial_commitment));
-        }
-
-        if secret_shares.len() != messages[0].content.parameters.participants as usize {
-            return Err(DKGError::IncorrectNumberOfValidSecretShares {
-                expected: messages[0].content.parameters.participants as usize,
-                actual: secret_shares.len(),
-            });
-        }
-
-        verify_batch(t_pops, &proofs_of_possession[..], &public_keys[..], false)
+        verify_batch(&mut pops_transcripts, &proofs_of_possession, &public_keys, false)
             .map_err(DKGError::InvalidProofOfPossession)?;
 
-        verify_batch(t_sigs, &signatures[..], &senders[..], false)
+        verify_batch(&mut signatures_transcripts, &signatures, &senders, false)
             .map_err(DKGError::InvalidSignature)?;
+
+        for i in 0..participants {
+            verifying_keys.push(evaluate_polynomial_commitment(
+                &identifiers[i],
+                &total_polynomial_commitment,
+            ));
+        }
 
         let dkg_output_content =
             DKGOutputContent::new(PublicKey::from_point(group_point), verifying_keys);
+        let mut dkg_output_transcript = Transcript::new(b"dkg output");
+        dkg_output_transcript.append_message(b"content", &dkg_output_content.to_bytes());
 
-        let mut transcript = Transcript::new(b"dkg output");
-        transcript.append_message(b"content", &dkg_output_content.to_bytes());
-
-        let signature = self.sign(transcript);
-
+        let signature = self.sign(dkg_output_transcript);
         let dkg_output = DKGOutput::new(self.public, dkg_output_content, signature);
 
         Ok((dkg_output, total_secret_share))
