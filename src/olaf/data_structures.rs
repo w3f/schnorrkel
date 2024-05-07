@@ -5,7 +5,7 @@
 use alloc::vec::Vec;
 use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
 use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
-use super::{errors::DKGError, MINIMUM_THRESHOLD};
+use super::{errors::DKGError, GroupPublicKey, VerifyingKey, MINIMUM_THRESHOLD};
 
 pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
 pub(super) const U16_LENGTH: usize = 2;
@@ -265,29 +265,28 @@ impl DKGOutput {
 }
 
 /// The content of the signed output of the SimplPedPoP protocol.
-#[derive(Debug)]
 pub struct DKGOutputContent {
-    pub(super) group_public_key: PublicKey,
-    pub(super) verifying_keys: Vec<PublicKey>,
+    pub(super) group_public_key: GroupPublicKey,
+    pub(super) verifying_keys: Vec<VerifyingKey>,
 }
 
 impl DKGOutputContent {
     /// Creates the content of the SimplPedPoP output.
-    pub fn new(group_public_key: PublicKey, verifying_keys: Vec<PublicKey>) -> Self {
+    pub fn new(group_public_key: GroupPublicKey, verifying_keys: Vec<VerifyingKey>) -> Self {
         Self { group_public_key, verifying_keys }
     }
     /// Serializes the DKGOutputContent into bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        let compressed_public_key = self.group_public_key.as_compressed(); // Assuming PublicKey can be compressed directly
+        let compressed_public_key = self.group_public_key.0.as_compressed(); // Assuming PublicKey can be compressed directly
         bytes.extend(compressed_public_key.to_bytes().iter());
 
         let key_count = self.verifying_keys.len() as u16;
         bytes.extend(key_count.to_le_bytes());
 
         for key in &self.verifying_keys {
-            bytes.extend(key.to_bytes());
+            bytes.extend(key.0.to_bytes());
         }
 
         bytes
@@ -316,11 +315,11 @@ impl DKGOutputContent {
             let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
             cursor += PUBLIC_KEY_LENGTH;
             let key = PublicKey::from_bytes(key_bytes).map_err(DKGError::InvalidPublicKey)?;
-            verifying_keys.push(key);
+            verifying_keys.push(VerifyingKey(key));
         }
 
         Ok(DKGOutputContent {
-            group_public_key: PublicKey::from_point(group_public_key),
+            group_public_key: GroupPublicKey(PublicKey::from_point(group_public_key)),
             verifying_keys,
         })
     }
@@ -406,13 +405,13 @@ mod tests {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
-            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
-            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
-            PublicKey::from_point(RistrettoPoint::random(&mut rng)),
+            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
         ];
 
         let dkg_output_content = DKGOutputContent {
-            group_public_key: PublicKey::from_point(group_public_key),
+            group_public_key: GroupPublicKey(PublicKey::from_point(group_public_key)),
             verifying_keys,
         };
 
@@ -431,8 +430,8 @@ mod tests {
 
         // Check if the deserialized content matches the original
         assert_eq!(
-            deserialized_dkg_output.content.group_public_key.as_compressed(),
-            dkg_output.content.group_public_key.as_compressed(),
+            deserialized_dkg_output.content.group_public_key.0.as_compressed(),
+            dkg_output.content.group_public_key.0.as_compressed(),
             "Group public keys do not match"
         );
 
@@ -448,7 +447,7 @@ mod tests {
                 .verifying_keys
                 .iter()
                 .zip(dkg_output.content.verifying_keys.iter())
-                .all(|(a, b)| a == b),
+                .all(|(a, b)| a.0 == b.0),
             "Verifying keys do not match"
         );
 

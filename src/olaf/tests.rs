@@ -54,8 +54,8 @@ mod tests {
 
                 // Verify that all DKG outputs are equal for group_public_key and verifying_keys
                 assert!(
-                    dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key
-                        == w[1].0.content.group_public_key
+                    dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key.0
+                        == w[1].0.content.group_public_key.0
                         && w[0].0.content.verifying_keys.len()
                             == w[1].0.content.verifying_keys.len()
                         && w[0]
@@ -64,7 +64,7 @@ mod tests {
                             .verifying_keys
                             .iter()
                             .zip(w[1].0.content.verifying_keys.iter())
-                            .all(|(a, b)| a == b)),
+                            .all(|(a, b)| a.0 == b.0)),
                     "All DKG outputs should have identical group public keys and verifying keys."
                 );
 
@@ -72,7 +72,7 @@ mod tests {
                 for i in 0..participants {
                     for j in 0..participants {
                         assert_eq!(
-                            dkg_outputs[i].0.content.verifying_keys[j],
+                            dkg_outputs[i].0.content.verifying_keys[j].0,
                             (dkg_outputs[j].1.to_public()),
                             "Verification of total secret shares failed!"
                         );

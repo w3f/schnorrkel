@@ -17,7 +17,7 @@ use super::{
         evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
         sum_commitments,
     },
-    GENERATOR,
+    GroupPublicKey, VerifyingKey, GENERATOR,
 };
 
 impl Keypair {
@@ -245,11 +245,13 @@ impl Keypair {
 
         for id in &identifiers {
             let evaluation = evaluate_polynomial_commitment(id, &total_polynomial_commitment);
-            verifying_keys.push(PublicKey::from_point(evaluation));
+            verifying_keys.push(VerifyingKey(PublicKey::from_point(evaluation)));
         }
 
-        let dkg_output_content =
-            DKGOutputContent::new(PublicKey::from_point(group_point), verifying_keys);
+        let dkg_output_content = DKGOutputContent::new(
+            GroupPublicKey(PublicKey::from_point(group_point)),
+            verifying_keys,
+        );
         let mut dkg_output_transcript = Transcript::new(b"dkg output");
         dkg_output_transcript.append_message(b"content", &dkg_output_content.to_bytes());
 

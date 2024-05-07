@@ -12,9 +12,9 @@ mod olaf_benches {
             .warm_up_time(std::time::Duration::from_secs(2))
             .measurement_time(std::time::Duration::from_secs(300));
 
-        for &n in [3, 10, 100, 1000].iter() {
+        for &n in [1000].iter() {
             let participants = n;
-            let threshold = (n * 2 + 2) / 3;
+            let threshold = 100; //(n * 2 + 2) / 3;
 
             let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
             let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
