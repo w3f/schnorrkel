@@ -206,25 +206,29 @@ impl Keypair {
 
             let key_exchange = self.secret.key * content.ephemeral_key.into_point();
             for (i, ciphertext) in ciphertexts.iter().enumerate() {
+                let mut secret_share_found = false;
+
                 if identifiers.len() != participants {
                     let identifier =
                         generate_identifier(&first_message.content.recipients_hash, i as u16);
                     identifiers.push(identifier);
                 }
 
-                if let Ok(secret_share) = decrypt(
-                    encryption_transcript.clone(),
-                    &self.public,
-                    &key_exchange,
-                    ciphertext,
-                    &content.encryption_nonce,
-                    i,
-                ) {
-                    if secret_share * GENERATOR
-                        == evaluate_polynomial_commitment(&identifiers[i], point_polynomial)
-                    {
-                        secret_shares.push(secret_share);
-                        break;
+                if !secret_share_found {
+                    if let Ok(secret_share) = decrypt(
+                        encryption_transcript.clone(),
+                        &self.public,
+                        &key_exchange,
+                        ciphertext,
+                        &content.encryption_nonce,
+                        i,
+                    ) {
+                        if secret_share * GENERATOR
+                            == evaluate_polynomial_commitment(&identifiers[i], point_polynomial)
+                        {
+                            secret_shares.push(secret_share);
+                            secret_share_found = true;
+                        }
                     }
                 }
             }

@@ -10,51 +10,73 @@ mod tests {
         use curve25519_dalek::ristretto::RistrettoPoint;
         use curve25519_dalek::traits::Identity;
         use merlin::Transcript;
+        use rand::Rng;
+        use crate::olaf::data_structures::Parameters;
+        use crate::olaf::MINIMUM_THRESHOLD;
+
+        const MAXIMUM_PARTICIPANTS: u16 = 10;
+        const MINIMUM_PARTICIPANTS: u16 = 2;
+        const PROTOCOL_RUNS: usize = 1;
+
+        fn generate_parameters() -> Parameters {
+            let mut rng = rand::thread_rng();
+            let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
+            let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
+
+            Parameters { participants, threshold }
+        }
 
         #[test]
         fn test_simplpedpop_protocol() {
-            let threshold = 2;
-            let participants = 2;
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+            for _ in 0..PROTOCOL_RUNS {
+                let parameters = generate_parameters();
+                let participants = parameters.participants as usize;
+                let threshold = parameters.threshold as usize;
 
-            let mut all_messages = Vec::new();
-            for i in 0..participants {
-                let message: AllMessage =
-                    keypairs[i].simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap();
-                all_messages.push(message);
-            }
+                let keypairs: Vec<Keypair> =
+                    (0..participants).map(|_| Keypair::generate()).collect();
+                let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
 
-            let mut dkg_outputs = Vec::new();
+                let mut all_messages = Vec::new();
+                for i in 0..participants {
+                    let message: AllMessage = keypairs[i]
+                        .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                        .unwrap();
+                    all_messages.push(message);
+                }
 
-            for kp in keypairs.iter() {
-                let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-                dkg_outputs.push(dkg_output);
-            }
+                let mut dkg_outputs = Vec::new();
 
-            // Verify that all DKG outputs are equal for group_public_key and verifying_keys
-            assert!(
-                dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key
-                    == w[1].0.content.group_public_key
-                    && w[0].0.content.verifying_keys.len() == w[1].0.content.verifying_keys.len()
-                    && w[0]
-                        .0
-                        .content
-                        .verifying_keys
-                        .iter()
-                        .zip(w[1].0.content.verifying_keys.iter())
-                        .all(|(a, b)| a == b)),
-                "All DKG outputs should have identical group public keys and verifying keys."
-            );
+                for kp in keypairs.iter() {
+                    let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+                    dkg_outputs.push(dkg_output);
+                }
 
-            // Verify that all verifying_keys are valid
-            for i in 0..participants {
-                for j in 0..participants {
-                    assert_eq!(
-                        dkg_outputs[i].0.content.verifying_keys[j],
-                        (dkg_outputs[j].1.to_public()),
-                        "Verification of total secret shares failed!"
-                    );
+                // Verify that all DKG outputs are equal for group_public_key and verifying_keys
+                assert!(
+                    dkg_outputs.windows(2).all(|w| w[0].0.content.group_public_key
+                        == w[1].0.content.group_public_key
+                        && w[0].0.content.verifying_keys.len()
+                            == w[1].0.content.verifying_keys.len()
+                        && w[0]
+                            .0
+                            .content
+                            .verifying_keys
+                            .iter()
+                            .zip(w[1].0.content.verifying_keys.iter())
+                            .all(|(a, b)| a == b)),
+                    "All DKG outputs should have identical group public keys and verifying keys."
+                );
+
+                // Verify that all verifying_keys are valid
+                for i in 0..participants {
+                    for j in 0..participants {
+                        assert_eq!(
+                            dkg_outputs[i].0.content.verifying_keys[j],
+                            (dkg_outputs[j].1.to_public()),
+                            "Verification of total secret shares failed!"
+                        );
+                    }
                 }
             }
         }
