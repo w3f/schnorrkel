@@ -7,7 +7,7 @@ use crate::SignatureError;
 pub type DKGResult<T> = Result<T, DKGError>;
 
 /// An error ocurred during the execution of the SimplPedPoP protocol.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum DKGError {
     /// Invalid Proof of Possession.
     InvalidProofOfPossession(SignatureError),

@@ -1,6 +1,4 @@
-//! SimplPedPoP data structures.
-
-#![allow(clippy::too_many_arguments)]
+//! SimplPedPoP types.
 
 use core::iter;
 use alloc::vec::Vec;
@@ -410,7 +408,7 @@ impl DKGOutput {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        let compressed_public_key = self.group_public_key.0.as_compressed(); // Assuming PublicKey can be compressed directly
+        let compressed_public_key = self.group_public_key.0.as_compressed();
         bytes.extend(compressed_public_key.to_bytes().iter());
 
         let key_count = self.verifying_keys.len() as u16;
@@ -598,7 +596,7 @@ mod tests {
         );
 
         assert_eq!(
-            deserialized_dkg_output.signature.s, dkg_output.signature.s,
+            deserialized_dkg_output.signature, dkg_output.signature,
             "Signatures do not match"
         );
     }

@@ -4,6 +4,7 @@
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use crate::{PublicKey, SecretKey};
 use crate::context::SigningTranscript;
+use merlin::Transcript;
 
 pub mod errors;
 pub mod simplpedpop;
@@ -28,7 +29,7 @@ pub struct Identifier(Scalar);
 
 impl Identifier {
     pub(super) fn generate(recipients_hash: &[u8; 16], index: u16) -> Identifier {
-        let mut pos = merlin::Transcript::new(b"Identifier");
+        let mut pos = Transcript::new(b"Identifier");
         pos.append_message(b"RecipientsHash", recipients_hash);
         pos.append_message(b"i", &index.to_le_bytes()[..]);
 

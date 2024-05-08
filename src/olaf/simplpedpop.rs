@@ -5,7 +5,9 @@ use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
 use rand_core::RngCore;
-use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
+use crate::{
+    context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey, getrandom_or_panic,
+};
 use super::{
     errors::{DKGError, DKGResult},
     types::{
@@ -26,7 +28,7 @@ impl Keypair {
         let parameters = Parameters::generate(recipients.len() as u16, threshold);
         parameters.validate()?;
 
-        let mut rng = crate::getrandom_or_panic();
+        let mut rng = getrandom_or_panic();
 
         // We do not recipients.sort() because the protocol is simpler
         // if we require that all contributions provide the list in
@@ -35,7 +37,7 @@ impl Keypair {
         // Instead we create a kind of session id by hashing the list
         // provided, but we provide only hash to recipients, not the
         // full recipients list.
-        let mut recipients_transcript = merlin::Transcript::new(b"RecipientsHash");
+        let mut recipients_transcript = Transcript::new(b"RecipientsHash");
         parameters.commit(&mut recipients_transcript);
 
         for recipient in &recipients {
@@ -66,7 +68,7 @@ impl Keypair {
             .expect("This never fails because the minimum threshold is 2");
 
         let mut nonce: [u8; 32] = [0u8; 32];
-        crate::getrandom_or_panic().fill_bytes(&mut nonce);
+        rng.fill_bytes(&mut nonce);
 
         let ephemeral_key = SecretKey { key: secret, nonce };
 
@@ -157,7 +159,7 @@ impl Keypair {
             senders.push(content.sender);
             signatures.push(message.signature);
 
-            let mut encryption_transcript = merlin::Transcript::new(b"Encryption");
+            let mut encryption_transcript = Transcript::new(b"Encryption");
             parameters.commit(&mut encryption_transcript);
             encryption_transcript.commit_point(b"contributor", content.sender.as_compressed());
             encryption_transcript.append_message(b"nonce", &content.encryption_nonce);
@@ -236,7 +238,7 @@ impl Keypair {
         let dkg_output = DKGOutputMessage::new(self.public, dkg_output, signature);
 
         let mut nonce: [u8; 32] = [0u8; 32];
-        crate::getrandom_or_panic().fill_bytes(&mut nonce);
+        getrandom_or_panic().fill_bytes(&mut nonce);
 
         let secret_key = SecretKey { key: total_secret_share, nonce };
 
