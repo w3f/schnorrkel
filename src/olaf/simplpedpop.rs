@@ -8,13 +8,12 @@ use rand_core::RngCore;
 use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
 use super::{
     errors::{DKGError, DKGResult},
-    generate_identifier,
     types::{
         AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
         PolynomialCommitment, SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH,
         ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
     },
-    GroupPublicKey, SigningShare, VerifyingShare, GENERATOR,
+    GroupPublicKey, Identifier, SigningShare, VerifyingShare, GENERATOR,
 };
 
 impl Keypair {
@@ -49,8 +48,8 @@ impl Keypair {
 
         let secret_shares: Vec<SecretShare> = (0..parameters.participants)
             .map(|i| {
-                let identifier = generate_identifier(&recipients_hash, i);
-                let polynomial_evaluation = secret_polynomial.evaluate(&identifier);
+                let identifier = Identifier::generate(&recipients_hash, i);
+                let polynomial_evaluation = secret_polynomial.evaluate(&identifier.0);
                 SecretShare(polynomial_evaluation)
             })
             .collect();
@@ -221,7 +220,7 @@ impl Keypair {
 
                 if identifiers.len() != participants {
                     let identifier =
-                        generate_identifier(&first_message.content.recipients_hash, i as u16);
+                        Identifier::generate(&first_message.content.recipients_hash, i as u16);
                     identifiers.push(identifier);
                 }
 
@@ -230,7 +229,7 @@ impl Keypair {
                         encrypted_secret_share.decrypt(&key_bytes, &content.encryption_nonce)
                     {
                         if secret_share.0 * GENERATOR
-                            == polynomial_commitment.evaluate(&identifiers[i])
+                            == polynomial_commitment.evaluate(&identifiers[i].0)
                         {
                             secret_shares.push(secret_share);
                             secret_share_found = true;
@@ -250,7 +249,7 @@ impl Keypair {
             .map_err(DKGError::InvalidSignature)?;
 
         for id in &identifiers {
-            let evaluation = total_polynomial_commitment.evaluate(id);
+            let evaluation = total_polynomial_commitment.evaluate(&id.0);
             verifying_keys.push(VerifyingShare(PublicKey::from_point(evaluation)));
         }
 

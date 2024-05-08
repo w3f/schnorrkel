@@ -22,9 +22,15 @@ pub struct VerifyingShare(PublicKey);
 /// The signing share of a participant in the SimplPedPoP protocol, used to produce its signature share.
 pub struct SigningShare(SecretKey);
 
-pub(super) fn generate_identifier(recipients_hash: &[u8; 16], index: u16) -> Scalar {
-    let mut pos = merlin::Transcript::new(b"Identifier");
-    pos.append_message(b"RecipientsHash", recipients_hash);
-    pos.append_message(b"i", &index.to_le_bytes()[..]);
-    pos.challenge_scalar(b"evaluation position")
+/// The identifier of a participant in the Olaf protocol.
+pub struct Identifier(Scalar);
+
+impl Identifier {
+    pub(super) fn generate(recipients_hash: &[u8; 16], index: u16) -> Identifier {
+        let mut pos = merlin::Transcript::new(b"Identifier");
+        pos.append_message(b"RecipientsHash", recipients_hash);
+        pos.append_message(b"i", &index.to_le_bytes()[..]);
+
+        Identifier(pos.challenge_scalar(b"evaluation position"))
+    }
 }

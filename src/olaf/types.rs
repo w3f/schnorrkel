@@ -23,7 +23,7 @@ pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
 pub(super) const CHACHA20POLY1305_KEY_LENGTH: usize = 32;
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct Parameters {
     pub(super) participants: u16,
     pub(super) threshold: u16,
