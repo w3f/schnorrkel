@@ -7,14 +7,13 @@ use merlin::Transcript;
 use rand_core::RngCore;
 use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
 use super::{
-    data_structures::{
+    types::{
         AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
         PolynomialCommitment, SecretPolynomial, SecretShare, ENCRYPTION_NONCE_LENGTH,
         RECIPIENTS_HASH_LENGTH,
     },
     errors::{DKGError, DKGResult},
-    utils::{derive_secret_key_from_scalar, generate_identifier},
-    GroupPublicKey, VerifyingShare, GENERATOR,
+    derive_secret_key_from_scalar, generate_identifier, GroupPublicKey, VerifyingShare, GENERATOR,
 };
 
 impl Keypair {

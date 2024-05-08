@@ -131,7 +131,7 @@ impl EncryptedSecretShare {
 
 /// The secret polynomial of a participant chosen at randoma nd used to generate the secret shares of all the participants (including itself).
 #[derive(ZeroizeOnDrop)]
-pub struct SecretPolynomial {
+pub(super) struct SecretPolynomial {
     pub(super) coefficients: Vec<Scalar>,
 }
 

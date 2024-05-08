@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
     mod simplpedpop {
-        use crate::olaf::data_structures::{
+        use crate::olaf::types::{
             AllMessage, EncryptedSecretShare, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
+            Parameters,
         };
         use crate::olaf::errors::DKGError;
         use crate::{Keypair, PublicKey};
@@ -11,7 +12,6 @@ mod tests {
         use curve25519_dalek::traits::Identity;
         use merlin::Transcript;
         use rand::Rng;
-        use crate::olaf::data_structures::Parameters;
         use crate::olaf::MINIMUM_THRESHOLD;
 
         const MAXIMUM_PARTICIPANTS: u16 = 10;
