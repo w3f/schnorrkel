@@ -249,33 +249,6 @@ mod tests {
         }
 
         #[test]
-        fn test_invalid_proof_of_possession() {
-            let threshold = 3;
-            let participants = 5;
-
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
-
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
-
-            messages[1].content.proof_of_possession =
-                keypairs[1].secret.sign(Transcript::new(b"invalid"), &keypairs[1].public);
-
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
-
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    DKGError::InvalidProofOfPossession(_) => assert!(true),
-                    _ => panic!("Expected DKGError::InvalidProofOfPossession, but got {:?}", e),
-                },
-            }
-        }
-
-        #[test]
         fn test_invalid_signature() {
             let threshold = 3;
             let participants = 5;

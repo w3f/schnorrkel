@@ -9,9 +9,9 @@ use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, Secret
 use super::{
     errors::{DKGError, DKGResult},
     types::{
-        AllMessage, DKGOutput, DKGOutputMessage, EncryptedSecretShare, MessageContent, Parameters,
-        PolynomialCommitment, SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH,
-        ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
+        AllMessage, DKGOutput, DKGOutputMessage, MessageContent, Parameters, PolynomialCommitment,
+        SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH, ENCRYPTION_NONCE_LENGTH,
+        RECIPIENTS_HASH_LENGTH,
     },
     GroupPublicKey, Identifier, SigningShare, VerifyingShare, GENERATOR,
 };
@@ -37,22 +37,18 @@ impl Keypair {
         // full recipients list.
         let mut recipients_transcript = merlin::Transcript::new(b"RecipientsHash");
         parameters.commit(&mut recipients_transcript);
-        for r in recipients.iter() {
-            recipients_transcript.commit_point(b"recipient", r.as_compressed());
+
+        for recipient in &recipients {
+            recipients_transcript.commit_point(b"recipient", recipient.as_compressed());
         }
+
         let mut recipients_hash = [0u8; RECIPIENTS_HASH_LENGTH];
         recipients_transcript.challenge_bytes(b"finalize", &mut recipients_hash);
 
         let secret_polynomial =
             SecretPolynomial::generate(parameters.threshold as usize - 1, &mut rng);
 
-        let secret_shares: Vec<SecretShare> = (0..parameters.participants)
-            .map(|i| {
-                let identifier = Identifier::generate(&recipients_hash, i);
-                let polynomial_evaluation = secret_polynomial.evaluate(&identifier.0);
-                SecretShare(polynomial_evaluation)
-            })
-            .collect();
+        let mut encrypted_secret_shares = Vec::new();
 
         let polynomial_commitment = PolynomialCommitment::commit(&secret_polynomial);
 
@@ -74,34 +70,29 @@ impl Keypair {
 
         let ephemeral_key = SecretKey { key: secret, nonce };
 
-        let ciphertexts: Vec<EncryptedSecretShare> = (0..parameters.participants as usize)
-            .map(|i| {
-                let recipient = recipients[i];
-                let key_exchange = ephemeral_key.key * recipient.into_point();
-                let mut encryption_transcript = encryption_transcript.clone();
+        for i in 0..parameters.participants {
+            let identifier = Identifier::generate(&recipients_hash, i);
 
-                encryption_transcript.commit_point(b"recipient", &recipient.as_compressed());
-                encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
-                encryption_transcript.append_message(b"i", &i.to_le_bytes());
+            let polynomial_evaluation = secret_polynomial.evaluate(&identifier.0);
 
-                let mut key_bytes = [0; CHACHA20POLY1305_KEY_LENGTH];
-                encryption_transcript.challenge_bytes(b"key", &mut key_bytes);
+            let secret_share = SecretShare(polynomial_evaluation);
 
-                secret_shares[i as usize].encrypt(&key_bytes, &encryption_nonce)
-            })
-            .collect::<DKGResult<Vec<EncryptedSecretShare>>>()?;
+            let recipient = recipients[i as usize];
 
-        let secret_commitment = polynomial_commitment
-            .coefficients_commitments
-            .first()
-            .expect("This never fails because the minimum threshold is 2");
+            let key_exchange = ephemeral_key.key * recipient.into_point();
 
-        let pk = &PublicKey::from_point(*secret_commitment);
+            let mut encryption_transcript = encryption_transcript.clone();
+            encryption_transcript.commit_point(b"recipient", recipient.as_compressed());
+            encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
+            encryption_transcript.append_message(b"i", &(i as usize).to_le_bytes());
 
-        let mut pop_transcript = Transcript::new(b"pop");
-        pop_transcript
-            .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-        let proof_of_possession = ephemeral_key.sign(pop_transcript, pk);
+            let mut key_bytes = [0; CHACHA20POLY1305_KEY_LENGTH];
+            encryption_transcript.challenge_bytes(b"key", &mut key_bytes);
+
+            let encrypted_secret_share = secret_share.encrypt(&key_bytes, &encryption_nonce)?;
+
+            encrypted_secret_shares.push(encrypted_secret_share);
+        }
 
         let message_content = MessageContent::new(
             self.public,
@@ -109,8 +100,7 @@ impl Keypair {
             parameters,
             recipients_hash,
             polynomial_commitment,
-            ciphertexts,
-            proof_of_possession,
+            encrypted_secret_shares,
         );
 
         let mut signature_transcript = Transcript::new(b"signature");
@@ -138,12 +128,9 @@ impl Keypair {
 
         let mut secret_shares = Vec::with_capacity(participants);
         let mut verifying_keys = Vec::with_capacity(participants);
-        let mut public_keys = Vec::with_capacity(participants);
-        let mut proofs_of_possession = Vec::with_capacity(participants);
         let mut senders = Vec::with_capacity(participants);
         let mut signatures = Vec::with_capacity(participants);
         let mut signatures_transcripts = Vec::with_capacity(participants);
-        let mut pops_transcripts = Vec::with_capacity(participants);
         let mut group_point = RistrettoPoint::identity();
         let mut total_secret_share = Scalar::ZERO;
         let mut total_polynomial_commitment =
@@ -167,10 +154,6 @@ impl Keypair {
                 .first()
                 .expect("This never fails because the minimum threshold is 2");
 
-            let public_key = PublicKey::from_point(*secret_commitment);
-            public_keys.push(public_key);
-            proofs_of_possession.push(content.proof_of_possession);
-
             senders.push(content.sender);
             signatures.push(message.signature);
 
@@ -191,13 +174,6 @@ impl Keypair {
             signature_transcript.append_message(b"message", &content.to_bytes());
             signatures_transcripts.push(signature_transcript);
 
-            let mut pop_transcript = Transcript::new(b"pop");
-
-            pop_transcript
-                .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-
-            pops_transcripts.push(pop_transcript);
-
             total_polynomial_commitment = PolynomialCommitment::sum_polynomial_commitments(&[
                 &total_polynomial_commitment,
                 &polynomial_commitment,
@@ -205,7 +181,7 @@ impl Keypair {
 
             let key_exchange = self.secret.key * secret_commitment;
 
-            encryption_transcript.commit_point(b"recipient", &self.public.as_compressed());
+            encryption_transcript.commit_point(b"recipient", self.public.as_compressed());
             encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
 
             let mut secret_share_found = false;
@@ -242,9 +218,6 @@ impl Keypair {
             group_point += secret_commitment;
         }
 
-        verify_batch(&mut pops_transcripts, &proofs_of_possession, &public_keys, false)
-            .map_err(DKGError::InvalidProofOfPossession)?;
-
         verify_batch(&mut signatures_transcripts, &signatures, &senders, false)
             .map_err(DKGError::InvalidSignature)?;
 
@@ -253,13 +226,14 @@ impl Keypair {
             verifying_keys.push((*id, VerifyingShare(PublicKey::from_point(evaluation))));
         }
 
-        let dkg_output_content =
+        let dkg_output =
             DKGOutput::new(GroupPublicKey(PublicKey::from_point(group_point)), verifying_keys);
+
         let mut dkg_output_transcript = Transcript::new(b"dkg output");
-        dkg_output_transcript.append_message(b"content", &dkg_output_content.to_bytes());
+        dkg_output_transcript.append_message(b"message", &dkg_output.to_bytes());
 
         let signature = self.sign(dkg_output_transcript);
-        let dkg_output = DKGOutputMessage::new(self.public, dkg_output_content, signature);
+        let dkg_output = DKGOutputMessage::new(self.public, dkg_output, signature);
 
         let mut nonce: [u8; 32] = [0u8; 32];
         crate::getrandom_or_panic().fill_bytes(&mut nonce);
