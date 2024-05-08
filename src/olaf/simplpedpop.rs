@@ -11,8 +11,8 @@ use super::{
     generate_identifier,
     types::{
         AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
-        PolynomialCommitment, SecretPolynomial, SecretShare, ENCRYPTION_NONCE_LENGTH,
-        RECIPIENTS_HASH_LENGTH,
+        PolynomialCommitment, SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH,
+        ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
     },
     GroupPublicKey, SigningShare, VerifyingShare, GENERATOR,
 };
@@ -65,27 +65,6 @@ impl Keypair {
         rng.fill_bytes(&mut encryption_nonce);
         encryption_transcript.append_message(b"nonce", &encryption_nonce);
 
-        let ephemeral_key = Keypair::generate();
-
-        let ciphertexts: Vec<EncryptedSecretShare> = (0..parameters.participants)
-            .map(|i| {
-                secret_shares[i as usize].encrypt(
-                    &ephemeral_key.secret.key,
-                    encryption_transcript.clone(),
-                    &recipients[i as usize],
-                    &encryption_nonce,
-                    i as usize,
-                )
-            })
-            .collect::<DKGResult<Vec<EncryptedSecretShare>>>()?;
-
-        let pk = &PublicKey::from_point(
-            *polynomial_commitment
-                .coefficients_commitments
-                .first()
-                .expect("This never fails because the minimum threshold is 2"),
-        );
-
         let secret = *secret_polynomial
             .coefficients
             .first()
@@ -94,17 +73,36 @@ impl Keypair {
         let mut nonce: [u8; 32] = [0u8; 32];
         crate::getrandom_or_panic().fill_bytes(&mut nonce);
 
-        let secret_key = SecretKey { key: secret, nonce };
+        let ephemeral_key = SecretKey { key: secret, nonce };
+
+        let ciphertexts: Vec<EncryptedSecretShare> = (0..parameters.participants as usize)
+            .map(|i| {
+                let recipient = recipients[i];
+                let key_exchange = ephemeral_key.key * recipient.into_point();
+                let mut encryption_transcript = encryption_transcript.clone();
+
+                encryption_transcript.commit_point(b"recipient", &recipient.as_compressed());
+                encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
+                encryption_transcript.append_message(b"i", &i.to_le_bytes());
+
+                let mut key_bytes = [0; CHACHA20POLY1305_KEY_LENGTH];
+                encryption_transcript.challenge_bytes(b"key", &mut key_bytes);
+
+                secret_shares[i as usize].encrypt(&key_bytes, &encryption_nonce)
+            })
+            .collect::<DKGResult<Vec<EncryptedSecretShare>>>()?;
 
         let secret_commitment = polynomial_commitment
             .coefficients_commitments
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
+        let pk = &PublicKey::from_point(*secret_commitment);
+
         let mut pop_transcript = Transcript::new(b"pop");
         pop_transcript
             .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-        let proof_of_possession = secret_key.sign(pop_transcript, pk);
+        let proof_of_possession = ephemeral_key.sign(pop_transcript, pk);
 
         let message_content = MessageContent::new(
             self.public,
@@ -113,7 +111,6 @@ impl Keypair {
             recipients_hash,
             polynomial_commitment,
             ciphertexts,
-            ephemeral_key.public,
             proof_of_possession,
         );
 
@@ -166,12 +163,12 @@ impl Keypair {
             let polynomial_commitment = &content.polynomial_commitment;
             let encrypted_secret_shares = &content.encrypted_secret_shares;
 
-            let public_key = PublicKey::from_point(
-                *polynomial_commitment
-                    .coefficients_commitments
-                    .first()
-                    .expect("This never fails because the minimum threshold is 2"),
-            );
+            let secret_commitment = polynomial_commitment
+                .coefficients_commitments
+                .first()
+                .expect("This never fails because the minimum threshold is 2");
+
+            let public_key = PublicKey::from_point(*secret_commitment);
             public_keys.push(public_key);
             proofs_of_possession.push(content.proof_of_possession);
 
@@ -197,11 +194,6 @@ impl Keypair {
 
             let mut pop_transcript = Transcript::new(b"pop");
 
-            let secret_commitment = polynomial_commitment
-                .coefficients_commitments
-                .first()
-                .expect("This never fails because the minimum threshold is 2");
-
             pop_transcript
                 .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
 
@@ -212,10 +204,20 @@ impl Keypair {
                 &polynomial_commitment,
             ]);
 
-            let key_exchange = self.secret.key * content.ephemeral_key.into_point();
+            let key_exchange = self.secret.key * secret_commitment;
+
+            encryption_transcript.commit_point(b"recipient", &self.public.as_compressed());
+            encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
+
+            let mut secret_share_found = false;
 
             for (i, encrypted_secret_share) in encrypted_secret_shares.iter().enumerate() {
-                let mut secret_share_found = false;
+                let mut encryption_transcript = encryption_transcript.clone();
+
+                encryption_transcript.append_message(b"i", &i.to_le_bytes());
+
+                let mut key_bytes = [0; CHACHA20POLY1305_KEY_LENGTH];
+                encryption_transcript.challenge_bytes(b"key", &mut key_bytes);
 
                 if identifiers.len() != participants {
                     let identifier =
@@ -224,13 +226,9 @@ impl Keypair {
                 }
 
                 if !secret_share_found {
-                    if let Ok(secret_share) = encrypted_secret_share.decrypt(
-                        encryption_transcript.clone(),
-                        &self.public,
-                        &key_exchange,
-                        &content.encryption_nonce,
-                        i,
-                    ) {
+                    if let Ok(secret_share) =
+                        encrypted_secret_share.decrypt(&key_bytes, &content.encryption_nonce)
+                    {
                         if secret_share.0 * GENERATOR
                             == polynomial_commitment.evaluate(&identifiers[i])
                         {

@@ -10,6 +10,8 @@ pub mod simplpedpop;
 mod tests;
 mod types;
 
+pub use types::AllMessage;
+
 const MINIMUM_THRESHOLD: u16 = 2;
 const GENERATOR: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
 

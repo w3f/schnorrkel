@@ -3,7 +3,6 @@
 #![allow(clippy::too_many_arguments)]
 
 use core::iter;
-
 use alloc::vec::Vec;
 use curve25519_dalek::{ristretto::CompressedRistretto, traits::Identity, RistrettoPoint, Scalar};
 use rand_core::{CryptoRng, RngCore};
@@ -13,7 +12,7 @@ use super::{
     errors::{DKGError, DKGResult},
     GroupPublicKey, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD,
 };
-use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
+use aead::KeyInit;
 use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 
 pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
@@ -21,6 +20,7 @@ pub(super) const U16_LENGTH: usize = 2;
 pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
 pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
 pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
+pub(super) const CHACHA20POLY1305_KEY_LENGTH: usize = 32;
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
 #[derive(Clone, PartialEq, Eq)]
@@ -61,27 +61,12 @@ impl Parameters {
 pub(super) struct SecretShare(pub(super) Scalar);
 
 impl SecretShare {
-    pub(super) fn encrypt<T: SigningTranscript>(
+    pub(super) fn encrypt(
         &self,
-        ephemeral_key: &Scalar,
-        mut transcript: T,
-        recipient: &PublicKey,
+        key: &[u8; CHACHA20POLY1305_KEY_LENGTH],
         nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
-        i: usize,
     ) -> DKGResult<EncryptedSecretShare> {
-        transcript.commit_bytes(b"i", &i.to_le_bytes());
-        transcript.commit_point(b"recipient", recipient.as_compressed());
-        transcript
-            .commit_point(b"key exchange", &(ephemeral_key * recipient.as_point()).compress());
-
-        let mut key: GenericArray<
-            u8,
-            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
-        > = Default::default();
-
-        transcript.challenge_bytes(b"", key.as_mut_slice());
-
-        let cipher = ChaCha20Poly1305::new(&key);
+        let cipher = ChaCha20Poly1305::new(&(*key).into());
 
         let nonce = Nonce::from_slice(&nonce[..]);
 
@@ -97,26 +82,12 @@ impl SecretShare {
 pub struct EncryptedSecretShare(pub(super) Vec<u8>);
 
 impl EncryptedSecretShare {
-    pub(super) fn decrypt<T: SigningTranscript>(
+    pub(super) fn decrypt(
         &self,
-        mut transcript: T,
-        recipient: &PublicKey,
-        key_exchange: &RistrettoPoint,
+        key: &[u8; CHACHA20POLY1305_KEY_LENGTH],
         nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
-        i: usize,
     ) -> DKGResult<SecretShare> {
-        transcript.commit_bytes(b"i", &i.to_le_bytes());
-        transcript.commit_point(b"recipient", recipient.as_compressed());
-        transcript.commit_point(b"key exchange", &key_exchange.compress());
-
-        let mut key: GenericArray<
-            u8,
-            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
-        > = Default::default();
-
-        transcript.challenge_bytes(b"", key.as_mut_slice());
-
-        let cipher = ChaCha20Poly1305::new(&key);
+        let cipher = ChaCha20Poly1305::new(&(*key).into());
 
         let nonce = Nonce::from_slice(&nonce[..]);
 
@@ -262,7 +233,6 @@ pub struct MessageContent {
     pub(super) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
     pub(super) polynomial_commitment: PolynomialCommitment,
     pub(super) encrypted_secret_shares: Vec<EncryptedSecretShare>,
-    pub(super) ephemeral_key: PublicKey,
     pub(super) proof_of_possession: Signature,
 }
 
@@ -275,7 +245,6 @@ impl MessageContent {
         recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
         polynomial_commitment: PolynomialCommitment,
         encrypted_secret_shares: Vec<EncryptedSecretShare>,
-        ephemeral_key: PublicKey,
         proof_of_possession: Signature,
     ) -> Self {
         Self {
@@ -285,7 +254,6 @@ impl MessageContent {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
-            ephemeral_key,
             proof_of_possession,
         }
     }
@@ -307,7 +275,6 @@ impl MessageContent {
             bytes.extend(ciphertext.0.clone());
         }
 
-        bytes.extend(&self.ephemeral_key.to_bytes());
         bytes.extend(&self.proof_of_possession.to_bytes());
 
         bytes
@@ -370,10 +337,6 @@ impl MessageContent {
             cursor += CHACHA20POLY1305_LENGTH;
         }
 
-        let ephemeral_key = PublicKey::from_bytes(&bytes[cursor..cursor + PUBLIC_KEY_LENGTH])
-            .map_err(DKGError::InvalidPublicKey)?;
-        cursor += PUBLIC_KEY_LENGTH;
-
         let proof_of_possession = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
             .map_err(DKGError::InvalidSignature)?;
 
@@ -384,7 +347,6 @@ impl MessageContent {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
-            ephemeral_key,
             proof_of_possession,
         })
     }
@@ -521,7 +483,6 @@ mod tests {
         ];
         let proof_of_possession = sender.sign(Transcript::new(b"pop"));
         let signature = sender.sign(Transcript::new(b"sig"));
-        let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
 
         let message_content = MessageContent::new(
             sender.public,
@@ -530,7 +491,6 @@ mod tests {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
-            ephemeral_key,
             proof_of_possession,
         );
 
@@ -648,16 +608,15 @@ mod tests {
         let ephemeral_key = Keypair::generate();
         let recipient = Keypair::generate();
         let encryption_nonce = [1; ENCRYPTION_NONCE_LENGTH];
-        let t = Transcript::new(b"label");
         let key_exchange = ephemeral_key.secret.key * recipient.public.as_point();
         let secret_share = SecretShare(Scalar::random(&mut rng));
+        let mut transcript = Transcript::new(b"encryption");
+        transcript.commit_point(b"key", &key_exchange.compress());
+        let mut key_bytes = [0; CHACHA20POLY1305_KEY_LENGTH];
+        transcript.challenge_bytes(b"key", &mut key_bytes);
 
-        let encrypted_share = secret_share
-            .encrypt(&ephemeral_key.secret.key, t.clone(), &recipient.public, &encryption_nonce, 0)
-            .unwrap();
+        let encrypted_share = secret_share.encrypt(&key_bytes, &encryption_nonce).unwrap();
 
-        encrypted_share
-            .decrypt(t, &recipient.public, &key_exchange, &encryption_nonce, 0)
-            .unwrap();
+        encrypted_share.decrypt(&key_bytes, &encryption_nonce).unwrap();
     }
 }
