@@ -9,7 +9,7 @@ use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, Secret
 use super::{
     errors::{DKGError, DKGResult},
     types::{
-        AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
+        AllMessage, DKGOutput, DKGOutputMessage, EncryptedSecretShare, MessageContent, Parameters,
         PolynomialCommitment, SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH,
         ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
     },
@@ -124,7 +124,7 @@ impl Keypair {
     pub fn simplpedpop_recipient_all(
         &self,
         messages: &[AllMessage],
-    ) -> DKGResult<(DKGOutput, SigningShare)> {
+    ) -> DKGResult<(DKGOutputMessage, SigningShare)> {
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;
@@ -250,18 +250,16 @@ impl Keypair {
 
         for id in &identifiers {
             let evaluation = total_polynomial_commitment.evaluate(&id.0);
-            verifying_keys.push(VerifyingShare(PublicKey::from_point(evaluation)));
+            verifying_keys.push((*id, VerifyingShare(PublicKey::from_point(evaluation))));
         }
 
-        let dkg_output_content = DKGOutputContent::new(
-            GroupPublicKey(PublicKey::from_point(group_point)),
-            verifying_keys,
-        );
+        let dkg_output_content =
+            DKGOutput::new(GroupPublicKey(PublicKey::from_point(group_point)), verifying_keys);
         let mut dkg_output_transcript = Transcript::new(b"dkg output");
         dkg_output_transcript.append_message(b"content", &dkg_output_content.to_bytes());
 
         let signature = self.sign(dkg_output_transcript);
-        let dkg_output = DKGOutput::new(self.public, dkg_output_content, signature);
+        let dkg_output = DKGOutputMessage::new(self.public, dkg_output_content, signature);
 
         let mut nonce: [u8; 32] = [0u8; 32];
         crate::getrandom_or_panic().fill_bytes(&mut nonce);

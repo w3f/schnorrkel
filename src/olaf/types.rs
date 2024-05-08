@@ -10,7 +10,7 @@ use zeroize::ZeroizeOnDrop;
 use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
 use super::{
     errors::{DKGError, DKGResult},
-    GroupPublicKey, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD,
+    GroupPublicKey, Identifier, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD,
 };
 use aead::KeyInit;
 use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
@@ -21,6 +21,7 @@ pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
 pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
 pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
 pub(super) const CHACHA20POLY1305_KEY_LENGTH: usize = 32;
+pub(super) const SCALAR_LENGTH: usize = 32;
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
 #[derive(PartialEq, Eq)]
@@ -353,16 +354,16 @@ impl MessageContent {
 }
 
 /// The signed output of the SimplPedPoP protocol.
-pub struct DKGOutput {
+pub struct DKGOutputMessage {
     pub(super) sender: PublicKey,
-    pub(super) content: DKGOutputContent,
+    pub(super) dkg_output: DKGOutput,
     pub(super) signature: Signature,
 }
 
-impl DKGOutput {
+impl DKGOutputMessage {
     /// Creates a signed SimplPedPoP output.
-    pub fn new(sender: PublicKey, content: DKGOutputContent, signature: Signature) -> Self {
-        Self { sender, content, signature }
+    pub fn new(sender: PublicKey, content: DKGOutput, signature: Signature) -> Self {
+        Self { sender, dkg_output: content, signature }
     }
 
     /// Serializes the DKGOutput into bytes.
@@ -372,7 +373,7 @@ impl DKGOutput {
         let pk_bytes = self.sender.to_bytes();
         bytes.extend(pk_bytes);
 
-        let content_bytes = self.content.to_bytes();
+        let content_bytes = self.dkg_output.to_bytes();
         bytes.extend(content_bytes);
 
         let signature_bytes = self.signature.to_bytes();
@@ -390,25 +391,28 @@ impl DKGOutput {
         cursor += PUBLIC_KEY_LENGTH;
 
         let content_bytes = &bytes[cursor..bytes.len() - SIGNATURE_LENGTH];
-        let content = DKGOutputContent::from_bytes(content_bytes)?;
+        let dkg_output = DKGOutput::from_bytes(content_bytes)?;
 
         cursor = bytes.len() - SIGNATURE_LENGTH;
         let signature = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
             .map_err(DKGError::InvalidSignature)?;
 
-        Ok(DKGOutput { sender, content, signature })
+        Ok(DKGOutputMessage { sender, dkg_output, signature })
     }
 }
 
 /// The content of the signed output of the SimplPedPoP protocol.
-pub struct DKGOutputContent {
+pub struct DKGOutput {
     pub(super) group_public_key: GroupPublicKey,
-    pub(super) verifying_keys: Vec<VerifyingShare>,
+    pub(super) verifying_keys: Vec<(Identifier, VerifyingShare)>,
 }
 
-impl DKGOutputContent {
+impl DKGOutput {
     /// Creates the content of the SimplPedPoP output.
-    pub fn new(group_public_key: GroupPublicKey, verifying_keys: Vec<VerifyingShare>) -> Self {
+    pub fn new(
+        group_public_key: GroupPublicKey,
+        verifying_keys: Vec<(Identifier, VerifyingShare)>,
+    ) -> Self {
         Self { group_public_key, verifying_keys }
     }
     /// Serializes the DKGOutputContent into bytes.
@@ -421,17 +425,16 @@ impl DKGOutputContent {
         let key_count = self.verifying_keys.len() as u16;
         bytes.extend(key_count.to_le_bytes());
 
-        for key in &self.verifying_keys {
+        for (id, key) in &self.verifying_keys {
+            bytes.extend(id.0.to_bytes());
             bytes.extend(key.0.to_bytes());
         }
 
         bytes
     }
-}
 
-impl DKGOutputContent {
     /// Deserializes the DKGOutputContent from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<DKGOutputContent, DKGError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, DKGError> {
         let mut cursor = 0;
 
         let public_key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH]; // Ristretto points are 32 bytes when compressed
@@ -447,14 +450,20 @@ impl DKGOutputContent {
             u16::from_le_bytes(key_count_bytes.try_into().map_err(DKGError::DeserializationError)?);
 
         let mut verifying_keys = Vec::with_capacity(key_count as usize);
+
         for _ in 0..key_count {
+            let mut identifier_bytes = [0; SCALAR_LENGTH];
+            identifier_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
+            let identifier = Scalar::from_canonical_bytes(identifier_bytes).unwrap();
+            cursor += SCALAR_LENGTH;
+
             let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
             cursor += PUBLIC_KEY_LENGTH;
             let key = PublicKey::from_bytes(key_bytes).map_err(DKGError::InvalidPublicKey)?;
-            verifying_keys.push(VerifyingShare(key));
+            verifying_keys.push((Identifier(identifier), VerifyingShare(key)));
         }
 
-        Ok(DKGOutputContent {
+        Ok(DKGOutput {
             group_public_key: GroupPublicKey(PublicKey::from_point(group_public_key)),
             verifying_keys,
         })
@@ -550,12 +559,21 @@ mod tests {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
-            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
         ];
 
-        let dkg_output_content = DKGOutputContent {
+        let dkg_output = DKGOutput {
             group_public_key: GroupPublicKey(PublicKey::from_point(group_public_key)),
             verifying_keys,
         };
@@ -563,36 +581,35 @@ mod tests {
         let keypair = Keypair::generate();
         let signature = keypair.sign(Transcript::new(b"test"));
 
-        let dkg_output =
-            DKGOutput { sender: keypair.public, content: dkg_output_content, signature };
+        let dkg_output = DKGOutputMessage { sender: keypair.public, dkg_output, signature };
 
         // Serialize the DKGOutput
         let bytes = dkg_output.to_bytes();
 
         // Deserialize the DKGOutput
         let deserialized_dkg_output =
-            DKGOutput::from_bytes(&bytes).expect("Deserialization failed");
+            DKGOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
         // Check if the deserialized content matches the original
         assert_eq!(
-            deserialized_dkg_output.content.group_public_key.0.as_compressed(),
-            dkg_output.content.group_public_key.0.as_compressed(),
+            deserialized_dkg_output.dkg_output.group_public_key.0.as_compressed(),
+            dkg_output.dkg_output.group_public_key.0.as_compressed(),
             "Group public keys do not match"
         );
 
         assert_eq!(
-            deserialized_dkg_output.content.verifying_keys.len(),
-            dkg_output.content.verifying_keys.len(),
+            deserialized_dkg_output.dkg_output.verifying_keys.len(),
+            dkg_output.dkg_output.verifying_keys.len(),
             "Verifying keys counts do not match"
         );
 
         assert!(
             deserialized_dkg_output
-                .content
+                .dkg_output
                 .verifying_keys
                 .iter()
-                .zip(dkg_output.content.verifying_keys.iter())
-                .all(|(a, b)| a.0 == b.0),
+                .zip(dkg_output.dkg_output.verifying_keys.iter())
+                .all(|((a, b), (c, d))| a.0 == c.0 && b.0 == d.0),
             "Verifying keys do not match"
         );
 

@@ -23,6 +23,7 @@ pub struct VerifyingShare(PublicKey);
 pub struct SigningShare(SecretKey);
 
 /// The identifier of a participant in the Olaf protocol.
+#[derive(Clone, Copy)]
 pub struct Identifier(Scalar);
 
 impl Identifier {
