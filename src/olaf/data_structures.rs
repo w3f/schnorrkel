@@ -2,13 +2,16 @@
 
 #![allow(clippy::too_many_arguments)]
 
+use core::iter;
+
 use alloc::vec::Vec;
-use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint, Scalar};
+use curve25519_dalek::{ristretto::CompressedRistretto, traits::Identity, RistrettoPoint, Scalar};
+use rand_core::{CryptoRng, RngCore};
 use zeroize::ZeroizeOnDrop;
 use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
 use super::{
     errors::{DKGError, DKGResult},
-    GroupPublicKey, VerifyingKey, MINIMUM_THRESHOLD,
+    GroupPublicKey, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD,
 };
 use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
 use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
@@ -126,6 +129,92 @@ impl EncryptedSecretShare {
     }
 }
 
+/// The secret polynomial of a participant chosen at randoma nd used to generate the secret shares of all the participants (including itself).
+#[derive(ZeroizeOnDrop)]
+pub struct SecretPolynomial {
+    pub(super) coefficients: Vec<Scalar>,
+}
+
+impl SecretPolynomial {
+    pub(super) fn generate<R: RngCore + CryptoRng>(degree: usize, rng: &mut R) -> Self {
+        let mut coefficients = Vec::with_capacity(degree);
+
+        let mut first = Scalar::random(rng);
+        while first == Scalar::ZERO {
+            first = Scalar::random(rng);
+        }
+
+        coefficients.push(first);
+        coefficients.extend(iter::repeat_with(|| Scalar::random(rng)).take(degree - 1));
+
+        SecretPolynomial { coefficients }
+    }
+
+    pub(super) fn evaluate(&self, x: &Scalar) -> Scalar {
+        let mut value =
+            *self.coefficients.last().expect("coefficients must have at least one element");
+
+        // Process all coefficients except the last one, using Horner's method
+        for coeff in self.coefficients.iter().rev().skip(1) {
+            value = value * x + coeff;
+        }
+
+        value
+    }
+}
+
+/// The polynomial commitment of a participant, used to verify the secret shares without revealing the polynomial.
+pub struct PolynomialCommitment {
+    pub(super) coefficients_commitments: Vec<RistrettoPoint>,
+}
+
+impl PolynomialCommitment {
+    pub(super) fn commit(secret_polynomial: &SecretPolynomial) -> Self {
+        let coefficients_commitments = secret_polynomial
+            .coefficients
+            .iter()
+            .map(|coefficient| GENERATOR * coefficient)
+            .collect();
+
+        Self { coefficients_commitments }
+    }
+
+    pub(super) fn evaluate(&self, identifier: &Scalar) -> RistrettoPoint {
+        let i = identifier;
+
+        let (_, result) = self
+            .coefficients_commitments
+            .iter()
+            .fold((Scalar::ONE, RistrettoPoint::identity()), |(i_to_the_k, sum_so_far), comm_k| {
+                (i * i_to_the_k, sum_so_far + comm_k * i_to_the_k)
+            });
+
+        result
+    }
+
+    pub(super) fn sum_polynomial_commitments(
+        polynomials_commitments: &[&PolynomialCommitment],
+    ) -> PolynomialCommitment {
+        let max_length = polynomials_commitments
+            .iter()
+            .map(|c| c.coefficients_commitments.len())
+            .max()
+            .unwrap_or(0);
+
+        let mut total_commitment = vec![RistrettoPoint::identity(); max_length];
+
+        for polynomial_commitment in polynomials_commitments {
+            for (i, coeff_commitment) in
+                polynomial_commitment.coefficients_commitments.iter().enumerate()
+            {
+                total_commitment[i] += coeff_commitment;
+            }
+        }
+
+        PolynomialCommitment { coefficients_commitments: total_commitment }
+    }
+}
+
 /// AllMessage packs together messages for all participants.
 ///
 /// We'd save bandwidth by having separate messages for each
@@ -171,7 +260,7 @@ pub struct MessageContent {
     pub(super) encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
     pub(super) parameters: Parameters,
     pub(super) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
-    pub(super) point_polynomial: Vec<RistrettoPoint>,
+    pub(super) polynomial_commitment: PolynomialCommitment,
     pub(super) encrypted_secret_shares: Vec<EncryptedSecretShare>,
     pub(super) ephemeral_key: PublicKey,
     pub(super) proof_of_possession: Signature,
@@ -184,8 +273,8 @@ impl MessageContent {
         encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
         parameters: Parameters,
         recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
-        point_polynomial: Vec<RistrettoPoint>,
-        ciphertexts: Vec<EncryptedSecretShare>,
+        polynomial_commitment: PolynomialCommitment,
+        encrypted_secret_shares: Vec<EncryptedSecretShare>,
         ephemeral_key: PublicKey,
         proof_of_possession: Signature,
     ) -> Self {
@@ -194,8 +283,8 @@ impl MessageContent {
             encryption_nonce,
             parameters,
             recipients_hash,
-            point_polynomial,
-            encrypted_secret_shares: ciphertexts,
+            polynomial_commitment,
+            encrypted_secret_shares,
             ephemeral_key,
             proof_of_possession,
         }
@@ -210,7 +299,7 @@ impl MessageContent {
         bytes.extend(self.parameters.threshold.to_le_bytes());
         bytes.extend(&self.recipients_hash);
 
-        for point in &self.point_polynomial {
+        for point in &self.polynomial_commitment.coefficients_commitments {
             bytes.extend(point.compress().to_bytes());
         }
 
@@ -257,15 +346,21 @@ impl MessageContent {
             .map_err(DKGError::DeserializationError)?;
         cursor += RECIPIENTS_HASH_LENGTH;
 
-        let mut point_polynomial = Vec::with_capacity(participants as usize);
+        let mut coefficients_commitments = Vec::with_capacity(participants as usize);
+
         for _ in 0..participants {
             let point = CompressedRistretto::from_slice(
                 &bytes[cursor..cursor + COMPRESSED_RISTRETTO_LENGTH],
             )
             .map_err(DKGError::DeserializationError)?;
-            point_polynomial.push(point.decompress().ok_or(DKGError::InvalidRistrettoPoint)?);
+
+            coefficients_commitments
+                .push(point.decompress().ok_or(DKGError::InvalidRistrettoPoint)?);
+
             cursor += COMPRESSED_RISTRETTO_LENGTH;
         }
+
+        let polynomial_commitment = PolynomialCommitment { coefficients_commitments };
 
         let mut encrypted_secret_shares = Vec::new();
 
@@ -287,7 +382,7 @@ impl MessageContent {
             encryption_nonce,
             parameters: Parameters { participants, threshold },
             recipients_hash,
-            point_polynomial,
+            polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key,
             proof_of_possession,
@@ -346,12 +441,12 @@ impl DKGOutput {
 /// The content of the signed output of the SimplPedPoP protocol.
 pub struct DKGOutputContent {
     pub(super) group_public_key: GroupPublicKey,
-    pub(super) verifying_keys: Vec<VerifyingKey>,
+    pub(super) verifying_keys: Vec<VerifyingShare>,
 }
 
 impl DKGOutputContent {
     /// Creates the content of the SimplPedPoP output.
-    pub fn new(group_public_key: GroupPublicKey, verifying_keys: Vec<VerifyingKey>) -> Self {
+    pub fn new(group_public_key: GroupPublicKey, verifying_keys: Vec<VerifyingShare>) -> Self {
         Self { group_public_key, verifying_keys }
     }
     /// Serializes the DKGOutputContent into bytes.
@@ -394,7 +489,7 @@ impl DKGOutputContent {
             let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
             cursor += PUBLIC_KEY_LENGTH;
             let key = PublicKey::from_bytes(key_bytes).map_err(DKGError::InvalidPublicKey)?;
-            verifying_keys.push(VerifyingKey(key));
+            verifying_keys.push(VerifyingShare(key));
         }
 
         Ok(DKGOutputContent {
@@ -417,8 +512,9 @@ mod tests {
         let encryption_nonce = [1u8; ENCRYPTION_NONCE_LENGTH];
         let parameters = Parameters { participants: 2, threshold: 1 };
         let recipients_hash = [2u8; RECIPIENTS_HASH_LENGTH];
-        let point_polynomial =
+        let coefficients_commitments =
             vec![RistrettoPoint::random(&mut OsRng), RistrettoPoint::random(&mut OsRng)];
+        let polynomial_commitment = PolynomialCommitment { coefficients_commitments };
         let encrypted_secret_shares = vec![
             EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
             EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
@@ -432,7 +528,7 @@ mod tests {
             encryption_nonce,
             parameters,
             recipients_hash,
-            point_polynomial,
+            polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key,
             proof_of_possession,
@@ -462,9 +558,16 @@ mod tests {
 
         assert!(message
             .content
-            .point_polynomial
+            .polynomial_commitment
+            .coefficients_commitments
             .iter()
-            .zip(deserialized_message.content.point_polynomial.iter())
+            .zip(
+                deserialized_message
+                    .content
+                    .polynomial_commitment
+                    .coefficients_commitments
+                    .iter()
+            )
             .all(|(a, b)| a.compress() == b.compress()));
 
         assert!(message
@@ -487,9 +590,9 @@ mod tests {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
-            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            VerifyingKey(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
         ];
 
         let dkg_output_content = DKGOutputContent {

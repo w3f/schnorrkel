@@ -9,14 +9,12 @@ use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, Secret
 use super::{
     data_structures::{
         AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
-        SecretShare, ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
+        PolynomialCommitment, SecretPolynomial, SecretShare, ENCRYPTION_NONCE_LENGTH,
+        RECIPIENTS_HASH_LENGTH,
     },
     errors::{DKGError, DKGResult},
-    utils::{
-        derive_secret_key_from_scalar, evaluate_polynomial, evaluate_polynomial_commitment,
-        generate_coefficients, generate_identifier, sum_commitments,
-    },
-    GroupPublicKey, VerifyingKey, GENERATOR,
+    utils::{derive_secret_key_from_scalar, generate_identifier},
+    GroupPublicKey, VerifyingShare, GENERATOR,
 };
 
 impl Keypair {
@@ -46,17 +44,18 @@ impl Keypair {
         let mut recipients_hash = [0u8; RECIPIENTS_HASH_LENGTH];
         recipients_transcript.challenge_bytes(b"finalize", &mut recipients_hash);
 
-        let coefficients = generate_coefficients(parameters.threshold as usize - 1, &mut rng);
+        let secret_polynomial =
+            SecretPolynomial::generate(parameters.threshold as usize - 1, &mut rng);
 
         let secret_shares: Vec<SecretShare> = (0..parameters.participants)
             .map(|i| {
                 let identifier = generate_identifier(&recipients_hash, i);
-                SecretShare(evaluate_polynomial(&identifier, &coefficients))
+                let polynomial_evaluation = secret_polynomial.evaluate(&identifier);
+                SecretShare(polynomial_evaluation)
             })
             .collect();
 
-        let point_polynomial: Vec<RistrettoPoint> =
-            coefficients.iter().map(|c| GENERATOR * *c).collect();
+        let polynomial_commitment = PolynomialCommitment::commit(&secret_polynomial);
 
         let mut encryption_transcript = merlin::Transcript::new(b"Encryption");
         parameters.commit(&mut encryption_transcript);
@@ -81,18 +80,21 @@ impl Keypair {
             .collect::<DKGResult<Vec<EncryptedSecretShare>>>()?;
 
         let pk = &PublicKey::from_point(
-            *point_polynomial
+            *polynomial_commitment
+                .coefficients_commitments
                 .first()
                 .expect("This never fails because the minimum threshold is 2"),
         );
 
-        let secret = coefficients
+        let secret = secret_polynomial
+            .coefficients
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
         let secret_key = derive_secret_key_from_scalar(secret, &mut rng);
 
-        let secret_commitment = point_polynomial
+        let secret_commitment = polynomial_commitment
+            .coefficients_commitments
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
@@ -106,7 +108,7 @@ impl Keypair {
             encryption_nonce,
             parameters,
             recipients_hash,
-            point_polynomial,
+            polynomial_commitment,
             ciphertexts,
             ephemeral_key.public,
             proof_of_possession,
@@ -145,7 +147,8 @@ impl Keypair {
         let mut pops_transcripts = Vec::with_capacity(participants);
         let mut group_point = RistrettoPoint::identity();
         let mut total_secret_share = Scalar::ZERO;
-        let mut total_polynomial_commitment = Vec::new();
+        let mut total_polynomial_commitment =
+            PolynomialCommitment { coefficients_commitments: vec![] };
         let mut identifiers = Vec::new();
 
         for (j, message) in messages.iter().enumerate() {
@@ -157,11 +160,12 @@ impl Keypair {
             }
 
             let content = &message.content;
-            let point_polynomial = &content.point_polynomial;
+            let polynomial_commitment = &content.polynomial_commitment;
             let encrypted_secret_shares = &content.encrypted_secret_shares;
 
             let public_key = PublicKey::from_point(
-                *point_polynomial
+                *polynomial_commitment
+                    .coefficients_commitments
                     .first()
                     .expect("This never fails because the minimum threshold is 2"),
             );
@@ -176,9 +180,10 @@ impl Keypair {
             encryption_transcript.commit_point(b"contributor", content.sender.as_compressed());
             encryption_transcript.append_message(b"nonce", &content.encryption_nonce);
 
-            if point_polynomial.len() != threshold - 1 {
-                return Err(DKGError::IncorrectNumberOfCommitments);
+            if polynomial_commitment.coefficients_commitments.len() != threshold - 1 {
+                return Err(DKGError::IncorrectPolynomialCommitmentDegree);
             }
+
             if encrypted_secret_shares.len() != participants {
                 return Err(DKGError::IncorrectNumberOfEncryptedShares);
             }
@@ -188,19 +193,21 @@ impl Keypair {
             signatures_transcripts.push(signature_transcript);
 
             let mut pop_transcript = Transcript::new(b"pop");
-            let secret_commitment = point_polynomial
+
+            let secret_commitment = polynomial_commitment
+                .coefficients_commitments
                 .first()
                 .expect("This never fails because the minimum threshold is 2");
+
             pop_transcript
                 .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
+
             pops_transcripts.push(pop_transcript);
 
-            if total_polynomial_commitment.is_empty() {
-                total_polynomial_commitment = point_polynomial.clone();
-            } else {
-                total_polynomial_commitment =
-                    sum_commitments(&[&total_polynomial_commitment, point_polynomial])?;
-            }
+            total_polynomial_commitment = PolynomialCommitment::sum_polynomial_commitments(&[
+                &total_polynomial_commitment,
+                &polynomial_commitment,
+            ]);
 
             let key_exchange = self.secret.key * content.ephemeral_key.into_point();
 
@@ -222,7 +229,7 @@ impl Keypair {
                         i,
                     ) {
                         if secret_share.0 * GENERATOR
-                            == evaluate_polynomial_commitment(&identifiers[i], point_polynomial)
+                            == polynomial_commitment.evaluate(&identifiers[i])
                         {
                             secret_shares.push(secret_share);
                             secret_share_found = true;
@@ -242,8 +249,8 @@ impl Keypair {
             .map_err(DKGError::InvalidSignature)?;
 
         for id in &identifiers {
-            let evaluation = evaluate_polynomial_commitment(id, &total_polynomial_commitment);
-            verifying_keys.push(VerifyingKey(PublicKey::from_point(evaluation)));
+            let evaluation = total_polynomial_commitment.evaluate(id);
+            verifying_keys.push(VerifyingShare(PublicKey::from_point(evaluation)));
         }
 
         let dkg_output_content = DKGOutputContent::new(

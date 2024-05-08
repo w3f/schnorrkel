@@ -68,7 +68,7 @@ mod tests {
                     "All DKG outputs should have identical group public keys and verifying keys."
                 );
 
-                // Verify that all verifying_keys are valid
+                // Verify that all verifying_shares are valid
                 for i in 0..participants {
                     for j in 0..participants {
                         assert_eq!(
@@ -179,14 +179,14 @@ mod tests {
                 .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
                 .collect();
 
-            messages[1].content.point_polynomial.pop();
+            messages[1].content.polynomial_commitment.coefficients_commitments.pop();
 
             let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
             match result {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => match e {
-                    DKGError::IncorrectNumberOfCommitments => assert!(true),
+                    DKGError::IncorrectPolynomialCommitmentDegree => assert!(true),
                     _ => panic!("Expected DKGError::IncorrectNumberOfCommitments, but got {:?}", e),
                 },
             }

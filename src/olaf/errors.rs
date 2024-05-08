@@ -33,8 +33,8 @@ pub enum DKGError {
     DifferentRecipientsHash,
     /// The number of messages should be 2 at least, which the minimum number of participants.
     InvalidNumberOfMessages,
-    /// The number of commitments per message should be equal to the number of participants - 1.
-    IncorrectNumberOfCommitments,
+    /// The degree of the polynomial commitment be equal to the number of participants - 1.
+    IncorrectPolynomialCommitmentDegree,
     /// The number of encrypted shares per message should be equal to the number of participants.
     IncorrectNumberOfEncryptedShares,
     /// Decryption error when decrypting an encrypted secret share.
