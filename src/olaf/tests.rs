@@ -2,7 +2,7 @@
 mod tests {
     mod simplpedpop {
         use crate::olaf::data_structures::{
-            AllMessage, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
+            AllMessage, EncryptedSecretShare, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
         };
         use crate::olaf::errors::DKGError;
         use crate::{Keypair, PublicKey};
@@ -205,7 +205,7 @@ mod tests {
                 .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
                 .collect();
 
-            messages[1].content.ciphertexts.pop();
+            messages[1].content.encrypted_secret_shares.pop();
 
             let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
@@ -234,7 +234,8 @@ mod tests {
                 .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
                 .collect();
 
-            messages[1].content.ciphertexts[0] = vec![1; CHACHA20POLY1305_LENGTH];
+            messages[1].content.encrypted_secret_shares[0] =
+                EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]);
 
             let result = keypairs[0].simplpedpop_recipient_all(&messages);
 

@@ -8,14 +8,13 @@ use rand_core::RngCore;
 use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
 use super::{
     data_structures::{
-        AllMessage, DKGOutput, DKGOutputContent, MessageContent, Parameters,
-        ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
+        AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
+        SecretShare, ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
     },
     errors::{DKGError, DKGResult},
     utils::{
-        decrypt, derive_secret_key_from_scalar, encrypt, evaluate_polynomial,
-        evaluate_polynomial_commitment, generate_coefficients, generate_identifier,
-        sum_commitments,
+        derive_secret_key_from_scalar, evaluate_polynomial, evaluate_polynomial_commitment,
+        generate_coefficients, generate_identifier, sum_commitments,
     },
     GroupPublicKey, VerifyingKey, GENERATOR,
 };
@@ -49,10 +48,10 @@ impl Keypair {
 
         let coefficients = generate_coefficients(parameters.threshold as usize - 1, &mut rng);
 
-        let scalar_evaluations: Vec<Scalar> = (0..parameters.participants)
+        let secret_shares: Vec<SecretShare> = (0..parameters.participants)
             .map(|i| {
                 let identifier = generate_identifier(&recipients_hash, i);
-                evaluate_polynomial(&identifier, &coefficients)
+                SecretShare(evaluate_polynomial(&identifier, &coefficients))
             })
             .collect();
 
@@ -69,10 +68,9 @@ impl Keypair {
 
         let ephemeral_key = Keypair::generate();
 
-        let ciphertexts: Vec<Vec<u8>> = (0..parameters.participants)
+        let ciphertexts: Vec<EncryptedSecretShare> = (0..parameters.participants)
             .map(|i| {
-                encrypt(
-                    &scalar_evaluations[i as usize],
+                secret_shares[i as usize].encrypt(
                     &ephemeral_key.secret.key,
                     encryption_transcript.clone(),
                     &recipients[i as usize],
@@ -80,7 +78,7 @@ impl Keypair {
                     i as usize,
                 )
             })
-            .collect::<DKGResult<Vec<Vec<u8>>>>()?;
+            .collect::<DKGResult<Vec<EncryptedSecretShare>>>()?;
 
         let pk = &PublicKey::from_point(
             *point_polynomial
@@ -160,7 +158,7 @@ impl Keypair {
 
             let content = &message.content;
             let point_polynomial = &content.point_polynomial;
-            let ciphertexts = &content.ciphertexts;
+            let encrypted_secret_shares = &content.encrypted_secret_shares;
 
             let public_key = PublicKey::from_point(
                 *point_polynomial
@@ -181,7 +179,7 @@ impl Keypair {
             if point_polynomial.len() != threshold - 1 {
                 return Err(DKGError::IncorrectNumberOfCommitments);
             }
-            if ciphertexts.len() != participants {
+            if encrypted_secret_shares.len() != participants {
                 return Err(DKGError::IncorrectNumberOfEncryptedShares);
             }
 
@@ -205,7 +203,8 @@ impl Keypair {
             }
 
             let key_exchange = self.secret.key * content.ephemeral_key.into_point();
-            for (i, ciphertext) in ciphertexts.iter().enumerate() {
+
+            for (i, encrypted_secret_share) in encrypted_secret_shares.iter().enumerate() {
                 let mut secret_share_found = false;
 
                 if identifiers.len() != participants {
@@ -215,15 +214,14 @@ impl Keypair {
                 }
 
                 if !secret_share_found {
-                    if let Ok(secret_share) = decrypt(
+                    if let Ok(secret_share) = encrypted_secret_share.decrypt(
                         encryption_transcript.clone(),
                         &self.public,
                         &key_exchange,
-                        ciphertext,
                         &content.encryption_nonce,
                         i,
                     ) {
-                        if secret_share * GENERATOR
+                        if secret_share.0 * GENERATOR
                             == evaluate_polynomial_commitment(&identifiers[i], point_polynomial)
                         {
                             secret_shares.push(secret_share);
@@ -233,7 +231,7 @@ impl Keypair {
                 }
             }
 
-            total_secret_share += secret_shares.get(j).ok_or(DKGError::InvalidSecretShare)?;
+            total_secret_share += secret_shares.get(j).ok_or(DKGError::InvalidSecretShare)?.0;
             group_point += secret_commitment;
         }
 

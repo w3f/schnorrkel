@@ -3,9 +3,15 @@
 #![allow(clippy::too_many_arguments)]
 
 use alloc::vec::Vec;
-use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
+use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint, Scalar};
+use zeroize::ZeroizeOnDrop;
 use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
-use super::{errors::DKGError, GroupPublicKey, VerifyingKey, MINIMUM_THRESHOLD};
+use super::{
+    errors::{DKGError, DKGResult},
+    GroupPublicKey, VerifyingKey, MINIMUM_THRESHOLD,
+};
+use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
+use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 
 pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
 pub(super) const U16_LENGTH: usize = 2;
@@ -45,6 +51,78 @@ impl Parameters {
     pub(super) fn commit<T: SigningTranscript>(&self, t: &mut T) {
         t.commit_bytes(b"threshold", &self.threshold.to_le_bytes());
         t.commit_bytes(b"participants", &self.participants.to_le_bytes());
+    }
+}
+
+#[derive(ZeroizeOnDrop)]
+pub(super) struct SecretShare(pub(super) Scalar);
+
+impl SecretShare {
+    pub(super) fn encrypt<T: SigningTranscript>(
+        &self,
+        ephemeral_key: &Scalar,
+        mut transcript: T,
+        recipient: &PublicKey,
+        nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
+        i: usize,
+    ) -> DKGResult<EncryptedSecretShare> {
+        transcript.commit_bytes(b"i", &i.to_le_bytes());
+        transcript.commit_point(b"recipient", recipient.as_compressed());
+        transcript
+            .commit_point(b"key exchange", &(ephemeral_key * recipient.as_point()).compress());
+
+        let mut key: GenericArray<
+            u8,
+            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
+        > = Default::default();
+
+        transcript.challenge_bytes(b"", key.as_mut_slice());
+
+        let cipher = ChaCha20Poly1305::new(&key);
+
+        let nonce = Nonce::from_slice(&nonce[..]);
+
+        let ciphertext: Vec<u8> = cipher
+            .encrypt(nonce, &self.0.to_bytes()[..])
+            .map_err(DKGError::EncryptionError)?;
+
+        Ok(EncryptedSecretShare(ciphertext))
+    }
+}
+
+#[derive(Clone)]
+pub struct EncryptedSecretShare(pub(super) Vec<u8>);
+
+impl EncryptedSecretShare {
+    pub(super) fn decrypt<T: SigningTranscript>(
+        &self,
+        mut transcript: T,
+        recipient: &PublicKey,
+        key_exchange: &RistrettoPoint,
+        nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
+        i: usize,
+    ) -> DKGResult<SecretShare> {
+        transcript.commit_bytes(b"i", &i.to_le_bytes());
+        transcript.commit_point(b"recipient", recipient.as_compressed());
+        transcript.commit_point(b"key exchange", &key_exchange.compress());
+
+        let mut key: GenericArray<
+            u8,
+            <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize,
+        > = Default::default();
+
+        transcript.challenge_bytes(b"", key.as_mut_slice());
+
+        let cipher = ChaCha20Poly1305::new(&key);
+
+        let nonce = Nonce::from_slice(&nonce[..]);
+
+        let plaintext = cipher.decrypt(nonce, &self.0[..]).map_err(DKGError::DecryptionError)?;
+
+        let mut bytes = [0; 32];
+        bytes.copy_from_slice(&plaintext);
+
+        Ok(SecretShare(Scalar::from_bytes_mod_order(bytes)))
     }
 }
 
@@ -94,7 +172,7 @@ pub struct MessageContent {
     pub(super) parameters: Parameters,
     pub(super) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
     pub(super) point_polynomial: Vec<RistrettoPoint>,
-    pub(super) ciphertexts: Vec<Vec<u8>>,
+    pub(super) encrypted_secret_shares: Vec<EncryptedSecretShare>,
     pub(super) ephemeral_key: PublicKey,
     pub(super) proof_of_possession: Signature,
 }
@@ -107,7 +185,7 @@ impl MessageContent {
         parameters: Parameters,
         recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
         point_polynomial: Vec<RistrettoPoint>,
-        ciphertexts: Vec<Vec<u8>>,
+        ciphertexts: Vec<EncryptedSecretShare>,
         ephemeral_key: PublicKey,
         proof_of_possession: Signature,
     ) -> Self {
@@ -117,7 +195,7 @@ impl MessageContent {
             parameters,
             recipients_hash,
             point_polynomial,
-            ciphertexts,
+            encrypted_secret_shares: ciphertexts,
             ephemeral_key,
             proof_of_possession,
         }
@@ -136,8 +214,8 @@ impl MessageContent {
             bytes.extend(point.compress().to_bytes());
         }
 
-        for ciphertext in &self.ciphertexts {
-            bytes.extend(ciphertext);
+        for ciphertext in &self.encrypted_secret_shares {
+            bytes.extend(ciphertext.0.clone());
         }
 
         bytes.extend(&self.ephemeral_key.to_bytes());
@@ -189,10 +267,11 @@ impl MessageContent {
             cursor += COMPRESSED_RISTRETTO_LENGTH;
         }
 
-        let mut ciphertexts = Vec::new();
+        let mut encrypted_secret_shares = Vec::new();
+
         for _ in 0..participants {
             let ciphertext = bytes[cursor..cursor + CHACHA20POLY1305_LENGTH].to_vec();
-            ciphertexts.push(ciphertext);
+            encrypted_secret_shares.push(EncryptedSecretShare(ciphertext));
             cursor += CHACHA20POLY1305_LENGTH;
         }
 
@@ -209,7 +288,7 @@ impl MessageContent {
             parameters: Parameters { participants, threshold },
             recipients_hash,
             point_polynomial,
-            ciphertexts,
+            encrypted_secret_shares,
             ephemeral_key,
             proof_of_possession,
         })
@@ -340,7 +419,10 @@ mod tests {
         let recipients_hash = [2u8; RECIPIENTS_HASH_LENGTH];
         let point_polynomial =
             vec![RistrettoPoint::random(&mut OsRng), RistrettoPoint::random(&mut OsRng)];
-        let ciphertexts = vec![vec![1; CHACHA20POLY1305_LENGTH], vec![1; CHACHA20POLY1305_LENGTH]];
+        let encrypted_secret_shares = vec![
+            EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
+            EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
+        ];
         let proof_of_possession = sender.sign(Transcript::new(b"pop"));
         let signature = sender.sign(Transcript::new(b"sig"));
         let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
@@ -351,7 +433,7 @@ mod tests {
             parameters,
             recipients_hash,
             point_polynomial,
-            ciphertexts,
+            encrypted_secret_shares,
             ephemeral_key,
             proof_of_possession,
         );
@@ -387,10 +469,10 @@ mod tests {
 
         assert!(message
             .content
-            .ciphertexts
+            .encrypted_secret_shares
             .iter()
-            .zip(deserialized_message.content.ciphertexts.iter())
-            .all(|(a, b)| a == b));
+            .zip(deserialized_message.content.encrypted_secret_shares.iter())
+            .all(|(a, b)| a.0 == b.0));
 
         assert_eq!(
             message.content.proof_of_possession,
@@ -455,5 +537,24 @@ mod tests {
             deserialized_dkg_output.signature.s, dkg_output.signature.s,
             "Signatures do not match"
         );
+    }
+
+    #[test]
+    fn test_encryption_decryption() {
+        let mut rng = OsRng;
+        let ephemeral_key = Keypair::generate();
+        let recipient = Keypair::generate();
+        let encryption_nonce = [1; ENCRYPTION_NONCE_LENGTH];
+        let t = Transcript::new(b"label");
+        let key_exchange = ephemeral_key.secret.key * recipient.public.as_point();
+        let secret_share = SecretShare(Scalar::random(&mut rng));
+
+        let encrypted_share = secret_share
+            .encrypt(&ephemeral_key.secret.key, t.clone(), &recipient.public, &encryption_nonce, 0)
+            .unwrap();
+
+        encrypted_share
+            .decrypt(t, &recipient.public, &key_exchange, &encryption_nonce, 0)
+            .unwrap();
     }
 }

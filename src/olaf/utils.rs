@@ -1,14 +1,9 @@
 use core::iter;
 use alloc::vec::Vec;
-use aead::{generic_array::GenericArray, KeyInit, KeySizeUser};
-use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use rand_core::{CryptoRng, RngCore};
-use crate::{context::SigningTranscript, PublicKey, SecretKey};
-use super::{
-    data_structures::ENCRYPTION_NONCE_LENGTH,
-    errors::{DKGError, DKGResult},
-};
+use crate::{context::SigningTranscript, SecretKey};
+use super::errors::DKGError;
 
 pub(super) fn generate_identifier(recipients_hash: &[u8; 16], index: u16) -> Scalar {
     let mut pos = merlin::Transcript::new(b"Identifier");
@@ -94,93 +89,4 @@ pub(super) fn sum_commitments(
         }
     }
     Ok(group_commitment)
-}
-
-pub(super) fn encrypt<T: SigningTranscript>(
-    scalar_evaluation: &Scalar,
-    ephemeral_key: &Scalar,
-    mut transcript: T,
-    recipient: &PublicKey,
-    nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
-    i: usize,
-) -> DKGResult<Vec<u8>> {
-    transcript.commit_bytes(b"i", &i.to_le_bytes());
-    transcript.commit_point(b"recipient", recipient.as_compressed());
-    transcript.commit_point(b"key exchange", &(ephemeral_key * recipient.as_point()).compress());
-
-    let mut key: GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize> =
-        Default::default();
-
-    transcript.challenge_bytes(b"", key.as_mut_slice());
-
-    let cipher = ChaCha20Poly1305::new(&key);
-
-    let nonce = Nonce::from_slice(&nonce[..]);
-
-    let ciphertext: Vec<u8> = cipher
-        .encrypt(nonce, &scalar_evaluation.to_bytes()[..])
-        .map_err(DKGError::EncryptionError)?;
-
-    Ok(ciphertext)
-}
-
-pub(super) fn decrypt<T: SigningTranscript>(
-    mut transcript: T,
-    recipient: &PublicKey,
-    key_exchange: &RistrettoPoint,
-    encrypted_scalar: &[u8],
-    nonce: &[u8; ENCRYPTION_NONCE_LENGTH],
-    i: usize,
-) -> DKGResult<Scalar> {
-    transcript.commit_bytes(b"i", &i.to_le_bytes());
-    transcript.commit_point(b"recipient", recipient.as_compressed());
-    transcript.commit_point(b"key exchange", &key_exchange.compress());
-
-    let mut key: GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as KeySizeUser>::KeySize> =
-        Default::default();
-
-    transcript.challenge_bytes(b"", key.as_mut_slice());
-
-    let cipher = ChaCha20Poly1305::new(&key);
-
-    let nonce = Nonce::from_slice(&nonce[..]);
-
-    let plaintext = cipher.decrypt(nonce, encrypted_scalar).map_err(DKGError::DecryptionError)?;
-
-    let mut bytes = [0; 32];
-    bytes.copy_from_slice(&plaintext);
-
-    Ok(Scalar::from_bytes_mod_order(bytes))
-}
-
-#[cfg(test)]
-mod tests {
-    use merlin::Transcript;
-    use crate::Keypair;
-    use rand_core::OsRng;
-    use super::*;
-
-    #[test]
-    fn test_encryption_decryption() {
-        let mut rng = OsRng;
-        let ephemeral_key = Keypair::generate();
-        let recipient = Keypair::generate();
-        let encryption_nonce = [1; ENCRYPTION_NONCE_LENGTH];
-        let t = Transcript::new(b"label");
-        let key_exchange = ephemeral_key.secret.key * recipient.public.as_point();
-        let plaintext = Scalar::random(&mut rng);
-
-        let encrypted_share = encrypt(
-            &plaintext,
-            &ephemeral_key.secret.key,
-            t.clone(),
-            &recipient.public,
-            &encryption_nonce,
-            0,
-        )
-        .unwrap();
-
-        decrypt(t, &recipient.public, &key_exchange, &encrypted_share, &encryption_nonce, 0)
-            .unwrap();
-    }
 }
