@@ -73,7 +73,7 @@ mod tests {
                     for j in 0..participants {
                         assert_eq!(
                             dkg_outputs[i].0.content.verifying_keys[j].0,
-                            (dkg_outputs[j].1.to_public()),
+                            (dkg_outputs[j].1 .0.to_public()),
                             "Verification of total secret shares failed!"
                         );
                     }

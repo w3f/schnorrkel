@@ -7,13 +7,14 @@ use merlin::Transcript;
 use rand_core::RngCore;
 use crate::{context::SigningTranscript, verify_batch, Keypair, PublicKey, SecretKey};
 use super::{
+    errors::{DKGError, DKGResult},
+    generate_identifier,
     types::{
         AllMessage, DKGOutput, DKGOutputContent, EncryptedSecretShare, MessageContent, Parameters,
         PolynomialCommitment, SecretPolynomial, SecretShare, ENCRYPTION_NONCE_LENGTH,
         RECIPIENTS_HASH_LENGTH,
     },
-    errors::{DKGError, DKGResult},
-    derive_secret_key_from_scalar, generate_identifier, GroupPublicKey, VerifyingShare, GENERATOR,
+    GroupPublicKey, SigningShare, VerifyingShare, GENERATOR,
 };
 
 impl Keypair {
@@ -85,12 +86,15 @@ impl Keypair {
                 .expect("This never fails because the minimum threshold is 2"),
         );
 
-        let secret = secret_polynomial
+        let secret = *secret_polynomial
             .coefficients
             .first()
             .expect("This never fails because the minimum threshold is 2");
 
-        let secret_key = derive_secret_key_from_scalar(secret, &mut rng);
+        let mut nonce: [u8; 32] = [0u8; 32];
+        crate::getrandom_or_panic().fill_bytes(&mut nonce);
+
+        let secret_key = SecretKey { key: secret, nonce };
 
         let secret_commitment = polynomial_commitment
             .coefficients_commitments
@@ -124,7 +128,7 @@ impl Keypair {
     pub fn simplpedpop_recipient_all(
         &self,
         messages: &[AllMessage],
-    ) -> DKGResult<(DKGOutput, SecretKey)> {
+    ) -> DKGResult<(DKGOutput, SigningShare)> {
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;
@@ -262,9 +266,11 @@ impl Keypair {
         let signature = self.sign(dkg_output_transcript);
         let dkg_output = DKGOutput::new(self.public, dkg_output_content, signature);
 
-        let secret_key =
-            derive_secret_key_from_scalar(&total_secret_share, &mut crate::getrandom_or_panic());
+        let mut nonce: [u8; 32] = [0u8; 32];
+        crate::getrandom_or_panic().fill_bytes(&mut nonce);
 
-        Ok((dkg_output, secret_key))
+        let secret_key = SecretKey { key: total_secret_share, nonce };
+
+        Ok((dkg_output, SigningShare(secret_key)))
     }
 }
