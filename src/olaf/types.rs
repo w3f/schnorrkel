@@ -14,7 +14,7 @@ use aead::KeyInit;
 use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 
 pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
-pub(super) const U16_LENGTH: usize = 2;
+pub(super) const VEC_LENGTH: usize = 2;
 pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
 pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
 pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
@@ -124,7 +124,6 @@ impl SecretPolynomial {
         let mut value =
             *self.coefficients.last().expect("coefficients must have at least one element");
 
-        // Process all coefficients except the last one, using Horner's method
         for coeff in self.coefficients.iter().rev().skip(1) {
             value = value * x + coeff;
         }
@@ -289,17 +288,17 @@ impl MessageContent {
         cursor += ENCRYPTION_NONCE_LENGTH;
 
         let participants = u16::from_le_bytes(
-            bytes[cursor..cursor + U16_LENGTH]
+            bytes[cursor..cursor + VEC_LENGTH]
                 .try_into()
                 .map_err(DKGError::DeserializationError)?,
         );
-        cursor += U16_LENGTH;
+        cursor += VEC_LENGTH;
         let threshold = u16::from_le_bytes(
-            bytes[cursor..cursor + U16_LENGTH]
+            bytes[cursor..cursor + VEC_LENGTH]
                 .try_into()
                 .map_err(DKGError::DeserializationError)?,
         );
-        cursor += U16_LENGTH;
+        cursor += VEC_LENGTH;
 
         let recipients_hash: [u8; RECIPIENTS_HASH_LENGTH] = bytes
             [cursor..cursor + RECIPIENTS_HASH_LENGTH]
@@ -355,7 +354,7 @@ impl DKGOutputMessage {
         Self { sender, dkg_output: content, signature }
     }
 
-    /// Serializes the DKGOutput into bytes.
+    /// Serializes the DKGOutputMessage into bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
@@ -371,7 +370,7 @@ impl DKGOutputMessage {
         bytes
     }
 
-    /// Deserializes the DKGOutput from bytes.
+    /// Deserializes the DKGOutputMessage from bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, DKGError> {
         let mut cursor = 0;
 
@@ -404,7 +403,7 @@ impl DKGOutput {
     ) -> Self {
         Self { group_public_key, verifying_keys }
     }
-    /// Serializes the DKGOutputContent into bytes.
+    /// Serializes the DKGOutput into bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
@@ -422,27 +421,27 @@ impl DKGOutput {
         bytes
     }
 
-    /// Deserializes the DKGOutputContent from bytes.
+    /// Deserializes the DKGOutput from bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, DKGError> {
         let mut cursor = 0;
 
-        let public_key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH]; // Ristretto points are 32 bytes when compressed
+        let public_key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
         cursor += PUBLIC_KEY_LENGTH;
+
         let compressed_public_key = CompressedRistretto::from_slice(public_key_bytes)
             .map_err(DKGError::DeserializationError)?;
+
         let group_public_key =
             compressed_public_key.decompress().ok_or(DKGError::InvalidRistrettoPoint)?;
 
-        let key_count_bytes = &bytes[cursor..cursor + U16_LENGTH];
-        cursor += U16_LENGTH;
-        let key_count =
-            u16::from_le_bytes(key_count_bytes.try_into().map_err(DKGError::DeserializationError)?);
+        cursor += VEC_LENGTH;
 
-        let mut verifying_keys = Vec::with_capacity(key_count as usize);
+        let mut verifying_keys = Vec::new();
 
-        for _ in 0..key_count {
+        while cursor < bytes.len() {
             let mut identifier_bytes = [0; SCALAR_LENGTH];
             identifier_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
+            // TODO: convert unwrap to error
             let identifier = Scalar::from_canonical_bytes(identifier_bytes).unwrap();
             cursor += SCALAR_LENGTH;
 
@@ -565,14 +564,11 @@ mod tests {
 
         let dkg_output = DKGOutputMessage { sender: keypair.public, dkg_output, signature };
 
-        // Serialize the DKGOutput
         let bytes = dkg_output.to_bytes();
 
-        // Deserialize the DKGOutput
         let deserialized_dkg_output =
             DKGOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
-        // Check if the deserialized content matches the original
         assert_eq!(
             deserialized_dkg_output.dkg_output.group_public_key.0.as_compressed(),
             dkg_output.dkg_output.group_public_key.0.as_compressed(),
