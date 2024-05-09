@@ -186,7 +186,7 @@ mod tests {
             match result {
                 Ok(_) => panic!("Expected an error, but got Ok."),
                 Err(e) => match e {
-                    DKGError::IncorrectPolynomialCommitmentDegree => assert!(true),
+                    DKGError::IncorrectNumberOfCoefficientCommitments => assert!(true),
                     _ => panic!("Expected DKGError::IncorrectNumberOfCommitments, but got {:?}", e),
                 },
             }

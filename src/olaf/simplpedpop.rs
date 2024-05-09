@@ -165,7 +165,7 @@ impl Keypair {
             encryption_transcript.append_message(b"nonce", &content.encryption_nonce);
 
             if polynomial_commitment.coefficients_commitments.len() != threshold - 1 {
-                return Err(DKGError::IncorrectPolynomialCommitmentDegree);
+                return Err(DKGError::IncorrectNumberOfCoefficientCommitments);
             }
 
             if encrypted_secret_shares.len() != participants {

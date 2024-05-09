@@ -318,7 +318,7 @@ impl MessageContent {
             .map_err(DKGError::DeserializationError)?;
 
             coefficients_commitments
-                .push(point.decompress().ok_or(DKGError::InvalidRistrettoPoint)?);
+                .push(point.decompress().ok_or(DKGError::InvaliCoefficientCommitment)?);
 
             cursor += COMPRESSED_RISTRETTO_LENGTH;
         }
@@ -435,7 +435,7 @@ impl DKGOutput {
             .map_err(DKGError::DeserializationError)?;
 
         let group_public_key =
-            compressed_public_key.decompress().ok_or(DKGError::InvalidRistrettoPoint)?;
+            compressed_public_key.decompress().ok_or(DKGError::InvalidGroupPublicKey)?;
 
         cursor += VEC_LENGTH;
 
@@ -445,7 +445,7 @@ impl DKGOutput {
             let mut identifier_bytes = [0; SCALAR_LENGTH];
             identifier_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
             let identifier =
-                scalar_from_canonical_bytes(identifier_bytes).ok_or(DKGError::InvalidScalar)?;
+                scalar_from_canonical_bytes(identifier_bytes).ok_or(DKGError::InvalidIdentifier)?;
             cursor += SCALAR_LENGTH;
 
             let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
