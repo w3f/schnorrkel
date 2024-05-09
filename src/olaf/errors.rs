@@ -23,6 +23,8 @@ pub enum DKGError {
     InvalidSignature(SignatureError),
     /// Invalid Ristretto Point.
     InvalidRistrettoPoint,
+    /// Invalid Scalar.
+    InvalidScalar,
     /// Invalid secret share.
     InvalidSecretShare,
     /// Deserialization Error.

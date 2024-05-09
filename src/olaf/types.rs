@@ -5,7 +5,10 @@ use alloc::vec::Vec;
 use curve25519_dalek::{ristretto::CompressedRistretto, traits::Identity, RistrettoPoint, Scalar};
 use rand_core::{CryptoRng, RngCore};
 use zeroize::ZeroizeOnDrop;
-use crate::{context::SigningTranscript, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
+use crate::{
+    context::SigningTranscript, scalar_from_canonical_bytes, PublicKey, Signature,
+    PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH,
+};
 use super::{
     errors::{DKGError, DKGResult},
     GroupPublicKey, Identifier, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD,
@@ -441,8 +444,8 @@ impl DKGOutput {
         while cursor < bytes.len() {
             let mut identifier_bytes = [0; SCALAR_LENGTH];
             identifier_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
-            // TODO: convert unwrap to error
-            let identifier = Scalar::from_canonical_bytes(identifier_bytes).unwrap();
+            let identifier =
+                scalar_from_canonical_bytes(identifier_bytes).ok_or(DKGError::InvalidScalar)?;
             cursor += SCALAR_LENGTH;
 
             let key_bytes = &bytes[cursor..cursor + PUBLIC_KEY_LENGTH];
