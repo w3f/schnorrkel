@@ -2,7 +2,7 @@ use criterion::criterion_main;
 
 mod olaf_benches {
     use criterion::{criterion_group, BenchmarkId, Criterion};
-    use schnorrkel::{olaf::data_structures::AllMessage, Keypair, PublicKey};
+    use schnorrkel::{olaf::AllMessage, Keypair, PublicKey};
 
     fn benchmark_simplpedpop(c: &mut Criterion) {
         let mut group = c.benchmark_group("SimplPedPoP");
