@@ -22,7 +22,7 @@ pub enum DKGError {
     /// Invalid signature.
     InvalidSignature(SignatureError),
     /// Invalid coefficient commitment of the polynomial commitment.
-    InvaliCoefficientCommitment,
+    InvalidCoefficientCommitment,
     /// Invalid identifier.
     InvalidIdentifier,
     /// Invalid secret share.
