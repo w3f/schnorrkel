@@ -62,15 +62,7 @@ impl Keypair {
         rng.fill_bytes(&mut encryption_nonce);
         encryption_transcript.append_message(b"nonce", &encryption_nonce);
 
-        let secret = *secret_polynomial
-            .coefficients
-            .first()
-            .expect("This never fails because the minimum threshold is 2");
-
-        let mut nonce: [u8; 32] = [0u8; 32];
-        rng.fill_bytes(&mut nonce);
-
-        let ephemeral_key = SecretKey { key: secret, nonce };
+        let ephemeral_key = Keypair::generate();
 
         for i in 0..parameters.participants {
             let identifier = Identifier::generate(&recipients_hash, i);
@@ -81,7 +73,7 @@ impl Keypair {
 
             let recipient = recipients[i as usize];
 
-            let key_exchange = ephemeral_key.key * recipient.into_point();
+            let key_exchange = ephemeral_key.secret.key * recipient.into_point();
 
             let mut encryption_transcript = encryption_transcript.clone();
             encryption_transcript.commit_point(b"recipient", recipient.as_compressed());
@@ -96,6 +88,33 @@ impl Keypair {
             encrypted_secret_shares.push(encrypted_secret_share);
         }
 
+        let pk = &PublicKey::from_point(
+            *polynomial_commitment
+                .coefficients_commitments
+                .first()
+                .expect("This never fails because the minimum threshold is 2"),
+        );
+
+        let secret = *secret_polynomial
+            .coefficients
+            .first()
+            .expect("This never fails because the minimum threshold is 2");
+
+        let mut nonce: [u8; 32] = [0u8; 32];
+        crate::getrandom_or_panic().fill_bytes(&mut nonce);
+
+        let secret_key = SecretKey { key: secret, nonce };
+
+        let secret_commitment = polynomial_commitment
+            .coefficients_commitments
+            .first()
+            .expect("This never fails because the minimum threshold is 2");
+
+        let mut pop_transcript = Transcript::new(b"pop");
+        pop_transcript
+            .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
+        let proof_of_possession = secret_key.sign(pop_transcript, pk);
+
         let message_content = MessageContent::new(
             self.public,
             encryption_nonce,
@@ -103,6 +122,8 @@ impl Keypair {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
+            ephemeral_key.public,
+            proof_of_possession,
         );
 
         let mut signature_transcript = Transcript::new(b"signature");
@@ -138,6 +159,9 @@ impl Keypair {
         let mut total_polynomial_commitment =
             PolynomialCommitment { coefficients_commitments: vec![] };
         let mut identifiers = Vec::new();
+        let mut proofs_of_possession = Vec::with_capacity(participants);
+        let mut pops_transcripts = Vec::with_capacity(participants);
+        let mut public_keys = Vec::with_capacity(participants);
 
         for (j, message) in messages.iter().enumerate() {
             if &message.content.parameters != parameters {
@@ -155,6 +179,15 @@ impl Keypair {
                 .coefficients_commitments
                 .first()
                 .expect("This never fails because the minimum threshold is 2");
+
+            let public_key = PublicKey::from_point(
+                *polynomial_commitment
+                    .coefficients_commitments
+                    .first()
+                    .expect("This never fails because the minimum threshold is 2"),
+            );
+            public_keys.push(public_key);
+            proofs_of_possession.push(content.proof_of_possession);
 
             senders.push(content.sender);
             signatures.push(message.signature);
@@ -176,12 +209,19 @@ impl Keypair {
             signature_transcript.append_message(b"message", &content.to_bytes());
             signatures_transcripts.push(signature_transcript);
 
+            let mut pop_transcript = Transcript::new(b"pop");
+
+            pop_transcript
+                .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
+
+            pops_transcripts.push(pop_transcript);
+
             total_polynomial_commitment = PolynomialCommitment::sum_polynomial_commitments(&[
                 &total_polynomial_commitment,
                 &polynomial_commitment,
             ]);
 
-            let key_exchange = self.secret.key * secret_commitment;
+            let key_exchange = self.secret.key * message.content.ephemeral_key.as_point();
 
             encryption_transcript.commit_point(b"recipient", self.public.as_compressed());
             encryption_transcript.commit_point(b"key exchange", &key_exchange.compress());
@@ -219,6 +259,9 @@ impl Keypair {
             total_secret_share += secret_shares.get(j).ok_or(DKGError::InvalidSecretShare)?.0;
             group_point += secret_commitment;
         }
+
+        verify_batch(&mut pops_transcripts, &proofs_of_possession, &public_keys, false)
+            .map_err(DKGError::InvalidProofOfPossession)?;
 
         verify_batch(&mut signatures_transcripts, &signatures, &senders, false)
             .map_err(DKGError::InvalidSignature)?;

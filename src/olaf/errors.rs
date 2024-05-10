@@ -43,4 +43,6 @@ pub enum DKGError {
     DecryptionError(chacha20poly1305::Error),
     /// Encryption error when encrypting the secret share.
     EncryptionError(chacha20poly1305::Error),
+    /// Invalid Proof of Possession.
+    InvalidProofOfPossession(SignatureError),
 }

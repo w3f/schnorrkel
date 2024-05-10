@@ -1,5 +1,7 @@
 //! SimplPedPoP types.
 
+#![allow(clippy::too_many_arguments)]
+
 use core::iter;
 use alloc::vec::Vec;
 use curve25519_dalek::{ristretto::CompressedRistretto, traits::Identity, RistrettoPoint, Scalar};
@@ -234,6 +236,8 @@ pub struct MessageContent {
     pub(super) recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
     pub(super) polynomial_commitment: PolynomialCommitment,
     pub(super) encrypted_secret_shares: Vec<EncryptedSecretShare>,
+    pub(super) ephemeral_key: PublicKey,
+    pub(super) proof_of_possession: Signature,
 }
 
 impl MessageContent {
@@ -245,6 +249,8 @@ impl MessageContent {
         recipients_hash: [u8; RECIPIENTS_HASH_LENGTH],
         polynomial_commitment: PolynomialCommitment,
         encrypted_secret_shares: Vec<EncryptedSecretShare>,
+        ephemeral_key: PublicKey,
+        proof_of_possession: Signature,
     ) -> Self {
         Self {
             sender,
@@ -253,6 +259,8 @@ impl MessageContent {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
+            ephemeral_key,
+            proof_of_possession,
         }
     }
     /// Serialize MessageContent
@@ -272,6 +280,9 @@ impl MessageContent {
         for ciphertext in &self.encrypted_secret_shares {
             bytes.extend(ciphertext.0.clone());
         }
+
+        bytes.extend(&self.ephemeral_key.to_bytes());
+        bytes.extend(&self.proof_of_possession.to_bytes());
 
         bytes
     }
@@ -333,6 +344,13 @@ impl MessageContent {
             cursor += CHACHA20POLY1305_LENGTH;
         }
 
+        let ephemeral_key = PublicKey::from_bytes(&bytes[cursor..cursor + PUBLIC_KEY_LENGTH])
+            .map_err(DKGError::InvalidPublicKey)?;
+        cursor += PUBLIC_KEY_LENGTH;
+
+        let proof_of_possession = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
+            .map_err(DKGError::InvalidSignature)?;
+
         Ok(MessageContent {
             sender,
             encryption_nonce,
@@ -340,6 +358,8 @@ impl MessageContent {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
+            ephemeral_key,
+            proof_of_possession,
         })
     }
 }
@@ -482,6 +502,8 @@ mod tests {
             EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
         ];
         let signature = sender.sign(Transcript::new(b"sig"));
+        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
+        let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
 
         let message_content = MessageContent::new(
             sender.public,
@@ -490,6 +512,8 @@ mod tests {
             recipients_hash,
             polynomial_commitment,
             encrypted_secret_shares,
+            ephemeral_key,
+            proof_of_possession,
         );
 
         let message = AllMessage::new(message_content, signature);
@@ -534,6 +558,13 @@ mod tests {
             .iter()
             .zip(deserialized_message.content.encrypted_secret_shares.iter())
             .all(|(a, b)| a.0 == b.0));
+
+        assert_eq!(message.content.ephemeral_key, deserialized_message.content.ephemeral_key);
+
+        assert_eq!(
+            message.content.proof_of_possession,
+            deserialized_message.content.proof_of_possession
+        );
 
         assert_eq!(message.signature, deserialized_message.signature);
     }
