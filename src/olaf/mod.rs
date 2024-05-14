@@ -4,11 +4,8 @@
 mod simplpedpop;
 mod frost;
 
-use core::cmp::Ordering;
-
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use merlin::Transcript;
-
 use crate::{context::SigningTranscript, Keypair, PublicKey};
 
 pub(super) const MINIMUM_THRESHOLD: u16 = 2;
@@ -24,7 +21,7 @@ pub struct VerifyingShare(pub(crate) PublicKey);
 
 /// The signing keypair of a participant in the Olaf protocol, used to produce its signature share.
 #[derive(Clone, Debug)]
-pub struct SigningKeyPair(pub(crate) Keypair);
+pub struct SigningKeypair(pub(crate) Keypair);
 
 /// The identifier of a participant in the Olaf protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -37,25 +34,5 @@ impl Identifier {
         pos.append_message(b"i", &index.to_le_bytes()[..]);
 
         Identifier(pos.challenge_scalar(b"evaluation position"))
-    }
-}
-
-impl PartialOrd for Identifier {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Identifier {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let serialized_self = self.0.as_bytes();
-        let serialized_other = other.0.as_bytes();
-
-        // The default cmp uses lexicographic order; so we need the elements in big endian
-        serialized_self
-            .as_ref()
-            .iter()
-            .rev()
-            .cmp(serialized_other.as_ref().iter().rev())
     }
 }

@@ -22,7 +22,7 @@ use self::{
         RECIPIENTS_HASH_LENGTH,
     },
 };
-use super::{GroupPublicKey, Identifier, SigningKeyPair, VerifyingShare, GENERATOR};
+use super::{GroupPublicKey, Identifier, SigningKeypair, VerifyingShare, GENERATOR};
 
 impl Keypair {
     /// First round of the SimplPedPoP protocol.
@@ -143,7 +143,7 @@ impl Keypair {
     pub fn simplpedpop_recipient_all(
         &self,
         messages: &[AllMessage],
-    ) -> SPPResult<(DKGOutputMessage, SigningKeyPair)> {
+    ) -> SPPResult<(DKGOutputMessage, SigningKeypair)> {
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;
@@ -298,7 +298,7 @@ impl Keypair {
 
         let keypair = Keypair::from(secret_key);
 
-        Ok((dkg_output, SigningKeyPair(keypair)))
+        Ok((dkg_output, SigningKeypair(keypair)))
     }
 }
 

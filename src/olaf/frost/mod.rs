@@ -18,9 +18,9 @@ use self::{
     },
 };
 
-use super::{simplpedpop::DKGOutput, GroupPublicKey, SigningKeyPair, VerifyingShare};
+use super::{simplpedpop::DKGOutput, GroupPublicKey, SigningKeypair, VerifyingShare};
 
-impl SigningKeyPair {
+impl SigningKeypair {
     /// Done once by each participant, to generate _their_ nonces and commitments
     /// that are then used during signing.
     ///

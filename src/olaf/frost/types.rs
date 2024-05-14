@@ -256,7 +256,7 @@ pub(super) fn compute_binding_factor_list(
 
 pub(super) fn derive_interpolating_value(
     signer_id: &Identifier,
-    identifiers: BTreeSet<Identifier>,
+    identifiers: Vec<Identifier>,
 ) -> Result<Scalar, FROSTError> {
     compute_lagrange_coefficient(&identifiers, None, *signer_id)
 }
@@ -273,7 +273,7 @@ pub(super) fn derive_interpolating_value(
 ///
 /// If `x` is None, it uses 0 for it (since Identifiers can't be 0).
 pub(super) fn compute_lagrange_coefficient(
-    x_set: &BTreeSet<Identifier>,
+    x_set: &Vec<Identifier>,
     x: Option<Identifier>,
     x_i: Identifier,
 ) -> Result<Scalar, FROSTError> {

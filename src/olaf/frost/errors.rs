@@ -37,10 +37,68 @@ mod tests {
         olaf::{
             frost::types::{NonceCommitment, SigningCommitments},
             simplpedpop::{AllMessage, Parameters},
+            SigningKeypair,
         },
         Keypair, PublicKey,
     };
     use super::FROSTError;
+
+    #[test]
+    fn test_invalid_own_verifying_share_error() {
+        let parameters = Parameters::generate(2, 2);
+        let participants = parameters.participants as usize;
+        let threshold = parameters.threshold as usize;
+
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+        let mut all_messages = Vec::new();
+        for i in 0..participants {
+            let message: AllMessage = keypairs[i]
+                .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                .unwrap();
+            all_messages.push(message);
+        }
+
+        let mut dkg_outputs = Vec::new();
+
+        for kp in keypairs.iter() {
+            let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            dkg_outputs.push(dkg_output);
+        }
+
+        let mut all_signing_commitments = Vec::new();
+        let mut all_signing_nonces = Vec::new();
+
+        for dkg_output in &dkg_outputs {
+            let (signing_nonces, signing_commitments) = dkg_output.1.commit(&mut OsRng);
+            all_signing_nonces.push(signing_nonces);
+            all_signing_commitments.push(signing_commitments);
+        }
+
+        let message = b"message";
+        let context = b"context";
+
+        dkg_outputs[0].1 = SigningKeypair(Keypair::generate());
+
+        let result = dkg_outputs[0].1.sign(
+            context,
+            message,
+            &dkg_outputs[0].0.dkg_output,
+            &all_signing_commitments,
+            &all_signing_nonces[0],
+        );
+
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                FROSTError::InvalidOwnVerifyingShare => assert!(true),
+                _ => {
+                    panic!("Expected FROSTError::InvalidOwnVerifyingShare, but got {:?}", e)
+                },
+            },
+        }
+    }
 
     #[test]
     fn test_incorrect_number_of_verifying_shares_error() {
