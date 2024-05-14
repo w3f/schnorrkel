@@ -1,6 +1,6 @@
 //! Internal types of the FROST protocol.
 
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::vec::Vec;
 use curve25519_dalek::{
     traits::{Identity, VartimeMultiscalarMul},
     RistrettoPoint, Scalar,
@@ -185,11 +185,6 @@ impl From<&SigningNonces> for SigningCommitments {
     }
 }
 
-/// One signer's share of the group commitment, derived from their individual signing commitments
-/// and the binding factor _rho_.
-#[derive(Clone, Copy, PartialEq)]
-pub(super) struct GroupCommitmentShare(pub(super) RistrettoPoint);
-
 /// The product of all signers' individual commitments, published as part of the
 /// final signature.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -273,7 +268,7 @@ pub(super) fn derive_interpolating_value(
 ///
 /// If `x` is None, it uses 0 for it (since Identifiers can't be 0).
 pub(super) fn compute_lagrange_coefficient(
-    x_set: &Vec<Identifier>,
+    x_set: &[Identifier],
     x: Option<Identifier>,
     x_i: Identifier,
 ) -> Result<Scalar, FROSTError> {

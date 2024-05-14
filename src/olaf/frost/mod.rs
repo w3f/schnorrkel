@@ -165,6 +165,24 @@ impl SigningKeypair {
     }
 }
 
+/// Aggregates the signature shares to produce a final signature that
+/// can be verified with the group public key.
+///
+/// `signature_shares` maps the identifier of each participant to the
+/// [`round2::SignatureShare`] they sent. These identifiers must come from whatever mapping
+/// the coordinator has between communication channels and participants, i.e.
+/// they must have assurance that the [`round2::SignatureShare`] came from
+/// the participant with that identifier.
+///
+/// This operation is performed by a coordinator that can communicate with all
+/// the signing participants before publishing the final signature. The
+/// coordinator can be one of the participants or a semi-trusted third party
+/// (who is trusted to not perform denial of service attacks, but does not learn
+/// any secret information). Note that because the coordinator is trusted to
+/// report misbehaving parties in order to avoid publishing an invalid
+/// signature, if the coordinator themselves is a signer and misbehaves, they
+/// can avoid that step. However, at worst, this results in a denial of
+/// service attack due to publishing an invalid signature.
 pub fn aggregate(
     message: &[u8],
     context: &[u8],

@@ -1,8 +1,10 @@
 //! Implementation of the Olaf protocol (<https://eprint.iacr.org/2023/899>), which is composed of the Distributed
 //! Key Generation (DKG) protocol SimplPedPoP and the Threshold Signing protocol FROST.
 
-mod simplpedpop;
-mod frost;
+/// Implementation of the SimplPedPoP protocol.
+pub mod simplpedpop;
+/// Implementation of the FROST protocol.
+pub mod frost;
 
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use merlin::Transcript;
