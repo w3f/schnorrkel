@@ -67,7 +67,7 @@ impl SecretShare {
 
 /// The secret polynomial of a participant chosen at randoma nd used to generate the secret shares of all the participants (including itself).
 #[derive(ZeroizeOnDrop)]
-pub(super) struct SecretPolynomial {
+pub(crate) struct SecretPolynomial {
     pub(super) coefficients: Vec<Scalar>,
 }
 
@@ -102,6 +102,43 @@ impl SecretPolynomial {
             self.coefficients.iter().map(|coefficient| GENERATOR * coefficient).collect();
 
         PolynomialCommitment { coefficients_commitments }
+    }
+
+    /// Generates a lagrange coefficient.
+    ///
+    /// The Lagrange polynomial for a set of points (x_j, y_j) for 0 <= j <= k
+    /// is ∑_{i=0}^k y_i.ℓ_i(x), where ℓ_i(x) is the Lagrange basis polynomial:
+    ///
+    /// ℓ_i(x) = ∏_{0≤j≤k; j≠i} (x - x_j) / (x_i - x_j).
+    ///
+    /// This computes ℓ_j(x) for the set of points `xs` and for the j corresponding
+    /// to the given xj.
+    ///
+    /// If `x` is None, it uses 0 for it (since Identifiers can't be 0).
+    pub(crate) fn compute_lagrange_coefficient(
+        x_set: &[Identifier],
+        x: Option<Identifier>,
+        x_i: Identifier,
+    ) -> Scalar {
+        let mut num = Scalar::ONE;
+        let mut den = Scalar::ONE;
+
+        for x_j in x_set.iter() {
+            if x_i == *x_j {
+                continue;
+            }
+
+            if let Some(x) = x {
+                num *= x.0 - x_j.0;
+                den *= x_i.0 - x_j.0;
+            } else {
+                // Both signs inverted just to avoid requiring Neg (-*xj)
+                num *= x_j.0;
+                den *= x_j.0 - x_i.0;
+            }
+        }
+
+        num * den.invert()
     }
 }
 

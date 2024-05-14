@@ -8,17 +8,22 @@ mod errors;
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
 use rand_core::{CryptoRng, RngCore};
-use crate::Signature;
+use crate::{
+    context::{SigningContext, SigningTranscript},
+    Signature,
+};
 use self::{
     errors::{FROSTError, FROSTResult},
     types::{
-        challenge, compute_binding_factor_list, compute_group_commitment,
-        derive_interpolating_value, BindingFactor, BindingFactorList, Challenge, SignatureShare,
-        SigningCommitments, SigningNonces,
+        BindingFactor, BindingFactorList, GroupCommitment, SignatureShare, SigningCommitments,
+        SigningNonces,
     },
 };
 
-use super::{simplpedpop::DKGOutput, GroupPublicKey, SigningKeypair, VerifyingShare};
+use super::{
+    simplpedpop::{DKGOutput, SecretPolynomial},
+    GroupPublicKey, SigningKeypair, VerifyingShare,
+};
 
 impl SigningKeypair {
     /// Done once by each participant, to generate _their_ nonces and commitments
@@ -123,22 +128,32 @@ impl SigningKeypair {
             return Err(FROSTError::InvalidNumberOfSigningCommitments);
         }
 
-        let binding_factor_list: BindingFactorList = compute_binding_factor_list(
+        let binding_factor_list: BindingFactorList = BindingFactorList::compute(
             all_signing_commitments,
             &dkg_output.group_public_key,
             message,
         );
 
         let group_commitment =
-            compute_group_commitment(all_signing_commitments, &binding_factor_list)?;
+            GroupCommitment::compute(all_signing_commitments, &binding_factor_list)?;
 
-        let lambda_i = derive_interpolating_value(
-            identifiers[index],
-            dkg_output.verifying_keys.iter().map(|x| x.0).collect(),
-        )?;
+        let identifiers_vec: Vec<_> = dkg_output.verifying_keys.iter().map(|x| x.0).collect();
 
-        let challenge =
-            challenge(&group_commitment.0, &dkg_output.group_public_key, context, message);
+        let lambda_i = SecretPolynomial::compute_lagrange_coefficient(
+            &identifiers_vec,
+            None,
+            *identifiers[index],
+        );
+
+        let mut transcript = SigningContext::new(context).bytes(message);
+        transcript.proto_name(b"Schnorr-sig");
+        {
+            let this = &mut transcript;
+            let compressed = dkg_output.group_public_key.0.as_compressed();
+            this.append_message(b"sign:pk", compressed.as_bytes());
+        };
+        transcript.commit_point(b"sign:R", &group_commitment.0.compress());
+        let challenge = transcript.challenge_scalar(b"sign:c");
 
         let signature_share = self.compute_signature_share(
             signer_nonces,
@@ -155,7 +170,7 @@ impl SigningKeypair {
         signer_nonces: &SigningNonces,
         binding_factor: &BindingFactor,
         lambda_i: &Scalar,
-        challenge: &Challenge,
+        challenge: &Scalar,
     ) -> SignatureShare {
         let z_share: Scalar = signer_nonces.hiding.0
             + (signer_nonces.binding.0 * binding_factor.0)
@@ -195,9 +210,9 @@ pub fn aggregate(
     }
 
     let binding_factor_list: BindingFactorList =
-        compute_binding_factor_list(signing_commitments, &group_public_key, message);
+        BindingFactorList::compute(signing_commitments, &group_public_key, message);
 
-    let group_commitment = compute_group_commitment(signing_commitments, &binding_factor_list)?;
+    let group_commitment = GroupCommitment::compute(signing_commitments, &binding_factor_list)?;
 
     let mut s = Scalar::ZERO;
 

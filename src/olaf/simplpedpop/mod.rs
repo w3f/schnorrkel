@@ -7,7 +7,7 @@ mod errors;
 pub use self::types::{
     AllMessage, DKGOutput, DKGOutputMessage, MessageContent, Parameters, PolynomialCommitment,
 };
-
+pub(crate) use self::types::SecretPolynomial;
 use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
@@ -18,8 +18,7 @@ use crate::{
 use self::{
     errors::{SPPError, SPPResult},
     types::{
-        SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH, ENCRYPTION_NONCE_LENGTH,
-        RECIPIENTS_HASH_LENGTH,
+        SecretShare, CHACHA20POLY1305_KEY_LENGTH, ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
     },
 };
 use super::{GroupPublicKey, Identifier, SigningKeypair, VerifyingShare, GENERATOR};
