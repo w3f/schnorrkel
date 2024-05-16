@@ -2,12 +2,10 @@
 //! on Pedersen's spp. All of them have as the fundamental building block the Shamir's Secret Sharing scheme.
 
 mod types;
-mod errors;
+pub mod errors;
 
-pub use self::types::{
-    AllMessage, SPPOutput, SPPOutputMessage, MessageContent, Parameters, PolynomialCommitment,
-};
-pub(crate) use self::types::SecretPolynomial;
+pub use self::types::{AllMessage, SPPOutputMessage};
+pub(crate) use self::types::{PolynomialCommitment, SPPOutput, MessageContent, Parameters};
 use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
@@ -18,7 +16,8 @@ use crate::{
 use self::{
     errors::{SPPError, SPPResult},
     types::{
-        SecretShare, CHACHA20POLY1305_KEY_LENGTH, ENCRYPTION_NONCE_LENGTH, RECIPIENTS_HASH_LENGTH,
+        SecretPolynomial, SecretShare, CHACHA20POLY1305_KEY_LENGTH, ENCRYPTION_NONCE_LENGTH,
+        RECIPIENTS_HASH_LENGTH,
     },
 };
 use super::{ThresholdPublicKey, Identifier, SigningKeypair, VerifyingShare, GENERATOR};
@@ -289,7 +288,7 @@ impl Keypair {
         spp_output_transcript.append_message(b"message", &spp_output.to_bytes());
 
         let signature = self.sign(spp_output_transcript);
-        let spp_output = SPPOutputMessage::new(self.public, spp_output, signature);
+        let spp_output = SPPOutputMessage::new(VerifyingShare(self.public), spp_output, signature);
 
         let mut nonce: [u8; 32] = [0u8; 32];
         getrandom_or_panic().fill_bytes(&mut nonce);

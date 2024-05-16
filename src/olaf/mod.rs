@@ -12,6 +12,8 @@ use crate::{context::SigningTranscript, Keypair, PublicKey};
 
 pub(super) const MINIMUM_THRESHOLD: u16 = 2;
 pub(super) const GENERATOR: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
+pub(crate) const SCALAR_LENGTH: usize = 32;
 
 /// The threshold public key generated in the SimplPedPoP protocol, used to validate the threshold signatures of the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

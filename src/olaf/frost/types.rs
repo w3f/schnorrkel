@@ -1,7 +1,8 @@
-//! Internal types of the FROST protocol.
+//! Types of the FROST protocol.
 
 use alloc::vec::Vec;
 use curve25519_dalek::{
+    ristretto::CompressedRistretto,
     traits::{Identity, VartimeMultiscalarMul},
     RistrettoPoint, Scalar,
 };
@@ -10,17 +11,57 @@ use rand_core::{CryptoRng, RngCore};
 use zeroize::ZeroizeOnDrop;
 use crate::{
     context::SigningTranscript,
-    olaf::{ThresholdPublicKey, GENERATOR},
-    SecretKey,
+    olaf::{
+        simplpedpop::SPPOutputMessage, Identifier, ThresholdPublicKey, VerifyingShare,
+        COMPRESSED_RISTRETTO_LENGTH, GENERATOR, SCALAR_LENGTH,
+    },
+    scalar_from_canonical_bytes, SecretKey,
 };
-use super::errors::FROSTError;
+use super::errors::{FROSTError, FROSTResult};
 
 /// A participant's signature share, which the coordinator will aggregate with all other signer's
 /// shares into the joint signature.
+#[derive(Clone)]
 pub struct SignatureShare {
     /// This participant's signature over the message.
     pub(super) share: Scalar,
 }
+
+impl SignatureShare {
+    /// Serializes the `SignatureShare` into bytes.
+    pub fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
+        self.share.to_bytes()
+    }
+
+    /// Deserializes the `SignatureShare` from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
+        let mut share_bytes = [0; SCALAR_LENGTH];
+        share_bytes.copy_from_slice(&bytes[..SCALAR_LENGTH]);
+        let share = scalar_from_canonical_bytes(share_bytes)
+            .ok_or(FROSTError::SignatureShareDeserializationError)?;
+
+        Ok(SignatureShare { share })
+    }
+
+    pub(super) fn verify(
+        &self,
+        identifier: Identifier,
+        group_commitment_share: &GroupCommitmentShare,
+        verifying_share: &VerifyingShare,
+        lambda_i: Scalar,
+        challenge: &Scalar,
+    ) -> FROSTResult<()> {
+        if (GENERATOR * self.share)
+            != (group_commitment_share.0 + (verifying_share.0.as_point() * challenge * lambda_i))
+        {
+            return Err(FROSTError::InvalidSignatureShare { culprit: identifier });
+        }
+
+        Ok(())
+    }
+}
+
+pub(super) struct GroupCommitmentShare(pub(super) RistrettoPoint);
 
 /// The binding factor, also known as _rho_ (ρ), ensures each signature share is strongly bound to a signing set, specific set
 /// of commitments, and a specific message.
@@ -116,7 +157,7 @@ impl Nonce {
     where
         R: CryptoRng + RngCore,
     {
-        let mut random_bytes = [0; 32];
+        let mut random_bytes = [0; SCALAR_LENGTH];
         rng.fill_bytes(&mut random_bytes[..]);
 
         Self::nonce_generate_from_random_bytes(secret, &random_bytes[..])
@@ -140,6 +181,23 @@ impl Nonce {
 /// A group element that is a commitment to a signing nonce share.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct NonceCommitment(pub(super) RistrettoPoint);
+
+impl NonceCommitment {
+    /// Serializes the `NonceCommitment` into bytes.
+    pub(super) fn to_bytes(&self) -> [u8; 32] {
+        self.0.compress().to_bytes()
+    }
+
+    /// Deserializes the `NonceCommitment` from bytes.
+    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<NonceCommitment> {
+        let compressed = CompressedRistretto::from_slice(&bytes[..COMPRESSED_RISTRETTO_LENGTH])
+            .map_err(FROSTError::DeserializationError)?;
+
+        let point = compressed.decompress().ok_or(FROSTError::InvalidNonceCommitment)?;
+
+        Ok(NonceCommitment(point))
+    }
+}
 
 impl From<Nonce> for NonceCommitment {
     fn from(nonce: Nonce) -> Self {
@@ -216,11 +274,112 @@ impl SigningCommitments {
     pub(super) fn new(hiding: NonceCommitment, binding: NonceCommitment) -> Self {
         Self { hiding, binding }
     }
+
+    /// Serializes the `SigningCommitments` into bytes.
+    pub fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
+        // TODO: Add tests
+        let mut bytes = [0u8; COMPRESSED_RISTRETTO_LENGTH * 2];
+
+        let hiding_bytes = self.hiding.to_bytes();
+        let binding_bytes = self.binding.to_bytes();
+
+        bytes[..COMPRESSED_RISTRETTO_LENGTH].copy_from_slice(&hiding_bytes);
+        bytes[COMPRESSED_RISTRETTO_LENGTH..].copy_from_slice(&binding_bytes);
+
+        bytes
+    }
+
+    /// Deserializes the `SigningCommitments` from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
+        let hiding = NonceCommitment::from_bytes(&bytes[..COMPRESSED_RISTRETTO_LENGTH])?;
+        let binding = NonceCommitment::from_bytes(&bytes[COMPRESSED_RISTRETTO_LENGTH..])?;
+
+        Ok(SigningCommitments { hiding, binding })
+    }
+
+    pub(super) fn to_group_commitment_share(
+        &self,
+        binding_factor: &BindingFactor,
+    ) -> GroupCommitmentShare {
+        GroupCommitmentShare(self.hiding.0 + (self.binding.0 * binding_factor.0))
+    }
 }
 
 impl From<&SigningNonces> for SigningCommitments {
     fn from(nonces: &SigningNonces) -> Self {
         nonces.commitments
+    }
+}
+
+pub struct SigningPackage {
+    pub(super) message: Vec<u8>,
+    pub(super) context: Vec<u8>,
+    pub(super) signing_commitments: Vec<SigningCommitments>,
+    pub(super) signature_share: SignatureShare,
+    pub(super) spp_output_message: SPPOutputMessage,
+}
+
+impl SigningPackage {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        bytes.extend((self.message.len() as u32).to_le_bytes());
+        bytes.extend(&self.message);
+
+        bytes.extend((self.context.len() as u32).to_le_bytes());
+        bytes.extend(&self.context);
+
+        bytes.extend((self.signing_commitments.len() as u32).to_le_bytes());
+        for commitment in &self.signing_commitments {
+            bytes.extend(commitment.to_bytes());
+        }
+
+        bytes.extend(self.signature_share.to_bytes());
+
+        bytes.extend(self.spp_output_message.to_bytes());
+
+        bytes
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+        let mut cursor = 0;
+
+        let message_len =
+            u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
+        cursor += 4;
+        let message = bytes[cursor..cursor + message_len].to_vec();
+        cursor += message_len;
+
+        let context_len =
+            u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
+        cursor += 4;
+        let context = bytes[cursor..cursor + context_len].to_vec();
+        cursor += context_len;
+
+        let signing_commitments_len =
+            u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
+        cursor += 4;
+        let mut signing_commitments = Vec::with_capacity(signing_commitments_len);
+        for _ in 0..signing_commitments_len {
+            let commitment_bytes = &bytes[cursor..cursor + 64]; // Assuming each SigningCommitment is 64 bytes
+            cursor += 64;
+            signing_commitments.push(SigningCommitments::from_bytes(commitment_bytes)?);
+        }
+
+        let share_bytes = &bytes[cursor..cursor + SCALAR_LENGTH];
+        cursor += SCALAR_LENGTH;
+        let signature_share = SignatureShare::from_bytes(share_bytes)?;
+
+        let spp_output_message = SPPOutputMessage::from_bytes(&bytes[cursor..])
+            .map_err(FROSTError::SPPOutputMessageDeserializationError)?;
+
+        Ok(SigningPackage {
+            message,
+            context,
+            signing_commitments,
+            signature_share,
+            spp_output_message,
+        })
     }
 }
 

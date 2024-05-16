@@ -3,8 +3,10 @@ use criterion::criterion_main;
 mod olaf_benches {
     use rand_core::OsRng;
     use criterion::{criterion_group, BenchmarkId, Criterion};
-    use schnorrkel::olaf::{simplpedpop::AllMessage, frost::aggregate};
+    use schnorrkel::olaf::frost::aggregate;
     use schnorrkel::keys::{PublicKey, Keypair};
+    use schnorrkel::olaf::frost::{SigningNonces, SignatureShare, SigningCommitments};
+    use schnorrkel::olaf::simplpedpop::AllMessage;
 
     fn benchmark_simplpedpop(c: &mut Criterion) {
         let mut group = c.benchmark_group("SimplPedPoP");
@@ -16,9 +18,10 @@ mod olaf_benches {
             let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
             let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
 
-            let mut all_messages = Vec::new();
+            let mut all_messages: Vec<AllMessage> = Vec::new();
+
             for i in 0..participants {
-                let message: AllMessage = keypairs[i]
+                let message = keypairs[i]
                     .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
                     .unwrap();
                 all_messages.push(message);
@@ -54,7 +57,7 @@ mod olaf_benches {
 
             let mut all_messages = Vec::new();
             for i in 0..participants {
-                let message: AllMessage = keypairs[i]
+                let message = keypairs[i]
                     .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
                     .unwrap();
                 all_messages.push(message);
@@ -67,8 +70,8 @@ mod olaf_benches {
                 spp_outputs.push(spp_output);
             }
 
-            let mut all_signing_commitments = Vec::new();
-            let mut all_signing_nonces = Vec::new();
+            let mut all_signing_commitments: Vec<SigningCommitments> = Vec::new();
+            let mut all_signing_nonces: Vec<SigningNonces> = Vec::new();
 
             for spp_output in &spp_outputs {
                 let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
@@ -82,7 +85,7 @@ mod olaf_benches {
                 })
             });
 
-            let mut signature_shares = Vec::new();
+            let mut signature_shares: Vec<SignatureShare> = Vec::new();
 
             let message = b"message";
             let context = b"context";
@@ -94,7 +97,7 @@ mod olaf_benches {
                         .sign(
                             context,
                             message,
-                            spp_outputs[0].0.spp_output(),
+                            &spp_outputs[0].0,
                             &all_signing_commitments,
                             &all_signing_nonces[0],
                         )
@@ -103,12 +106,12 @@ mod olaf_benches {
             });
 
             for (i, spp_output) in spp_outputs.iter().enumerate() {
-                let signature_share = spp_output
+                let signature_share: SignatureShare = spp_output
                     .1
                     .sign(
                         context,
                         message,
-                        spp_output.0.spp_output(),
+                        &spp_output.0,
                         &all_signing_commitments,
                         &all_signing_nonces[i],
                     )
@@ -124,7 +127,7 @@ mod olaf_benches {
                         context,
                         &all_signing_commitments,
                         &signature_shares,
-                        spp_outputs[0].0.spp_output().threshold_public_key(),
+                        spp_outputs[0].0.threshold_public_key(),
                     )
                     .unwrap();
                 })
@@ -138,7 +141,7 @@ mod olaf_benches {
         name = olaf_benches;
         config = Criterion::default();
         targets =
-            //benchmark_simplpedpop,
+            benchmark_simplpedpop,
             benchmark_frost,
     }
 }

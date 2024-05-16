@@ -1,6 +1,11 @@
 //! Errors of the FROST protocol.
 
-use crate::SignatureError;
+use core::array::TryFromSliceError;
+
+use crate::{
+    olaf::{simplpedpop::errors::SPPError, Identifier},
+    SignatureError,
+};
 
 /// A result for the SimplPedPoP protocol.
 pub type FROSTResult<T> = Result<T, FROSTError>;
@@ -22,10 +27,25 @@ pub enum FROSTError {
     IncorrectNumberOfVerifyingShares,
     /// The identifiers of the SimplPedPoP protocol must be the same of the FROST protocol.
     InvalidIdentifier,
+    /// Error deserializing the signature share.
+    SignatureShareDeserializationError,
+    /// The signature share is invalid.
+    InvalidSignatureShare {
+        /// The identifier of the signer whose share validation failed.
+        culprit: Identifier,
+    },
     /// The output of the SimplPedPoP protocol must contain the participant's verifying share.
     InvalidOwnVerifyingShare,
     /// Invalid signature.
     InvalidSignature(SignatureError),
+    /// Deserialization error.
+    DeserializationError(TryFromSliceError),
+    /// Invalid nonce commitment.
+    InvalidNonceCommitment,
+    /// Invalid public key.
+    InvalidPublicKey(SignatureError),
+    /// Error deserializing the output message of the SimplPedPoP protocol.
+    SPPOutputMessageDeserializationError(SPPError),
 }
 
 #[cfg(test)]
@@ -82,10 +102,10 @@ mod tests {
         spp_outputs[0].1 = SigningKeypair(Keypair::generate());
 
         let result = spp_outputs[0].1.sign(
-            context,
-            message,
-            &spp_outputs[0].0.spp_output,
-            &all_signing_commitments,
+            context.to_vec(),
+            message.to_vec(),
+            spp_outputs[0].0.clone(),
+            all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
 
@@ -139,10 +159,10 @@ mod tests {
         spp_outputs[0].0.spp_output.verifying_keys.pop();
 
         let result = spp_outputs[0].1.sign(
-            context,
-            message,
-            &spp_outputs[0].0.spp_output,
-            &all_signing_commitments,
+            context.to_vec(),
+            message.to_vec(),
+            spp_outputs[0].0.clone(),
+            all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
 
@@ -199,10 +219,10 @@ mod tests {
         };
 
         let result = spp_outputs[0].1.sign(
-            context,
-            message,
-            &spp_outputs[0].0.spp_output,
-            &all_signing_commitments,
+            context.to_vec(),
+            message.to_vec(),
+            spp_outputs[0].0.clone(),
+            all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
 
@@ -254,11 +274,12 @@ mod tests {
         let context = b"context";
 
         all_signing_commitments[1].hiding = NonceCommitment(RistrettoPoint::identity());
+
         let result = spp_outputs[0].1.sign(
-            context,
-            message,
-            &spp_outputs[0].0.spp_output,
-            &all_signing_commitments,
+            context.to_vec(),
+            message.to_vec(),
+            spp_outputs[0].0.clone(),
+            all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
 
@@ -306,14 +327,16 @@ mod tests {
             all_signing_commitments.push(signing_commitments);
         }
 
+        all_signing_commitments.pop();
+
         let message = b"message";
         let context = b"context";
 
         let result = spp_outputs[0].1.sign(
-            context,
-            message,
-            &spp_outputs[0].0.spp_output,
-            &all_signing_commitments[..1],
+            context.to_vec(),
+            message.to_vec(),
+            spp_outputs[0].0.clone(),
+            all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
 

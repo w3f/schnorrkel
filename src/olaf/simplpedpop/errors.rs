@@ -19,8 +19,8 @@ pub enum SPPError {
     InvalidNumberOfParticipants,
     /// Invalid public key.
     InvalidPublicKey(SignatureError),
-    /// Invalid group public key.
-    InvalidGroupPublicKey,
+    /// Invalid threshold public key.
+    InvalidThresholdPublicKey,
     /// Invalid signature.
     InvalidSignature(SignatureError),
     /// Invalid coefficient commitment of the polynomial commitment.

@@ -12,18 +12,19 @@ use chacha20poly1305::{aead::Aead, ChaCha20Poly1305, Nonce};
 use curve25519_dalek::{ristretto::CompressedRistretto, traits::Identity, RistrettoPoint, Scalar};
 use crate::{
     context::SigningTranscript,
-    olaf::{ThresholdPublicKey, Identifier, VerifyingShare, GENERATOR, MINIMUM_THRESHOLD},
+    olaf::{
+        Identifier, ThresholdPublicKey, VerifyingShare, COMPRESSED_RISTRETTO_LENGTH, GENERATOR,
+        MINIMUM_THRESHOLD, SCALAR_LENGTH,
+    },
     scalar_from_canonical_bytes, PublicKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH,
 };
 use super::errors::{SPPError, SPPResult};
 
-pub(super) const COMPRESSED_RISTRETTO_LENGTH: usize = 32;
 pub(super) const U16_LENGTH: usize = 2;
 pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
 pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
 pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
 pub(super) const CHACHA20POLY1305_KEY_LENGTH: usize = 32;
-pub(super) const SCALAR_LENGTH: usize = 32;
 pub(super) const VEC_LENGTH: usize = 2;
 
 #[derive(ZeroizeOnDrop)]
@@ -68,7 +69,7 @@ impl SecretShare {
 
 /// The secret polynomial of a participant chosen at randoma nd used to generate the secret shares of all the participants (including itself).
 #[derive(ZeroizeOnDrop)]
-pub(crate) struct SecretPolynomial {
+pub(super) struct SecretPolynomial {
     pub(super) coefficients: Vec<Scalar>,
 }
 
@@ -104,43 +105,6 @@ impl SecretPolynomial {
 
         PolynomialCommitment { coefficients_commitments }
     }
-
-    /// Generates a lagrange coefficient.
-    ///
-    /// The Lagrange polynomial for a set of points (x_j, y_j) for 0 <= j <= k
-    /// is ∑_{i=0}^k y_i.ℓ_i(x), where ℓ_i(x) is the Lagrange basis polynomial:
-    ///
-    /// ℓ_i(x) = ∏_{0≤j≤k; j≠i} (x - x_j) / (x_i - x_j).
-    ///
-    /// This computes ℓ_j(x) for the set of points `xs` and for the j corresponding
-    /// to the given xj.
-    ///
-    /// If `x` is None, it uses 0 for it (since Identifiers can't be 0).
-    pub(crate) fn compute_lagrange_coefficient(
-        x_set: &[Identifier],
-        x: Option<Identifier>,
-        x_i: Identifier,
-    ) -> Scalar {
-        let mut num = Scalar::ONE;
-        let mut den = Scalar::ONE;
-
-        for x_j in x_set.iter() {
-            if x_i == *x_j {
-                continue;
-            }
-
-            if let Some(x) = x {
-                num *= x.0 - x_j.0;
-                den *= x_i.0 - x_j.0;
-            } else {
-                // Both signs inverted just to avoid requiring Neg (-*xj)
-                num *= x_j.0;
-                den *= x_j.0 - x_i.0;
-            }
-        }
-
-        num * den.invert()
-    }
 }
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
@@ -152,7 +116,7 @@ pub struct Parameters {
 
 impl Parameters {
     /// Create new parameters.
-    pub fn generate(participants: u16, threshold: u16) -> Parameters {
+    pub(crate) fn generate(participants: u16, threshold: u16) -> Parameters {
         Parameters { participants, threshold }
     }
 
@@ -178,7 +142,7 @@ impl Parameters {
     }
 
     /// Serializes `Parameters` into a byte array.
-    pub fn to_bytes(&self) -> [u8; U16_LENGTH * 2] {
+    pub(super) fn to_bytes(&self) -> [u8; U16_LENGTH * 2] {
         let mut bytes = [0u8; U16_LENGTH * 2];
         bytes[0..U16_LENGTH].copy_from_slice(&self.participants.to_le_bytes());
         bytes[U16_LENGTH..U16_LENGTH * 2].copy_from_slice(&self.threshold.to_le_bytes());
@@ -186,7 +150,7 @@ impl Parameters {
     }
 
     /// Constructs `Parameters` from a byte array.
-    pub fn from_bytes(bytes: &[u8]) -> SPPResult<Parameters> {
+    pub(super) fn from_bytes(bytes: &[u8]) -> SPPResult<Parameters> {
         if bytes.len() != U16_LENGTH * 2 {
             return Err(SPPError::InvalidParameters);
         }
@@ -257,7 +221,7 @@ pub struct AllMessage {
 
 impl AllMessage {
     /// Creates a new message.
-    pub fn new(content: MessageContent, signature: Signature) -> Self {
+    pub(crate) fn new(content: MessageContent, signature: Signature) -> Self {
         Self { content, signature }
     }
     /// Serialize AllMessage
@@ -298,7 +262,7 @@ pub struct MessageContent {
 
 impl MessageContent {
     /// Creates the content of the message.
-    pub fn new(
+    pub(super) fn new(
         sender: PublicKey,
         encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
         parameters: Parameters,
@@ -321,7 +285,7 @@ impl MessageContent {
     }
 
     /// Serialize MessageContent into bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub(super) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
         bytes.extend(self.sender.to_bytes());
@@ -345,7 +309,7 @@ impl MessageContent {
     }
 
     /// Deserialize MessageContent from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MessageContent, SPPError> {
+    pub(super) fn from_bytes(bytes: &[u8]) -> Result<MessageContent, SPPError> {
         let mut cursor = 0;
 
         let sender = PublicKey::from_bytes(&bytes[cursor..cursor + PUBLIC_KEY_LENGTH])
@@ -414,25 +378,23 @@ impl MessageContent {
 }
 
 /// The signed output of the SimplPedPoP protocol.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SPPOutputMessage {
-    pub(crate) sender: PublicKey,
-    /// The output of the SimplPedPoP protocol.
+    pub(crate) signer: VerifyingShare,
     pub(crate) spp_output: SPPOutput,
     pub(crate) signature: Signature,
 }
 
 impl SPPOutputMessage {
-    /// Creates a signed SimplPedPoP output.
-    pub fn new(sender: PublicKey, content: SPPOutput, signature: Signature) -> Self {
-        Self { sender, spp_output: content, signature }
+    pub(crate) fn new(signer: VerifyingShare, content: SPPOutput, signature: Signature) -> Self {
+        Self { signer, signature, spp_output: content }
     }
 
     /// Serializes the SPPOutputMessage into bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
-        let pk_bytes = self.sender.to_bytes();
+        let pk_bytes = self.signer.0.to_bytes();
         bytes.extend(pk_bytes);
 
         let content_bytes = self.spp_output.to_bytes();
@@ -449,7 +411,8 @@ impl SPPOutputMessage {
         let mut cursor = 0;
 
         let pk_bytes = &bytes[..PUBLIC_KEY_LENGTH];
-        let sender = PublicKey::from_bytes(pk_bytes).map_err(SPPError::InvalidPublicKey)?;
+        let signer =
+            VerifyingShare(PublicKey::from_bytes(pk_bytes).map_err(SPPError::InvalidPublicKey)?);
         cursor += PUBLIC_KEY_LENGTH;
 
         let content_bytes = &bytes[cursor..bytes.len() - SIGNATURE_LENGTH];
@@ -459,12 +422,12 @@ impl SPPOutputMessage {
         let signature = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
             .map_err(SPPError::InvalidSignature)?;
 
-        Ok(SPPOutputMessage { sender, spp_output, signature })
+        Ok(SPPOutputMessage { signer, spp_output, signature })
     }
 
-    /// Returns the output of the SimplPedPoP protocol.
-    pub fn spp_output(&self) -> &SPPOutput {
-        &self.spp_output
+    /// Returns the threshold public key.
+    pub fn threshold_public_key(&self) -> ThresholdPublicKey {
+        self.spp_output.threshold_public_key
     }
 
     /// Verifies the signature of the message.
@@ -472,7 +435,8 @@ impl SPPOutputMessage {
         let mut spp_output_transcript = Transcript::new(b"spp output");
         spp_output_transcript.append_message(b"message", &self.spp_output.to_bytes());
 
-        self.sender
+        self.signer
+            .0
             .verify(spp_output_transcript, &self.signature)
             .map_err(SPPError::InvalidSignature)
     }
@@ -482,14 +446,12 @@ impl SPPOutputMessage {
 #[derive(Clone, Debug)]
 pub struct SPPOutput {
     pub(crate) parameters: Parameters,
-    /// The threshold public key generated by the SimplPedPoP protocol.
     pub(crate) threshold_public_key: ThresholdPublicKey,
     pub(crate) verifying_keys: Vec<(Identifier, VerifyingShare)>,
 }
 
 impl SPPOutput {
-    /// Creates the content of the SimplPedPoP output.
-    pub fn new(
+    pub(crate) fn new(
         parameters: &Parameters,
         threshold_public_key: ThresholdPublicKey,
         verifying_keys: Vec<(Identifier, VerifyingShare)>,
@@ -499,13 +461,7 @@ impl SPPOutput {
         Self { threshold_public_key, verifying_keys, parameters }
     }
 
-    /// Returns the threshold public key.
-    pub fn threshold_public_key(&self) -> ThresholdPublicKey {
-        self.threshold_public_key
-    }
-
-    /// Serializes the SPPOutput into bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub(crate) fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
         bytes.extend(self.parameters.to_bytes());
@@ -525,7 +481,7 @@ impl SPPOutput {
     }
 
     /// Deserializes the SPPOutput from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, SPPError> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, SPPError> {
         let mut cursor = 0;
 
         let parameters = Parameters::from_bytes(&bytes[cursor..cursor + U16_LENGTH * 2])?;
@@ -537,8 +493,8 @@ impl SPPOutput {
         let compressed_public_key = CompressedRistretto::from_slice(public_key_bytes)
             .map_err(SPPError::DeserializationError)?;
 
-        let group_public_key =
-            compressed_public_key.decompress().ok_or(SPPError::InvalidGroupPublicKey)?;
+        let threshold_public_key =
+            compressed_public_key.decompress().ok_or(SPPError::InvalidThresholdPublicKey)?;
 
         let mut verifying_keys = Vec::new();
 
@@ -558,7 +514,7 @@ impl SPPOutput {
         }
 
         Ok(SPPOutput {
-            threshold_public_key: ThresholdPublicKey(PublicKey::from_point(group_public_key)),
+            threshold_public_key: ThresholdPublicKey(PublicKey::from_point(threshold_public_key)),
             verifying_keys,
             parameters,
         })
@@ -698,7 +654,7 @@ mod tests {
     }
 
     #[test]
-    fn test_spp_output_serialization() {
+    fn test_spp_output_message_serialization() {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
@@ -726,37 +682,42 @@ mod tests {
         let keypair = Keypair::generate();
         let signature = keypair.sign(Transcript::new(b"test"));
 
-        let spp_output = SPPOutputMessage { sender: keypair.public, spp_output, signature };
+        let spp_output_message =
+            SPPOutputMessage { signer: VerifyingShare(keypair.public), spp_output, signature };
 
-        let bytes = spp_output.to_bytes();
+        let bytes = spp_output_message.to_bytes();
 
-        let deserialized_spp_output =
+        let deserialized_spp_output_message =
             SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
         assert_eq!(
-            deserialized_spp_output.spp_output.threshold_public_key.0.as_compressed(),
-            spp_output.spp_output.threshold_public_key.0.as_compressed(),
+            deserialized_spp_output_message
+                .spp_output
+                .threshold_public_key
+                .0
+                .as_compressed(),
+            spp_output_message.spp_output.threshold_public_key.0.as_compressed(),
             "Group public keys do not match"
         );
 
         assert_eq!(
-            deserialized_spp_output.spp_output.verifying_keys.len(),
-            spp_output.spp_output.verifying_keys.len(),
+            deserialized_spp_output_message.spp_output.verifying_keys.len(),
+            spp_output_message.spp_output.verifying_keys.len(),
             "Verifying keys counts do not match"
         );
 
         assert!(
-            deserialized_spp_output
+            deserialized_spp_output_message
                 .spp_output
                 .verifying_keys
                 .iter()
-                .zip(spp_output.spp_output.verifying_keys.iter())
+                .zip(spp_output_message.spp_output.verifying_keys.iter())
                 .all(|((a, b), (c, d))| a.0 == c.0 && b.0 == d.0),
             "Verifying keys do not match"
         );
 
         assert_eq!(
-            deserialized_spp_output.signature, spp_output.signature,
+            deserialized_spp_output_message.signature, spp_output_message.signature,
             "Signatures do not match"
         );
     }
