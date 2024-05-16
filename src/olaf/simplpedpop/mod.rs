@@ -347,7 +347,7 @@ mod tests {
                 spp_outputs.push(spp_output);
             }
 
-            // Verify that all spp outputs are equal for group_public_key and verifying_keys
+            // Verify that all threshold_public_keys and verifying_keys are equal
             assert!(
                 spp_outputs.windows(2).all(|w| w[0].0.spp_output.threshold_public_key.0
                     == w[1].0.spp_output.threshold_public_key.0

@@ -22,19 +22,19 @@ use super::errors::{FROSTError, FROSTResult};
 /// A participant's signature share, which the coordinator will aggregate with all other signer's
 /// shares into the joint signature.
 #[derive(Clone)]
-pub struct SignatureShare {
+pub(super) struct SignatureShare {
     /// This participant's signature over the message.
     pub(super) share: Scalar,
 }
 
 impl SignatureShare {
     /// Serializes the `SignatureShare` into bytes.
-    pub fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
+    pub(super) fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
         self.share.to_bytes()
     }
 
     /// Deserializes the `SignatureShare` from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
+    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
         let mut share_bytes = [0; SCALAR_LENGTH];
         share_bytes.copy_from_slice(&bytes[..SCALAR_LENGTH]);
         let share = scalar_from_canonical_bytes(share_bytes)
@@ -184,7 +184,7 @@ pub(super) struct NonceCommitment(pub(super) RistrettoPoint);
 
 impl NonceCommitment {
     /// Serializes the `NonceCommitment` into bytes.
-    pub(super) fn to_bytes(&self) -> [u8; 32] {
+    pub(super) fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH] {
         self.0.compress().to_bytes()
     }
 
@@ -217,7 +217,7 @@ impl From<&Nonce> for NonceCommitment {
 /// operation; re-using nonces will result in leakage of a signer's long-lived
 /// signing key.
 #[derive(ZeroizeOnDrop)]
-pub struct SigningNonces {
+pub(super) struct SigningNonces {
     pub(super) hiding: Nonce,
     pub(super) binding: Nonce,
     // The commitments to the nonces. This is precomputed to improve
@@ -264,7 +264,7 @@ impl SigningNonces {
 /// This step can be batched if desired by the implementation. Each
 /// SigningCommitment can be used for exactly *one* signature.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct SigningCommitments {
+pub(super) struct SigningCommitments {
     pub(super) hiding: NonceCommitment,
     pub(super) binding: NonceCommitment,
 }
@@ -276,7 +276,7 @@ impl SigningCommitments {
     }
 
     /// Serializes the `SigningCommitments` into bytes.
-    pub fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
+    pub(super) fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
         // TODO: Add tests
         let mut bytes = [0u8; COMPRESSED_RISTRETTO_LENGTH * 2];
 
@@ -290,7 +290,7 @@ impl SigningCommitments {
     }
 
     /// Deserializes the `SigningCommitments` from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
+    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
         let hiding = NonceCommitment::from_bytes(&bytes[..COMPRESSED_RISTRETTO_LENGTH])?;
         let binding = NonceCommitment::from_bytes(&bytes[COMPRESSED_RISTRETTO_LENGTH..])?;
 
@@ -426,5 +426,125 @@ impl GroupCommitment {
         group_commitment += accumulated_binding_commitment;
 
         Ok(GroupCommitment(group_commitment))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use curve25519_dalek::{RistrettoPoint, Scalar};
+    use merlin::Transcript;
+    use rand_core::OsRng;
+    use crate::{
+        olaf::{
+            simplpedpop::{Parameters, SPPOutput, SPPOutputMessage},
+            Identifier, ThresholdPublicKey, VerifyingShare, GENERATOR,
+        },
+        Keypair, PublicKey,
+    };
+
+    use super::{NonceCommitment, SignatureShare, SigningCommitments, SigningPackage};
+
+    #[test]
+    fn test_signing_package_serialization() {
+        let mut rng = OsRng;
+        let group_public_key = RistrettoPoint::random(&mut rng);
+        let verifying_keys = vec![
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+        ];
+        let parameters = Parameters::generate(2, 2);
+
+        let spp_output = SPPOutput {
+            parameters,
+            threshold_public_key: ThresholdPublicKey(PublicKey::from_point(group_public_key)),
+            verifying_keys,
+        };
+
+        let keypair = Keypair::generate();
+        let signature = keypair.sign(Transcript::new(b"test"));
+
+        let spp_output_message =
+            SPPOutputMessage { signer: VerifyingShare(keypair.public), spp_output, signature };
+
+        let signing_commitments = vec![
+            SigningCommitments {
+                hiding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
+                binding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
+            },
+            SigningCommitments {
+                hiding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
+                binding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
+            },
+        ];
+
+        let message = b"message".to_vec();
+        let context = b"context".to_vec();
+        let signature_share = SignatureShare { share: Scalar::random(&mut rng) };
+
+        let signing_package = SigningPackage {
+            message: message.clone(),
+            context: context.clone(),
+            signing_commitments: signing_commitments.clone(),
+            signature_share: signature_share.clone(),
+            spp_output_message: spp_output_message.clone(),
+        };
+
+        let signing_package_bytes = signing_package.to_bytes();
+        let deserialized_signing_package =
+            SigningPackage::from_bytes(&signing_package_bytes).unwrap();
+
+        assert!(deserialized_signing_package.message == message);
+        assert!(deserialized_signing_package.context == context);
+        assert!(deserialized_signing_package.signing_commitments == signing_commitments);
+        assert!(deserialized_signing_package.signature_share.share == signature_share.share);
+
+        assert_eq!(
+            deserialized_signing_package.spp_output_message.spp_output.parameters,
+            spp_output_message.spp_output.parameters,
+            "Group public keys do not match"
+        );
+
+        assert_eq!(
+            deserialized_signing_package
+                .spp_output_message
+                .spp_output
+                .threshold_public_key
+                .0
+                .as_compressed(),
+            spp_output_message.spp_output.threshold_public_key.0.as_compressed(),
+            "Group public keys do not match"
+        );
+
+        assert_eq!(
+            deserialized_signing_package.spp_output_message.spp_output.verifying_keys.len(),
+            spp_output_message.spp_output.verifying_keys.len(),
+            "Verifying keys counts do not match"
+        );
+
+        assert!(
+            deserialized_signing_package
+                .spp_output_message
+                .spp_output
+                .verifying_keys
+                .iter()
+                .zip(spp_output_message.spp_output.verifying_keys.iter())
+                .all(|((a, b), (c, d))| a.0 == c.0 && b.0 == d.0),
+            "Verifying keys do not match"
+        );
+
+        assert_eq!(
+            deserialized_signing_package.spp_output_message.signature, spp_output_message.signature,
+            "Signatures do not match"
+        );
     }
 }

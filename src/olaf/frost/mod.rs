@@ -5,7 +5,7 @@
 mod types;
 pub mod errors;
 
-pub use self::types::{SignatureShare, SigningCommitments, SigningNonces};
+use self::types::{SignatureShare, SigningCommitments, SigningNonces};
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
 use rand_core::{CryptoRng, RngCore};
@@ -17,9 +17,7 @@ use self::{
     errors::{FROSTError, FROSTResult},
     types::{BindingFactor, BindingFactorList, GroupCommitment, SigningPackage},
 };
-use super::{
-    simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, ThresholdPublicKey, VerifyingShare,
-};
+use super::{simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, VerifyingShare};
 
 impl SigningKeypair {
     /// Done once by each participant, to generate _their_ nonces and commitments

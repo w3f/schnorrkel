@@ -8,6 +8,7 @@ pub mod frost;
 
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use merlin::Transcript;
+use zeroize::ZeroizeOnDrop;
 use crate::{context::SigningTranscript, Keypair, PublicKey};
 
 pub(super) const MINIMUM_THRESHOLD: u16 = 2;
@@ -24,7 +25,7 @@ pub struct ThresholdPublicKey(pub(crate) PublicKey);
 pub struct VerifyingShare(pub(crate) PublicKey);
 
 /// The signing keypair of a participant generated in the SimplPedPoP protocol, used to produce its signatures shares in the FROST protocol.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ZeroizeOnDrop)]
 pub struct SigningKeypair(pub(crate) Keypair);
 
 /// The identifier of a participant, which must be the same in the SimplPedPoP protocol and in the FROST protocol.

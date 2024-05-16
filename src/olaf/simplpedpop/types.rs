@@ -691,6 +691,12 @@ mod tests {
             SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
         assert_eq!(
+            deserialized_spp_output_message.spp_output.parameters,
+            spp_output_message.spp_output.parameters,
+            "Group public keys do not match"
+        );
+
+        assert_eq!(
             deserialized_spp_output_message
                 .spp_output
                 .threshold_public_key
