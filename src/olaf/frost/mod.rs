@@ -1,6 +1,7 @@
 //! Implementation of the FROST protocol (<https://eprint.iacr.org/2020/852>).
 
 #![allow(non_snake_case)]
+#![allow(clippy::result_large_err)]
 
 mod types;
 pub mod errors;
@@ -9,6 +10,7 @@ pub use self::types::{SigningPackage, SigningNonces, SigningCommitments};
 use self::types::SignatureShare;
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
+use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use crate::{
     context::{SigningContext, SigningTranscript},
@@ -18,7 +20,9 @@ use self::{
     errors::{FROSTError, FROSTResult},
     types::{BindingFactor, BindingFactorList, GroupCommitment},
 };
-use super::{simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, VerifyingShare};
+use super::{
+    simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, ThresholdPublicKey, VerifyingShare,
+};
 
 impl SigningKeypair {
     /// Done once by each participant, to generate _their_ nonces and commitments
@@ -91,10 +95,7 @@ impl SigningKeypair {
         all_signing_commitments: Vec<SigningCommitments>,
         signer_nonces: &SigningNonces,
     ) -> FROSTResult<SigningPackage> {
-        let context_ref = &context;
-        let message_ref = &message;
-        let all_signing_commitments_ref = &all_signing_commitments;
-
+        let threshold_public_key = &spp_output_message.threshold_public_key();
         let spp_output = &spp_output_message.spp_output;
 
         if spp_output.verifying_keys.len() != spp_output.parameters.participants as usize {
@@ -130,27 +131,20 @@ impl SigningKeypair {
         }
 
         let binding_factor_list: BindingFactorList = BindingFactorList::compute(
-            all_signing_commitments_ref,
+            &all_signing_commitments,
             &spp_output.threshold_public_key,
-            message_ref,
+            &message,
         );
 
         let group_commitment =
-            GroupCommitment::compute(all_signing_commitments_ref, &binding_factor_list)?;
+            GroupCommitment::compute(&all_signing_commitments, &binding_factor_list)?;
 
         let identifiers_vec: Vec<_> = spp_output.verifying_keys.iter().map(|x| x.0).collect();
 
         let lambda_i = compute_lagrange_coefficient(&identifiers_vec, None, *identifiers[index]);
 
-        let mut transcript = SigningContext::new(context_ref).bytes(message_ref);
-        transcript.proto_name(b"Schnorr-sig");
-        {
-            let this = &mut transcript;
-            let compressed = spp_output.threshold_public_key.0.as_compressed();
-            this.append_message(b"sign:pk", compressed.as_bytes());
-        };
-        transcript.commit_point(b"sign:R", &group_commitment.0.compress());
-        let challenge = transcript.challenge_scalar(b"sign:c");
+        let challenge =
+            compute_challenge(&context, &message, threshold_public_key, &group_commitment);
 
         let signature_share = self.compute_signature_share(
             signer_nonces,
@@ -241,24 +235,47 @@ pub(super) fn compute_lagrange_coefficient(
 /// can avoid that step. However, at worst, this results in a denial of
 /// service attack due to publishing an invalid signature.
 pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROSTError> {
-    let message = &signing_packages[0].message;
-    let context = &signing_packages[0].context;
-    let signing_commitments = signing_packages[0].signing_commitments.as_slice();
+    let parameters = &signing_packages[0].spp_output_message.spp_output.parameters;
 
-    let mut signature_shares = Vec::new();
-
-    for signing_package in signing_packages {
-        signature_shares.push(signing_package.signature_share.clone());
+    if signing_packages.len() < parameters.threshold as usize {
+        return Err(FROSTError::InvalidNumberOfSigningPackages);
     }
 
+    let message = &signing_packages[0].message;
+    let context = &signing_packages[0].context;
+    let signing_commitments = &signing_packages[0].signing_commitments;
     let threshold_public_key =
         &signing_packages[0].spp_output_message.spp_output.threshold_public_key;
+    let mut signature_shares = Vec::new();
 
-    // check that message, context, signing commitments and spp_output are the same
-    // verify signatures
+    for signing_package in signing_packages.iter() {
+        if &signing_package.message != message {
+            return Err(FROSTError::MismatchedMessage);
+        }
+        if &signing_package.context != context {
+            return Err(FROSTError::MismatchedContext);
+        }
+        if signing_package.signing_commitments != *signing_commitments {
+            return Err(FROSTError::MismatchedSigningCommitments);
+        }
+        if signing_package.spp_output_message.spp_output
+            != signing_packages[0].spp_output_message.spp_output
+        {
+            return Err(FROSTError::MismatchedSPPOutput);
+        }
 
-    if signing_commitments.len() != signature_shares.len() {
-        return Err(FROSTError::IncorrectNumberOfSigningCommitments);
+        signature_shares.push(signing_package.signature_share.clone());
+
+        let mut transcript = Transcript::new(b"spp output");
+        transcript
+            .append_message(b"message", &signing_package.spp_output_message.spp_output.to_bytes());
+
+        signing_package
+            .spp_output_message
+            .signer
+            .0
+            .verify(transcript, &signing_package.spp_output_message.signature)
+            .map_err(FROSTError::InvalidSignature)?;
     }
 
     let binding_factor_list: BindingFactorList =
@@ -268,65 +285,86 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
 
     let mut s = Scalar::ZERO;
 
-    for signature_share in signature_shares {
+    for signature_share in &signature_shares {
         s += signature_share.share;
     }
 
     let signature = Signature { R: group_commitment.0.compress(), s };
 
-    threshold_public_key
+    let verification_result = threshold_public_key
         .0
         .verify_simple(context, message, &signature)
-        .map_err(FROSTError::InvalidSignature)?;
+        .map_err(FROSTError::InvalidSignature);
+
+    let identifiers: Vec<Identifier> = signing_packages[0]
+        .spp_output_message
+        .spp_output
+        .verifying_keys
+        .iter()
+        .map(|x| x.0)
+        .collect();
 
     // Only if the verification of the aggregate signature failed; verify each share to find the cheater.
     // This approach is more efficient since we don't need to verify all shares
     // if the aggregate signature is valid (which should be the common case).
-    /*if let Err(err) = verification_result {
-    // Compute the per-message challenge.
-    let challenge = crate::challenge::<C>(
-        &group_commitment.0,
-        &pubkeys.verifying_key,
-        signing_package.message().as_slice(),
-    );
+    if verification_result.is_err() {
+        // Compute the per-message challenge.
+        let challenge =
+            compute_challenge(context, message, threshold_public_key, &group_commitment);
 
-    // Verify the signature shares.
-    for (signature_share_identifier, signature_share) in signature_shares {
-        // Look up the public key for this signer, where `signer_pubkey` = _G.ScalarBaseMult(s[i])_,
-        // and where s[i] is a secret share of the constant term of _f_, the secret polynomial.
-        let signer_pubkey = pubkeys
-            .verifying_shares
-            .get(signature_share_identifier)
-            .ok_or(Error::UnknownIdentifier)?;
+        // Verify the signature shares.
+        for (j, signature_share) in signature_shares.iter().enumerate() {
+            let mut valid = false;
 
-        // Compute Lagrange coefficient.
-        let lambda_i = derive_interpolating_value(signature_share_identifier, signing_package)?;
+            for (i, (identifier, verifying_share)) in signing_packages[0]
+                .spp_output_message
+                .spp_output
+                .verifying_keys
+                .iter()
+                .enumerate()
+            {
+                let lambda_i = compute_lagrange_coefficient(&identifiers, None, *identifier);
 
-        let binding_factor = binding_factor_list
-            .get(signature_share_identifier)
-            .ok_or(Error::UnknownIdentifier)?;
+                let binding_factor =
+                    &binding_factor_list.0.get(i).ok_or(FROSTError::InvalidIdentifier)?.1;
 
-        // Compute the commitment share.
-        let R_share = signing_package
-            .signing_commitment(signature_share_identifier)
-            .ok_or(Error::UnknownIdentifier)?
-            .to_group_commitment_share(binding_factor);
+                let R_share = signing_commitments[j].to_group_commitment_share(binding_factor);
 
-        // Compute relation values to verify this signature share.
-        signature_share.verify(
-            *signature_share_identifier,
-            &R_share,
-            signer_pubkey,
-            lambda_i,
-            &challenge,
-        )?;
+                let result =
+                    signature_share.verify(&R_share, verifying_share, lambda_i, &challenge);
+
+                if result.is_ok() {
+                    valid = true;
+                    break;
+                }
+            }
+
+            if !valid {
+                return Err(FROSTError::InvalidSignatureShare {
+                    culprit: signing_packages[j].spp_output_message.signer,
+                });
+            }
+        }
     }
 
-    // We should never reach here; but we return the verification error to be safe.
-    return Err(err);
-    }*/
-
     Ok(signature)
+}
+
+fn compute_challenge(
+    context: &[u8],
+    message: &[u8],
+    threshold_public_key: &ThresholdPublicKey,
+    group_commitment: &GroupCommitment,
+) -> Scalar {
+    let mut transcript = SigningContext::new(context).bytes(message);
+    transcript.proto_name(b"Schnorr-sig");
+    {
+        let this = &mut transcript;
+        let compressed = threshold_public_key.0.as_compressed();
+        this.append_message(b"sign:pk", compressed.as_bytes());
+    };
+    transcript.commit_point(b"sign:R", &group_commitment.0.compress());
+    transcript.challenge_scalar(b"sign:c")
 }
 
 #[cfg(test)]

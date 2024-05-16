@@ -378,7 +378,7 @@ impl MessageContent {
 }
 
 /// The signed output of the SimplPedPoP protocol.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SPPOutputMessage {
     pub(crate) signer: VerifyingShare,
     pub(crate) spp_output: SPPOutput,
@@ -443,7 +443,7 @@ impl SPPOutputMessage {
 }
 
 /// The content of the signed output of the SimplPedPoP protocol.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SPPOutput {
     pub(crate) parameters: Parameters,
     pub(crate) threshold_public_key: ThresholdPublicKey,
@@ -691,35 +691,8 @@ mod tests {
             SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
         assert_eq!(
-            deserialized_spp_output_message.spp_output.parameters,
-            spp_output_message.spp_output.parameters,
+            deserialized_spp_output_message.spp_output, spp_output_message.spp_output,
             "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_spp_output_message
-                .spp_output
-                .threshold_public_key
-                .0
-                .as_compressed(),
-            spp_output_message.spp_output.threshold_public_key.0.as_compressed(),
-            "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_spp_output_message.spp_output.verifying_keys.len(),
-            spp_output_message.spp_output.verifying_keys.len(),
-            "Verifying keys counts do not match"
-        );
-
-        assert!(
-            deserialized_spp_output_message
-                .spp_output
-                .verifying_keys
-                .iter()
-                .zip(spp_output_message.spp_output.verifying_keys.iter())
-                .all(|((a, b), (c, d))| a.0 == c.0 && b.0 == d.0),
-            "Verifying keys do not match"
         );
 
         assert_eq!(

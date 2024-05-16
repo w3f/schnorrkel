@@ -3,7 +3,7 @@
 use core::array::TryFromSliceError;
 
 use crate::{
-    olaf::{simplpedpop::errors::SPPError, Identifier},
+    olaf::{simplpedpop::errors::SPPError, VerifyingShare},
     SignatureError,
 };
 
@@ -31,8 +31,8 @@ pub enum FROSTError {
     SignatureShareDeserializationError,
     /// The signature share is invalid.
     InvalidSignatureShare {
-        /// The identifier of the signer whose share validation failed.
-        culprit: Identifier,
+        /// The verifying share of the culprit.
+        culprit: VerifyingShare,
     },
     /// The output of the SimplPedPoP protocol must contain the participant's verifying share.
     InvalidOwnVerifyingShare,
@@ -46,22 +46,103 @@ pub enum FROSTError {
     InvalidPublicKey(SignatureError),
     /// Error deserializing the output message of the SimplPedPoP protocol.
     SPPOutputMessageDeserializationError(SPPError),
+    /// The number of signing packages must be at least equal to the threshold.
+    InvalidNumberOfSigningPackages,
+    /// The messages of all signing packages must be equal.
+    MismatchedMessage,
+    /// The contexts of all signing packages must be equal.
+    MismatchedContext,
+    /// The signing commitments of all signing packages must be equal.
+    MismatchedSigningCommitments,
+    /// The output of the SimplPedPoP protocol of all signing packages be equal.
+    MismatchedSPPOutput,
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use curve25519_dalek::{traits::Identity, RistrettoPoint};
+    use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
     use rand_core::OsRng;
     use crate::{
         olaf::{
-            frost::types::{NonceCommitment, SigningCommitments},
+            frost::{
+                aggregate,
+                types::{NonceCommitment, SigningCommitments},
+            },
             simplpedpop::{AllMessage, Parameters},
             SigningKeypair,
         },
         Keypair, PublicKey,
     };
     use super::FROSTError;
+
+    #[test]
+    fn test_invalid_signature_share() {
+        let parameters = Parameters::generate(2, 2);
+        let participants = parameters.participants as usize;
+        let threshold = parameters.threshold as usize;
+
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+        let mut all_messages = Vec::new();
+        for i in 0..participants {
+            let message: AllMessage = keypairs[i]
+                .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                .unwrap();
+            all_messages.push(message);
+        }
+
+        let mut spp_outputs = Vec::new();
+
+        for kp in keypairs.iter() {
+            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            spp_outputs.push(spp_output);
+        }
+
+        let mut all_signing_commitments = Vec::new();
+        let mut all_signing_nonces = Vec::new();
+
+        for spp_output in &spp_outputs[..threshold] {
+            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
+            all_signing_nonces.push(signing_nonces);
+            all_signing_commitments.push(signing_commitments);
+        }
+
+        let mut signing_packages = Vec::new();
+
+        let message = b"message";
+        let context = b"context";
+
+        for (i, spp_output) in spp_outputs.iter().enumerate() {
+            let signing_package = spp_output
+                .1
+                .sign(
+                    context.to_vec(),
+                    message.to_vec(),
+                    spp_output.0.clone(),
+                    all_signing_commitments.clone(),
+                    &all_signing_nonces[i],
+                )
+                .unwrap();
+
+            signing_packages.push(signing_package);
+        }
+
+        signing_packages[0].signature_share.share += Scalar::ONE;
+
+        let result = aggregate(&signing_packages);
+
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                FROSTError::InvalidSignatureShare { culprit } => {
+                    assert_eq!(culprit, signing_packages[0].spp_output_message.signer);
+                },
+                _ => panic!("Expected FROSTError::InvalidSignatureShare, but got {:?}", e),
+            },
+        }
+    }
 
     #[test]
     fn test_invalid_own_verifying_share_error() {

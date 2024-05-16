@@ -12,7 +12,7 @@ use zeroize::ZeroizeOnDrop;
 use crate::{
     context::SigningTranscript,
     olaf::{
-        simplpedpop::SPPOutputMessage, Identifier, ThresholdPublicKey, VerifyingShare,
+        simplpedpop::SPPOutputMessage, ThresholdPublicKey, VerifyingShare,
         COMPRESSED_RISTRETTO_LENGTH, GENERATOR, SCALAR_LENGTH,
     },
     scalar_from_canonical_bytes, SecretKey,
@@ -45,7 +45,6 @@ impl SignatureShare {
 
     pub(super) fn verify(
         &self,
-        identifier: Identifier,
         group_commitment_share: &GroupCommitmentShare,
         verifying_share: &VerifyingShare,
         lambda_i: Scalar,
@@ -54,7 +53,7 @@ impl SignatureShare {
         if (GENERATOR * self.share)
             != (group_commitment_share.0 + (verifying_share.0.as_point() * challenge * lambda_i))
         {
-            return Err(FROSTError::InvalidSignatureShare { culprit: identifier });
+            return Err(FROSTError::InvalidSignatureShare { culprit: *verifying_share });
         }
 
         Ok(())
@@ -65,6 +64,7 @@ pub(super) struct GroupCommitmentShare(pub(super) RistrettoPoint);
 
 /// The binding factor, also known as _rho_ (ρ), ensures each signature share is strongly bound to a signing set, specific set
 /// of commitments, and a specific message.
+#[derive(Clone)]
 pub(super) struct BindingFactor(pub(super) Scalar);
 
 /// A list of binding factors and their associated identifiers.
@@ -312,7 +312,7 @@ impl From<&SigningNonces> for SigningCommitments {
 }
 
 /// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
-/// combiner, which aggregates them into the final threshold signature.
+/// coordinator, which aggregates them into the final threshold signature.
 pub struct SigningPackage {
     pub(super) message: Vec<u8>,
     pub(super) context: Vec<u8>,
@@ -477,8 +477,11 @@ mod tests {
         let keypair = Keypair::generate();
         let signature = keypair.sign(Transcript::new(b"test"));
 
-        let spp_output_message =
-            SPPOutputMessage { signer: VerifyingShare(keypair.public), spp_output, signature };
+        let spp_output_message = SPPOutputMessage {
+            signer: VerifyingShare(keypair.public),
+            spp_output: spp_output.clone(),
+            signature,
+        };
 
         let signing_commitments = vec![
             SigningCommitments {
@@ -511,44 +514,6 @@ mod tests {
         assert!(deserialized_signing_package.context == context);
         assert!(deserialized_signing_package.signing_commitments == signing_commitments);
         assert!(deserialized_signing_package.signature_share.share == signature_share.share);
-
-        assert_eq!(
-            deserialized_signing_package.spp_output_message.spp_output.parameters,
-            spp_output_message.spp_output.parameters,
-            "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_signing_package
-                .spp_output_message
-                .spp_output
-                .threshold_public_key
-                .0
-                .as_compressed(),
-            spp_output_message.spp_output.threshold_public_key.0.as_compressed(),
-            "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_signing_package.spp_output_message.spp_output.verifying_keys.len(),
-            spp_output_message.spp_output.verifying_keys.len(),
-            "Verifying keys counts do not match"
-        );
-
-        assert!(
-            deserialized_signing_package
-                .spp_output_message
-                .spp_output
-                .verifying_keys
-                .iter()
-                .zip(spp_output_message.spp_output.verifying_keys.iter())
-                .all(|((a, b), (c, d))| a.0 == c.0 && b.0 == d.0),
-            "Verifying keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_signing_package.spp_output_message.signature, spp_output_message.signature,
-            "Signatures do not match"
-        );
+        assert!(deserialized_signing_package.spp_output_message.spp_output == spp_output);
     }
 }
