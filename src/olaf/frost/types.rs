@@ -184,7 +184,7 @@ pub(super) struct NonceCommitment(pub(super) RistrettoPoint);
 
 impl NonceCommitment {
     /// Serializes the `NonceCommitment` into bytes.
-    pub(super) fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH] {
+    pub(super) fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH] {
         self.0.compress().to_bytes()
     }
 
@@ -217,7 +217,7 @@ impl From<&Nonce> for NonceCommitment {
 /// operation; re-using nonces will result in leakage of a signer's long-lived
 /// signing key.
 #[derive(ZeroizeOnDrop)]
-pub(super) struct SigningNonces {
+pub struct SigningNonces {
     pub(super) hiding: Nonce,
     pub(super) binding: Nonce,
     // The commitments to the nonces. This is precomputed to improve
@@ -264,7 +264,7 @@ impl SigningNonces {
 /// This step can be batched if desired by the implementation. Each
 /// SigningCommitment can be used for exactly *one* signature.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub(super) struct SigningCommitments {
+pub struct SigningCommitments {
     pub(super) hiding: NonceCommitment,
     pub(super) binding: NonceCommitment,
 }
@@ -276,7 +276,7 @@ impl SigningCommitments {
     }
 
     /// Serializes the `SigningCommitments` into bytes.
-    pub(super) fn to_bytes(&self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
+    pub(super) fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
         // TODO: Add tests
         let mut bytes = [0u8; COMPRESSED_RISTRETTO_LENGTH * 2];
 
@@ -298,7 +298,7 @@ impl SigningCommitments {
     }
 
     pub(super) fn to_group_commitment_share(
-        &self,
+        self,
         binding_factor: &BindingFactor,
     ) -> GroupCommitmentShare {
         GroupCommitmentShare(self.hiding.0 + (self.binding.0 * binding_factor.0))
@@ -311,6 +311,8 @@ impl From<&SigningNonces> for SigningCommitments {
     }
 }
 
+/// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
+/// combiner, which aggregates them into the final threshold signature.
 pub struct SigningPackage {
     pub(super) message: Vec<u8>,
     pub(super) context: Vec<u8>,
@@ -320,6 +322,7 @@ pub struct SigningPackage {
 }
 
 impl SigningPackage {
+    /// Serializes SigningPackage into bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
@@ -341,6 +344,7 @@ impl SigningPackage {
         bytes
     }
 
+    /// Deserializes SigningPackage from bytes.
     pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
         let mut cursor = 0;
 

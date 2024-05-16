@@ -5,7 +5,8 @@
 mod types;
 pub mod errors;
 
-use self::types::{SignatureShare, SigningCommitments, SigningNonces};
+pub use self::types::{SigningPackage, SigningNonces, SigningCommitments};
+use self::types::SignatureShare;
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
 use rand_core::{CryptoRng, RngCore};
@@ -15,7 +16,7 @@ use crate::{
 };
 use self::{
     errors::{FROSTError, FROSTResult},
-    types::{BindingFactor, BindingFactorList, GroupCommitment, SigningPackage},
+    types::{BindingFactor, BindingFactorList, GroupCommitment},
 };
 use super::{simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, VerifyingShare};
 
@@ -492,8 +493,6 @@ mod tests {
             let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
             spp_outputs.push(spp_output);
         }
-
-        let group_public_key = spp_outputs[0].0.spp_output.threshold_public_key;
 
         let mut all_nonces_map: Vec<Vec<SigningNonces>> = Vec::new();
         let mut all_commitments_map: Vec<Vec<SigningCommitments>> = Vec::new();

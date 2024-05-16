@@ -5,7 +5,7 @@ mod olaf_benches {
     use criterion::{criterion_group, BenchmarkId, Criterion};
     use schnorrkel::olaf::frost::aggregate;
     use schnorrkel::keys::{PublicKey, Keypair};
-    use schnorrkel::olaf::frost::{SigningNonces, SignatureShare, SigningCommitments};
+    use schnorrkel::olaf::frost::{SigningPackage, SigningNonces, SigningCommitments};
     use schnorrkel::olaf::simplpedpop::AllMessage;
 
     fn benchmark_simplpedpop(c: &mut Criterion) {
@@ -85,7 +85,7 @@ mod olaf_benches {
                 })
             });
 
-            let mut signature_shares: Vec<SignatureShare> = Vec::new();
+            let mut signing_packages: Vec<SigningPackage> = Vec::new();
 
             let message = b"message";
             let context = b"context";
@@ -95,10 +95,10 @@ mod olaf_benches {
                     spp_outputs[0]
                         .1
                         .sign(
-                            context,
-                            message,
-                            &spp_outputs[0].0,
-                            &all_signing_commitments,
+                            context.to_vec(),
+                            message.to_vec(),
+                            spp_outputs[0].0.clone(),
+                            all_signing_commitments.clone(),
                             &all_signing_nonces[0],
                         )
                         .unwrap();
@@ -106,30 +106,23 @@ mod olaf_benches {
             });
 
             for (i, spp_output) in spp_outputs.iter().enumerate() {
-                let signature_share: SignatureShare = spp_output
+                let signing_package: SigningPackage = spp_output
                     .1
                     .sign(
-                        context,
-                        message,
-                        &spp_output.0,
-                        &all_signing_commitments,
+                        context.to_vec(),
+                        message.to_vec(),
+                        spp_output.0.clone(),
+                        all_signing_commitments.clone(),
                         &all_signing_nonces[i],
                     )
                     .unwrap();
 
-                signature_shares.push(signature_share);
+                signing_packages.push(signing_package);
             }
 
             group.bench_function(BenchmarkId::new("aggregate", participants), |b| {
                 b.iter(|| {
-                    aggregate(
-                        message,
-                        context,
-                        &all_signing_commitments,
-                        &signature_shares,
-                        spp_outputs[0].0.threshold_public_key(),
-                    )
-                    .unwrap();
+                    aggregate(&signing_packages).unwrap();
                 })
             });
         }
