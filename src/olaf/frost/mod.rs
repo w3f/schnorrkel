@@ -20,9 +20,7 @@ use self::{
     errors::{FROSTError, FROSTResult},
     types::{BindingFactor, BindingFactorList, GroupCommitment},
 };
-use super::{
-    simplpedpop::SPPOutputMessage, Identifier, SigningKeypair, ThresholdPublicKey, VerifyingShare,
-};
+use super::{simplpedpop::SPPOutput, Identifier, SigningKeypair, ThresholdPublicKey, VerifyingShare};
 
 impl SigningKeypair {
     /// Done once by each participant, to generate _their_ nonces and commitments
@@ -91,12 +89,11 @@ impl SigningKeypair {
         &self,
         context: Vec<u8>,
         message: Vec<u8>,
-        spp_output_message: SPPOutputMessage,
+        spp_output: SPPOutput,
         all_signing_commitments: Vec<SigningCommitments>,
         signer_nonces: &SigningNonces,
     ) -> FROSTResult<SigningPackage> {
-        let threshold_public_key = &spp_output_message.threshold_public_key();
-        let spp_output = &spp_output_message.spp_output;
+        let threshold_public_key = &spp_output.threshold_public_key;
 
         if spp_output.verifying_keys.len() != spp_output.parameters.participants as usize {
             return Err(FROSTError::IncorrectNumberOfVerifyingShares);
@@ -158,7 +155,7 @@ impl SigningKeypair {
             context,
             signing_commitments: all_signing_commitments,
             signature_share,
-            spp_output_message,
+            spp_output,
         };
 
         Ok(signing_package)
@@ -235,7 +232,7 @@ pub(super) fn compute_lagrange_coefficient(
 /// can avoid that step. However, at worst, this results in a denial of
 /// service attack due to publishing an invalid signature.
 pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROSTError> {
-    let parameters = &signing_packages[0].spp_output_message.spp_output.parameters;
+    let parameters = &signing_packages[0].spp_output.parameters;
 
     if signing_packages.len() < parameters.threshold as usize {
         return Err(FROSTError::InvalidNumberOfSigningPackages);
@@ -244,8 +241,7 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
     let message = &signing_packages[0].message;
     let context = &signing_packages[0].context;
     let signing_commitments = &signing_packages[0].signing_commitments;
-    let threshold_public_key =
-        &signing_packages[0].spp_output_message.spp_output.threshold_public_key;
+    let threshold_public_key = &signing_packages[0].spp_output.threshold_public_key;
     let mut signature_shares = Vec::new();
 
     for signing_package in signing_packages.iter() {
@@ -258,24 +254,14 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
         if signing_package.signing_commitments != *signing_commitments {
             return Err(FROSTError::MismatchedSigningCommitments);
         }
-        if signing_package.spp_output_message.spp_output
-            != signing_packages[0].spp_output_message.spp_output
-        {
+        if signing_package.spp_output != signing_packages[0].spp_output {
             return Err(FROSTError::MismatchedSPPOutput);
         }
 
         signature_shares.push(signing_package.signature_share.clone());
 
         let mut transcript = Transcript::new(b"spp output");
-        transcript
-            .append_message(b"message", &signing_package.spp_output_message.spp_output.to_bytes());
-
-        signing_package
-            .spp_output_message
-            .signer
-            .0
-            .verify(transcript, &signing_package.spp_output_message.signature)
-            .map_err(FROSTError::InvalidSignature)?;
+        transcript.append_message(b"message", &signing_package.spp_output.to_bytes());
     }
 
     let binding_factor_list: BindingFactorList =
@@ -296,13 +282,13 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
         .verify_simple(context, message, &signature)
         .map_err(FROSTError::InvalidSignature);
 
-    let identifiers: Vec<Identifier> = signing_packages[0]
-        .spp_output_message
-        .spp_output
-        .verifying_keys
-        .iter()
-        .map(|x| x.0)
-        .collect();
+    let identifiers: Vec<Identifier> =
+        signing_packages[0].spp_output.verifying_keys.iter().map(|x| x.0).collect();
+
+    let verifying_shares: Vec<VerifyingShare> =
+        signing_packages[0].spp_output.verifying_keys.iter().map(|x| x.1).collect();
+
+    let mut valid_shares = Vec::new();
 
     // Only if the verification of the aggregate signature failed; verify each share to find the cheater.
     // This approach is more efficient since we don't need to verify all shares
@@ -314,14 +300,8 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
 
         // Verify the signature shares.
         for (j, signature_share) in signature_shares.iter().enumerate() {
-            let mut valid = false;
-
-            for (i, (identifier, verifying_share)) in signing_packages[0]
-                .spp_output_message
-                .spp_output
-                .verifying_keys
-                .iter()
-                .enumerate()
+            for (i, (identifier, verifying_share)) in
+                signing_packages[0].spp_output.verifying_keys.iter().enumerate()
             {
                 let lambda_i = compute_lagrange_coefficient(&identifiers, None, *identifier);
 
@@ -330,21 +310,22 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
 
                 let R_share = signing_commitments[j].to_group_commitment_share(binding_factor);
 
-                let result =
-                    signature_share.verify(&R_share, verifying_share, lambda_i, &challenge);
-
-                if result.is_ok() {
-                    valid = true;
+                if signature_share.verify(&R_share, verifying_share, lambda_i, &challenge) {
+                    valid_shares.push(*verifying_share);
                     break;
                 }
             }
+        }
 
-            if !valid {
-                return Err(FROSTError::InvalidSignatureShare {
-                    culprit: signing_packages[j].spp_output_message.signer,
-                });
+        let mut invalid_shares = Vec::new();
+
+        for verifying_share in verifying_shares {
+            if !valid_shares.contains(&verifying_share) {
+                invalid_shares.push(verifying_share);
             }
         }
+
+        return Err(FROSTError::InvalidSignatureShare { culprit: invalid_shares });
     }
 
     Ok(signature)
@@ -440,7 +421,7 @@ mod tests {
                 .sign(
                     context.to_vec(),
                     message.to_vec(),
-                    spp_output.0.clone(),
+                    spp_output.0.spp_output.clone(),
                     all_signing_commitments.clone(),
                     &all_signing_nonces[i],
                 )
@@ -496,7 +477,7 @@ mod tests {
                 .sign(
                     context.to_vec(),
                     message.to_vec(),
-                    spp_output.0.clone(),
+                    spp_output.0.spp_output.clone(),
                     all_signing_commitments.clone(),
                     &all_signing_nonces[i],
                 )
@@ -580,7 +561,7 @@ mod tests {
                     .sign(
                         context.to_vec(),
                         message.to_vec(),
-                        spp_output.0.clone(),
+                        spp_output.0.spp_output.clone(),
                         commitments.clone(),
                         nonces_to_use,
                     )

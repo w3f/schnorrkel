@@ -12,8 +12,8 @@ use zeroize::ZeroizeOnDrop;
 use crate::{
     context::SigningTranscript,
     olaf::{
-        simplpedpop::SPPOutputMessage, ThresholdPublicKey, VerifyingShare,
-        COMPRESSED_RISTRETTO_LENGTH, GENERATOR, SCALAR_LENGTH,
+        simplpedpop::SPPOutput, ThresholdPublicKey, VerifyingShare, COMPRESSED_RISTRETTO_LENGTH,
+        GENERATOR, SCALAR_LENGTH,
     },
     scalar_from_canonical_bytes, SecretKey,
 };
@@ -49,14 +49,9 @@ impl SignatureShare {
         verifying_share: &VerifyingShare,
         lambda_i: Scalar,
         challenge: &Scalar,
-    ) -> FROSTResult<()> {
-        if (GENERATOR * self.share)
-            != (group_commitment_share.0 + (verifying_share.0.as_point() * challenge * lambda_i))
-        {
-            return Err(FROSTError::InvalidSignatureShare { culprit: *verifying_share });
-        }
-
-        Ok(())
+    ) -> bool {
+        (GENERATOR * self.share)
+            == (group_commitment_share.0 + (verifying_share.0.as_point() * challenge * lambda_i))
     }
 }
 
@@ -318,7 +313,7 @@ pub struct SigningPackage {
     pub(super) context: Vec<u8>,
     pub(super) signing_commitments: Vec<SigningCommitments>,
     pub(super) signature_share: SignatureShare,
-    pub(super) spp_output_message: SPPOutputMessage,
+    pub(super) spp_output: SPPOutput,
 }
 
 impl SigningPackage {
@@ -339,7 +334,7 @@ impl SigningPackage {
 
         bytes.extend(self.signature_share.to_bytes());
 
-        bytes.extend(self.spp_output_message.to_bytes());
+        bytes.extend(self.spp_output.to_bytes());
 
         bytes
     }
@@ -374,16 +369,10 @@ impl SigningPackage {
         cursor += SCALAR_LENGTH;
         let signature_share = SignatureShare::from_bytes(share_bytes)?;
 
-        let spp_output_message = SPPOutputMessage::from_bytes(&bytes[cursor..])
-            .map_err(FROSTError::SPPOutputMessageDeserializationError)?;
+        let spp_output = SPPOutput::from_bytes(&bytes[cursor..])
+            .map_err(FROSTError::SPPOutputDeserializationError)?;
 
-        Ok(SigningPackage {
-            message,
-            context,
-            signing_commitments,
-            signature_share,
-            spp_output_message,
-        })
+        Ok(SigningPackage { message, context, signing_commitments, signature_share, spp_output })
     }
 }
 
@@ -436,14 +425,13 @@ impl GroupCommitment {
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::{RistrettoPoint, Scalar};
-    use merlin::Transcript;
     use rand_core::OsRng;
     use crate::{
         olaf::{
-            simplpedpop::{Parameters, SPPOutput, SPPOutputMessage},
+            simplpedpop::{Parameters, SPPOutput},
             Identifier, ThresholdPublicKey, VerifyingShare, GENERATOR,
         },
-        Keypair, PublicKey,
+        PublicKey,
     };
 
     use super::{NonceCommitment, SignatureShare, SigningCommitments, SigningPackage};
@@ -474,15 +462,6 @@ mod tests {
             verifying_keys,
         };
 
-        let keypair = Keypair::generate();
-        let signature = keypair.sign(Transcript::new(b"test"));
-
-        let spp_output_message = SPPOutputMessage {
-            signer: VerifyingShare(keypair.public),
-            spp_output: spp_output.clone(),
-            signature,
-        };
-
         let signing_commitments = vec![
             SigningCommitments {
                 hiding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
@@ -503,7 +482,7 @@ mod tests {
             context: context.clone(),
             signing_commitments: signing_commitments.clone(),
             signature_share: signature_share.clone(),
-            spp_output_message: spp_output_message.clone(),
+            spp_output: spp_output.clone(),
         };
 
         let signing_package_bytes = signing_package.to_bytes();
@@ -514,6 +493,6 @@ mod tests {
         assert!(deserialized_signing_package.context == context);
         assert!(deserialized_signing_package.signing_commitments == signing_commitments);
         assert!(deserialized_signing_package.signature_share.share == signature_share.share);
-        assert!(deserialized_signing_package.spp_output_message.spp_output == spp_output);
+        assert!(deserialized_signing_package.spp_output == spp_output);
     }
 }

@@ -2,6 +2,8 @@
 
 use core::array::TryFromSliceError;
 
+use alloc::vec::Vec;
+
 use crate::{
     olaf::{simplpedpop::errors::SPPError, VerifyingShare},
     SignatureError,
@@ -31,8 +33,8 @@ pub enum FROSTError {
     SignatureShareDeserializationError,
     /// The signature share is invalid.
     InvalidSignatureShare {
-        /// The verifying share of the culprit.
-        culprit: VerifyingShare,
+        /// The verifying share(s) of the culprit(s).
+        culprit: Vec<VerifyingShare>,
     },
     /// The output of the SimplPedPoP protocol must contain the participant's verifying share.
     InvalidOwnVerifyingShare,
@@ -44,8 +46,8 @@ pub enum FROSTError {
     InvalidNonceCommitment,
     /// Invalid public key.
     InvalidPublicKey(SignatureError),
-    /// Error deserializing the output message of the SimplPedPoP protocol.
-    SPPOutputMessageDeserializationError(SPPError),
+    /// Error deserializing the output of the SimplPedPoP protocol.
+    SPPOutputDeserializationError(SPPError),
     /// The number of signing packages must be at least equal to the threshold.
     InvalidNumberOfSigningPackages,
     /// The messages of all signing packages must be equal.
@@ -120,7 +122,7 @@ mod tests {
                 .sign(
                     context.to_vec(),
                     message.to_vec(),
-                    spp_output.0.clone(),
+                    spp_output.0.spp_output.clone(),
                     all_signing_commitments.clone(),
                     &all_signing_nonces[i],
                 )
@@ -130,6 +132,7 @@ mod tests {
         }
 
         signing_packages[0].signature_share.share += Scalar::ONE;
+        signing_packages[1].signature_share.share += Scalar::ONE;
 
         let result = aggregate(&signing_packages);
 
@@ -137,7 +140,13 @@ mod tests {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
                 FROSTError::InvalidSignatureShare { culprit } => {
-                    assert_eq!(culprit, signing_packages[0].spp_output_message.signer);
+                    assert_eq!(
+                        culprit,
+                        vec![
+                            spp_outputs[0].0.spp_output.verifying_keys[0].1,
+                            spp_outputs[0].0.spp_output.verifying_keys[1].1
+                        ]
+                    );
                 },
                 _ => panic!("Expected FROSTError::InvalidSignatureShare, but got {:?}", e),
             },
@@ -185,7 +194,7 @@ mod tests {
         let result = spp_outputs[0].1.sign(
             context.to_vec(),
             message.to_vec(),
-            spp_outputs[0].0.clone(),
+            spp_outputs[0].0.spp_output.clone(),
             all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
@@ -242,7 +251,7 @@ mod tests {
         let result = spp_outputs[0].1.sign(
             context.to_vec(),
             message.to_vec(),
-            spp_outputs[0].0.clone(),
+            spp_outputs[0].0.spp_output.clone(),
             all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
@@ -302,7 +311,7 @@ mod tests {
         let result = spp_outputs[0].1.sign(
             context.to_vec(),
             message.to_vec(),
-            spp_outputs[0].0.clone(),
+            spp_outputs[0].0.spp_output.clone(),
             all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
@@ -359,7 +368,7 @@ mod tests {
         let result = spp_outputs[0].1.sign(
             context.to_vec(),
             message.to_vec(),
-            spp_outputs[0].0.clone(),
+            spp_outputs[0].0.spp_output.clone(),
             all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );
@@ -416,7 +425,7 @@ mod tests {
         let result = spp_outputs[0].1.sign(
             context.to_vec(),
             message.to_vec(),
-            spp_outputs[0].0.clone(),
+            spp_outputs[0].0.spp_output.clone(),
             all_signing_commitments.clone(),
             &all_signing_nonces[0],
         );

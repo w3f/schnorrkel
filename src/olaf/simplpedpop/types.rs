@@ -425,9 +425,9 @@ impl SPPOutputMessage {
         Ok(SPPOutputMessage { signer, spp_output, signature })
     }
 
-    /// Returns the threshold public key.
-    pub fn threshold_public_key(&self) -> ThresholdPublicKey {
-        self.spp_output.threshold_public_key
+    /// Returns the output of the SimplPedPoP protocol.
+    pub fn spp_output(&self) -> SPPOutput {
+        self.spp_output.clone()
     }
 
     /// Verifies the signature of the message.
@@ -518,6 +518,11 @@ impl SPPOutput {
             verifying_keys,
             parameters,
         })
+    }
+
+    /// Returns the threshold public key.
+    pub fn threshold_public_key(&self) -> ThresholdPublicKey {
+        self.threshold_public_key
     }
 }
 
