@@ -21,8 +21,8 @@ use self::{
 };
 
 use super::{
-    simplpedpop::{DKGOutput, SecretPolynomial},
-    GroupPublicKey, SigningKeypair, VerifyingShare,
+    simplpedpop::{SPPOutput, SecretPolynomial},
+    ThresholdPublicKey, SigningKeypair, VerifyingShare,
 };
 
 impl SigningKeypair {
@@ -92,11 +92,11 @@ impl SigningKeypair {
         &self,
         context: &[u8],
         message: &[u8],
-        dkg_output: &DKGOutput,
+        spp_output: &SPPOutput,
         all_signing_commitments: &[SigningCommitments],
         signer_nonces: &SigningNonces,
     ) -> FROSTResult<SignatureShare> {
-        if dkg_output.verifying_keys.len() != dkg_output.parameters.participants as usize {
+        if spp_output.verifying_keys.len() != spp_output.parameters.participants as usize {
             return Err(FROSTError::IncorrectNumberOfVerifyingShares);
         }
 
@@ -111,7 +111,7 @@ impl SigningKeypair {
 
         let own_verifying_share = VerifyingShare(self.0.public);
 
-        for (i, (identifier, share)) in dkg_output.verifying_keys.iter().enumerate() {
+        for (i, (identifier, share)) in spp_output.verifying_keys.iter().enumerate() {
             identifiers.push(identifier);
             shares.push(share);
 
@@ -124,20 +124,20 @@ impl SigningKeypair {
             return Err(FROSTError::InvalidOwnVerifyingShare);
         }
 
-        if all_signing_commitments.len() < dkg_output.parameters.threshold as usize {
+        if all_signing_commitments.len() < spp_output.parameters.threshold as usize {
             return Err(FROSTError::InvalidNumberOfSigningCommitments);
         }
 
         let binding_factor_list: BindingFactorList = BindingFactorList::compute(
             all_signing_commitments,
-            &dkg_output.group_public_key,
+            &spp_output.threshold_public_key,
             message,
         );
 
         let group_commitment =
             GroupCommitment::compute(all_signing_commitments, &binding_factor_list)?;
 
-        let identifiers_vec: Vec<_> = dkg_output.verifying_keys.iter().map(|x| x.0).collect();
+        let identifiers_vec: Vec<_> = spp_output.verifying_keys.iter().map(|x| x.0).collect();
 
         let lambda_i = SecretPolynomial::compute_lagrange_coefficient(
             &identifiers_vec,
@@ -149,7 +149,7 @@ impl SigningKeypair {
         transcript.proto_name(b"Schnorr-sig");
         {
             let this = &mut transcript;
-            let compressed = dkg_output.group_public_key.0.as_compressed();
+            let compressed = spp_output.threshold_public_key.0.as_compressed();
             this.append_message(b"sign:pk", compressed.as_bytes());
         };
         transcript.commit_point(b"sign:R", &group_commitment.0.compress());
@@ -203,7 +203,7 @@ pub fn aggregate(
     context: &[u8],
     signing_commitments: &[SigningCommitments],
     signature_shares: &Vec<SignatureShare>,
-    group_public_key: GroupPublicKey,
+    group_public_key: ThresholdPublicKey,
 ) -> Result<Signature, FROSTError> {
     if signing_commitments.len() != signature_shares.len() {
         return Err(FROSTError::IncorrectNumberOfSigningCommitments);
@@ -276,18 +276,18 @@ mod tests {
             all_messages.push(message);
         }
 
-        let mut dkg_outputs = Vec::new();
+        let mut spp_outputs = Vec::new();
 
         for kp in keypairs.iter() {
-            let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-            dkg_outputs.push(dkg_output);
+            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            spp_outputs.push(spp_output);
         }
 
         let mut all_signing_commitments = Vec::new();
         let mut all_signing_nonces = Vec::new();
 
-        for dkg_output in &dkg_outputs {
-            let (signing_nonces, signing_commitments) = dkg_output.1.commit(&mut OsRng);
+        for spp_output in &spp_outputs {
+            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
         }
@@ -297,13 +297,13 @@ mod tests {
         let message = b"message";
         let context = b"context";
 
-        for (i, dkg_output) in dkg_outputs.iter().enumerate() {
-            let signature_share = dkg_output
+        for (i, spp_output) in spp_outputs.iter().enumerate() {
+            let signature_share = spp_output
                 .1
                 .sign(
                     context,
                     message,
-                    &dkg_output.0.dkg_output,
+                    &spp_output.0.spp_output,
                     &all_signing_commitments,
                     &all_signing_nonces[i],
                 )
@@ -317,7 +317,7 @@ mod tests {
             context,
             &all_signing_commitments,
             &signature_shares,
-            dkg_outputs[0].0.dkg_output.group_public_key,
+            spp_outputs[0].0.spp_output.threshold_public_key,
         )
         .unwrap();
     }
@@ -339,18 +339,18 @@ mod tests {
             all_messages.push(message);
         }
 
-        let mut dkg_outputs = Vec::new();
+        let mut spp_outputs = Vec::new();
 
         for kp in keypairs.iter() {
-            let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-            dkg_outputs.push(dkg_output);
+            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            spp_outputs.push(spp_output);
         }
 
         let mut all_signing_commitments = Vec::new();
         let mut all_signing_nonces = Vec::new();
 
-        for dkg_output in &dkg_outputs[..threshold] {
-            let (signing_nonces, signing_commitments) = dkg_output.1.commit(&mut OsRng);
+        for spp_output in &spp_outputs[..threshold] {
+            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
         }
@@ -360,13 +360,13 @@ mod tests {
         let message = b"message";
         let context = b"context";
 
-        for (i, dkg_output) in dkg_outputs[..threshold].iter().enumerate() {
-            let signature_share = dkg_output
+        for (i, spp_output) in spp_outputs[..threshold].iter().enumerate() {
+            let signature_share = spp_output
                 .1
                 .sign(
                     context,
                     message,
-                    &dkg_output.0.dkg_output,
+                    &spp_output.0.spp_output,
                     &all_signing_commitments,
                     &all_signing_nonces[i],
                 )
@@ -380,7 +380,7 @@ mod tests {
             context,
             &all_signing_commitments,
             &signature_shares,
-            dkg_outputs[0].0.dkg_output.group_public_key,
+            spp_outputs[0].0.spp_output.threshold_public_key,
         )
         .unwrap();
     }
@@ -402,20 +402,20 @@ mod tests {
             all_messages.push(message);
         }
 
-        let mut dkg_outputs = Vec::new();
+        let mut spp_outputs = Vec::new();
 
         for kp in &keypairs {
-            let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-            dkg_outputs.push(dkg_output);
+            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            spp_outputs.push(spp_output);
         }
 
-        let group_public_key = dkg_outputs[0].0.dkg_output.group_public_key;
+        let group_public_key = spp_outputs[0].0.spp_output.threshold_public_key;
 
         let mut all_nonces_map: Vec<Vec<SigningNonces>> = Vec::new();
         let mut all_commitments_map: Vec<Vec<SigningCommitments>> = Vec::new();
 
-        for dkg_output in &dkg_outputs {
-            let (nonces, commitments) = dkg_output.1.preprocess(NONCES, &mut OsRng);
+        for spp_output in &spp_outputs {
+            let (nonces, commitments) = spp_output.1.preprocess(NONCES, &mut OsRng);
 
             all_nonces_map.push(nonces);
             all_commitments_map.push(commitments);
@@ -427,7 +427,7 @@ mod tests {
         for i in 0..NONCES {
             let mut comms = Vec::new();
 
-            for (j, _) in dkg_outputs.iter().enumerate() {
+            for (j, _) in spp_outputs.iter().enumerate() {
                 nonces.push(&all_nonces_map[j][i as usize]);
                 comms.push(all_commitments_map[j][i as usize].clone())
             }
@@ -451,12 +451,12 @@ mod tests {
 
             let commitments: Vec<SigningCommitments> = commitments[i as usize].clone();
 
-            for (j, dkg_output) in dkg_outputs.iter().enumerate() {
+            for (j, spp_output) in spp_outputs.iter().enumerate() {
                 let nonces_to_use = &all_nonces_map[j][i as usize];
 
-                let signature_share = dkg_output
+                let signature_share = spp_output
                     .1
-                    .sign(context, &message, &dkg_output.0.dkg_output, &commitments, nonces_to_use)
+                    .sign(context, &message, &spp_output.0.spp_output, &commitments, nonces_to_use)
                     .unwrap();
 
                 signature_shares.push(signature_share);

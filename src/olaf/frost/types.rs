@@ -10,7 +10,7 @@ use rand_core::{CryptoRng, RngCore};
 use zeroize::ZeroizeOnDrop;
 use crate::{
     context::SigningTranscript,
-    olaf::{GroupPublicKey, GENERATOR},
+    olaf::{ThresholdPublicKey, GENERATOR},
     SecretKey,
 };
 use super::errors::FROSTError;
@@ -37,7 +37,7 @@ impl BindingFactorList {
 
     pub(super) fn compute(
         signing_commitments: &[SigningCommitments],
-        verifying_key: &GroupPublicKey,
+        verifying_key: &ThresholdPublicKey,
         message: &[u8],
     ) -> BindingFactorList {
         let mut transcripts = BindingFactorList::binding_factor_transcripts(
@@ -60,7 +60,7 @@ impl BindingFactorList {
 
     fn binding_factor_transcripts(
         signing_commitments: &[SigningCommitments],
-        verifying_key: &GroupPublicKey,
+        verifying_key: &ThresholdPublicKey,
         message: &[u8],
     ) -> Vec<(u16, Transcript)> {
         let mut transcript = Transcript::new(b"binding_factor");

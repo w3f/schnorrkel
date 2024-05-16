@@ -13,19 +13,19 @@ use crate::{context::SigningTranscript, Keypair, PublicKey};
 pub(super) const MINIMUM_THRESHOLD: u16 = 2;
 pub(super) const GENERATOR: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
 
-/// The group public key used by the Olaf protocol.
+/// The threshold public key generated in the SimplPedPoP protocol, used to validate the threshold signatures of the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct GroupPublicKey(pub(crate) PublicKey);
+pub struct ThresholdPublicKey(pub(crate) PublicKey);
 
-/// The verifying share of a participant in the Olaf protocol, used to verify its signature share.
+/// The verifying share of a participant generated in the SimplPedPoP protocol, used to verify its signatures shares in the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct VerifyingShare(pub(crate) PublicKey);
 
-/// The signing keypair of a participant in the Olaf protocol, used to produce its signature share.
+/// The signing keypair of a participant generated in the SimplPedPoP protocol, used to produce its signatures shares in the FROST protocol.
 #[derive(Clone, Debug)]
 pub struct SigningKeypair(pub(crate) Keypair);
 
-/// The identifier of a participant in the Olaf protocol.
+/// The identifier of a participant, which must be the same in the SimplPedPoP protocol and in the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Identifier(pub(crate) Scalar);
 

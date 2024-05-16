@@ -51,273 +51,288 @@ pub enum SPPError {
 
 #[cfg(test)]
 mod tests {
-    mod simplpedpop {
-        use crate::olaf::simplpedpop::errors::SPPError;
-        use crate::olaf::simplpedpop::types::{
-            AllMessage, EncryptedSecretShare, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
-        };
-        use crate::{Keypair, PublicKey};
-        use alloc::vec::Vec;
-        use curve25519_dalek::ristretto::RistrettoPoint;
-        use curve25519_dalek::traits::Identity;
-        use merlin::Transcript;
+    use crate::olaf::simplpedpop::errors::SPPError;
+    use crate::olaf::simplpedpop::types::{
+        AllMessage, EncryptedSecretShare, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
+    };
+    use crate::olaf::simplpedpop::Parameters;
+    use crate::olaf::MINIMUM_THRESHOLD;
+    use crate::{Keypair, PublicKey};
+    use alloc::vec::Vec;
+    use curve25519_dalek::ristretto::RistrettoPoint;
+    use curve25519_dalek::traits::Identity;
+    use merlin::Transcript;
+    use rand::Rng;
 
-        #[test]
-        fn test_invalid_number_of_messages() {
-            let threshold = 3;
-            let participants = 5;
+    const MAXIMUM_PARTICIPANTS: u16 = 10;
+    const MINIMUM_PARTICIPANTS: u16 = 2;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+    fn generate_parameters() -> Parameters {
+        let mut rng = rand::thread_rng();
+        let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
+        let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        Parameters { participants, threshold }
+    }
 
-            messages.pop();
+    #[test]
+    fn test_invalid_number_of_messages() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::InvalidNumberOfMessages => assert!(true),
-                    _ => {
-                        panic!("Expected DKGError::InvalidNumberOfMessages, but got {:?}", e)
-                    },
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
+
+        messages.pop();
+
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
+
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::InvalidNumberOfMessages => assert!(true),
+                _ => {
+                    panic!("Expected DKGError::InvalidNumberOfMessages, but got {:?}", e)
                 },
-            }
+            },
+        }
+    }
+
+    #[test]
+    fn test_different_parameters() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
+
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+
+        let mut messages: Vec<AllMessage> = Vec::new();
+        for i in 0..participants {
+            let message = keypairs[i as usize]
+                .simplpedpop_contribute_all(threshold, public_keys.clone())
+                .unwrap();
+            messages.push(message);
         }
 
-        #[test]
-        fn test_different_parameters() {
-            let threshold = 3;
-            let participants = 5;
+        messages[1].content.parameters.threshold += 1;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            let mut messages: Vec<AllMessage> = Vec::new();
-            for i in 0..participants {
-                let message =
-                    keypairs[i].simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap();
-                messages.push(message);
-            }
-
-            messages[1].content.parameters.threshold += 1;
-
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
-
-            // Check if the result is an error
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::DifferentParameters => assert!(true),
-                    _ => panic!("Expected DKGError::DifferentParameters, but got {:?}", e),
-                },
-            }
+        // Check if the result is an error
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::DifferentParameters => assert!(true),
+                _ => panic!("Expected DKGError::DifferentParameters, but got {:?}", e),
+            },
         }
+    }
 
-        #[test]
-        fn test_different_recipients_hash() {
-            let threshold = 3;
-            let participants = 5;
+    #[test]
+    fn test_different_recipients_hash() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
 
-            messages[1].content.recipients_hash = [1; RECIPIENTS_HASH_LENGTH];
+        messages[1].content.recipients_hash = [1; RECIPIENTS_HASH_LENGTH];
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::DifferentRecipientsHash => assert!(true),
-                    _ => {
-                        panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
-                    },
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::DifferentRecipientsHash => assert!(true),
+                _ => {
+                    panic!("Expected DKGError::DifferentRecipientsHash, but got {:?}", e)
                 },
-            }
+            },
         }
+    }
 
-        #[test]
-        fn test_incorrect_number_of_commitments() {
-            let threshold = 3;
-            let participants = 5;
+    #[test]
+    fn test_incorrect_number_of_commitments() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
 
-            messages[1].content.polynomial_commitment.coefficients_commitments.pop();
+        messages[1].content.polynomial_commitment.coefficients_commitments.pop();
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::IncorrectNumberOfCoefficientCommitments => assert!(true),
-                    _ => panic!(
-                        "Expected DKGError::IncorrectNumberOfCoefficientCommitments, but got {:?}",
-                        e
-                    ),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::IncorrectNumberOfCoefficientCommitments => assert!(true),
+                _ => panic!(
+                    "Expected DKGError::IncorrectNumberOfCoefficientCommitments, but got {:?}",
+                    e
+                ),
+            },
         }
+    }
 
-        #[test]
-        fn test_incorrect_number_of_encrypted_shares() {
-            let threshold = 3;
-            let participants = 5;
+    #[test]
+    fn test_incorrect_number_of_encrypted_shares() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
 
-            messages[1].content.encrypted_secret_shares.pop();
+        messages[1].content.encrypted_secret_shares.pop();
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::IncorrectNumberOfEncryptedShares => assert!(true),
-                    _ => panic!(
-                        "Expected DKGError::IncorrectNumberOfEncryptedShares, but got {:?}",
-                        e
-                    ),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::IncorrectNumberOfEncryptedShares => assert!(true),
+                _ => panic!("Expected DKGError::IncorrectNumberOfEncryptedShares, but got {:?}", e),
+            },
         }
+    }
 
-        #[test]
-        fn test_invalid_secret_share() {
-            let threshold = 3;
-            let participants = 5;
+    #[test]
+    fn test_invalid_secret_share() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
 
-            messages[1].content.encrypted_secret_shares[0] =
-                EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]);
+        messages[1].content.encrypted_secret_shares[0] =
+            EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]);
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::InvalidSecretShare => assert!(true),
-                    _ => panic!("Expected DKGError::InvalidSecretShare, but got {:?}", e),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::InvalidSecretShare => assert!(true),
+                _ => panic!("Expected DKGError::InvalidSecretShare, but got {:?}", e),
+            },
         }
+    }
 
-        #[test]
-        fn test_invalid_signature() {
-            let threshold = 3;
-            let participants = 5;
+    #[test]
+    fn test_invalid_signature() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants;
+        let threshold = parameters.threshold;
 
-            let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public.clone()).collect();
 
-            let mut messages: Vec<AllMessage> = keypairs
-                .iter()
-                .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
-                .collect();
+        let mut messages: Vec<AllMessage> = keypairs
+            .iter()
+            .map(|kp| kp.simplpedpop_contribute_all(threshold, public_keys.clone()).unwrap())
+            .collect();
 
-            messages[1].signature =
-                keypairs[1].secret.sign(Transcript::new(b"invalid"), &keypairs[1].public);
+        messages[1].signature =
+            keypairs[1].secret.sign(Transcript::new(b"invalid"), &keypairs[1].public);
 
-            let result = keypairs[0].simplpedpop_recipient_all(&messages);
+        let result = keypairs[0].simplpedpop_recipient_all(&messages);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::InvalidSignature(_) => assert!(true),
-                    _ => panic!("Expected DKGError::InvalidSignature, but got {:?}", e),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::InvalidSignature(_) => assert!(true),
+                _ => panic!("Expected DKGError::InvalidSignature, but got {:?}", e),
+            },
         }
+    }
 
-        #[test]
-        fn test_invalid_threshold() {
-            let keypair = Keypair::generate();
-            let result = keypair.simplpedpop_contribute_all(
-                1,
-                vec![
-                    PublicKey::from_point(RistrettoPoint::identity()),
-                    PublicKey::from_point(RistrettoPoint::identity()),
-                ],
-            );
+    #[test]
+    fn test_invalid_threshold() {
+        let keypair = Keypair::generate();
+        let result = keypair.simplpedpop_contribute_all(
+            1,
+            vec![
+                PublicKey::from_point(RistrettoPoint::identity()),
+                PublicKey::from_point(RistrettoPoint::identity()),
+            ],
+        );
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::InsufficientThreshold => assert!(true),
-                    _ => panic!("Expected SPPError::InsufficientThreshold, but got {:?}", e),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::InsufficientThreshold => assert!(true),
+                _ => panic!("Expected SPPError::InsufficientThreshold, but got {:?}", e),
+            },
         }
+    }
 
-        #[test]
-        fn test_invalid_participants() {
-            let keypair = Keypair::generate();
-            let result = keypair.simplpedpop_contribute_all(
-                2,
-                vec![PublicKey::from_point(RistrettoPoint::identity())],
-            );
+    #[test]
+    fn test_invalid_participants() {
+        let keypair = Keypair::generate();
+        let result = keypair
+            .simplpedpop_contribute_all(2, vec![PublicKey::from_point(RistrettoPoint::identity())]);
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::InvalidNumberOfParticipants => {
-                        assert!(true)
-                    },
-                    _ => {
-                        panic!("Expected SPPError::InvalidNumberOfParticipants, but got {:?}", e)
-                    },
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::InvalidNumberOfParticipants => {
+                    assert!(true)
                 },
-            }
+                _ => {
+                    panic!("Expected SPPError::InvalidNumberOfParticipants, but got {:?}", e)
+                },
+            },
         }
+    }
 
-        #[test]
-        fn test_threshold_greater_than_participants() {
-            let keypair = Keypair::generate();
-            let result = keypair.simplpedpop_contribute_all(
-                3,
-                vec![
-                    PublicKey::from_point(RistrettoPoint::identity()),
-                    PublicKey::from_point(RistrettoPoint::identity()),
-                ],
-            );
+    #[test]
+    fn test_threshold_greater_than_participants() {
+        let keypair = Keypair::generate();
+        let result = keypair.simplpedpop_contribute_all(
+            3,
+            vec![
+                PublicKey::from_point(RistrettoPoint::identity()),
+                PublicKey::from_point(RistrettoPoint::identity()),
+            ],
+        );
 
-            match result {
-                Ok(_) => panic!("Expected an error, but got Ok."),
-                Err(e) => match e {
-                    SPPError::ExcessiveThreshold => assert!(true),
-                    _ => panic!("Expected SPPError::ExcessiveThreshold), but got {:?}", e),
-                },
-            }
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok."),
+            Err(e) => match e {
+                SPPError::ExcessiveThreshold => assert!(true),
+                _ => panic!("Expected SPPError::ExcessiveThreshold), but got {:?}", e),
+            },
         }
     }
 }

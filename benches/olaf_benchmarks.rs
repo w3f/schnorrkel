@@ -60,25 +60,25 @@ mod olaf_benches {
                 all_messages.push(message);
             }
 
-            let mut dkg_outputs = Vec::new();
+            let mut spp_outputs = Vec::new();
 
             for kp in keypairs.iter() {
-                let dkg_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
-                dkg_outputs.push(dkg_output);
+                let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+                spp_outputs.push(spp_output);
             }
 
             let mut all_signing_commitments = Vec::new();
             let mut all_signing_nonces = Vec::new();
 
-            for dkg_output in &dkg_outputs {
-                let (signing_nonces, signing_commitments) = dkg_output.1.commit(&mut OsRng);
+            for spp_output in &spp_outputs {
+                let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
                 all_signing_nonces.push(signing_nonces);
                 all_signing_commitments.push(signing_commitments);
             }
 
             group.bench_function(BenchmarkId::new("round1", participants), |b| {
                 b.iter(|| {
-                    dkg_outputs[0].1.commit(&mut OsRng);
+                    spp_outputs[0].1.commit(&mut OsRng);
                 })
             });
 
@@ -89,12 +89,12 @@ mod olaf_benches {
 
             group.bench_function(BenchmarkId::new("round2", participants), |b| {
                 b.iter(|| {
-                    dkg_outputs[0]
+                    spp_outputs[0]
                         .1
                         .sign(
                             context,
                             message,
-                            &dkg_outputs[0].0.dkg_output,
+                            spp_outputs[0].0.spp_output(),
                             &all_signing_commitments,
                             &all_signing_nonces[0],
                         )
@@ -102,13 +102,13 @@ mod olaf_benches {
                 })
             });
 
-            for (i, dkg_output) in dkg_outputs.iter().enumerate() {
-                let signature_share = dkg_output
+            for (i, spp_output) in spp_outputs.iter().enumerate() {
+                let signature_share = spp_output
                     .1
                     .sign(
                         context,
                         message,
-                        &dkg_output.0.dkg_output,
+                        spp_output.0.spp_output(),
                         &all_signing_commitments,
                         &all_signing_nonces[i],
                     )
@@ -124,7 +124,7 @@ mod olaf_benches {
                         context,
                         &all_signing_commitments,
                         &signature_shares,
-                        dkg_outputs[0].0.dkg_output.group_public_key,
+                        spp_outputs[0].0.spp_output().threshold_public_key(),
                     )
                     .unwrap();
                 })
