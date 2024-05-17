@@ -2,15 +2,11 @@ use criterion::criterion_main;
 
 mod olaf_benches {
     use criterion::{criterion_group, BenchmarkId, Criterion};
-    use schnorrkel::{olaf::AllMessage, Keypair, PublicKey};
+    use schnorrkel::keys::{PublicKey, Keypair};
+    use schnorrkel::olaf::simplpedpop::AllMessage;
 
     fn benchmark_simplpedpop(c: &mut Criterion) {
         let mut group = c.benchmark_group("SimplPedPoP");
-
-        group
-            .sample_size(10)
-            .warm_up_time(std::time::Duration::from_secs(2))
-            .measurement_time(std::time::Duration::from_secs(300));
 
         for &n in [3, 10, 100, 1000].iter() {
             let participants = n;
@@ -19,10 +15,10 @@ mod olaf_benches {
             let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
             let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
 
-            // Each participant creates an AllMessage
-            let mut all_messages = Vec::new();
+            let mut all_messages: Vec<AllMessage> = Vec::new();
+
             for i in 0..participants {
-                let message: AllMessage = keypairs[i]
+                let message = keypairs[i]
                     .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
                     .unwrap();
                 all_messages.push(message);
