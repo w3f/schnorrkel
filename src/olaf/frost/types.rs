@@ -306,19 +306,17 @@ impl From<&SigningNonces> for SigningCommitments {
     }
 }
 
-/// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
-/// coordinator, which aggregates them into the final threshold signature.
-pub struct SigningPackage {
+#[derive(Clone, PartialEq, Eq)]
+pub(super) struct CommonData {
     pub(super) message: Vec<u8>,
     pub(super) context: Vec<u8>,
     pub(super) signing_commitments: Vec<SigningCommitments>,
-    pub(super) signature_share: SignatureShare,
     pub(super) spp_output: SPPOutput,
 }
 
-impl SigningPackage {
-    /// Serializes SigningPackage into bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
+impl CommonData {
+    /// Serializes CommonData into bytes.
+    fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
 
         bytes.extend((self.message.len() as u32).to_le_bytes());
@@ -332,15 +330,13 @@ impl SigningPackage {
             bytes.extend(commitment.to_bytes());
         }
 
-        bytes.extend(self.signature_share.to_bytes());
-
         bytes.extend(self.spp_output.to_bytes());
 
         bytes
     }
 
-    /// Deserializes SigningPackage from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+    /// Deserializes CommonData from bytes.
+    fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
         let mut cursor = 0;
 
         let message_len =
@@ -365,14 +361,62 @@ impl SigningPackage {
             signing_commitments.push(SigningCommitments::from_bytes(commitment_bytes)?);
         }
 
-        let share_bytes = &bytes[cursor..cursor + SCALAR_LENGTH];
-        cursor += SCALAR_LENGTH;
-        let signature_share = SignatureShare::from_bytes(share_bytes)?;
-
         let spp_output = SPPOutput::from_bytes(&bytes[cursor..])
             .map_err(FROSTError::SPPOutputDeserializationError)?;
 
-        Ok(SigningPackage { message, context, signing_commitments, signature_share, spp_output })
+        Ok(CommonData { message, context, signing_commitments, spp_output })
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct SignerData {
+    pub(super) signature_share: SignatureShare,
+}
+
+impl SignerData {
+    /// Serializes SignerData into bytes.
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        bytes.extend(self.signature_share.to_bytes());
+
+        bytes
+    }
+
+    /// Deserializes SignerData from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+        let share_bytes = &bytes[..SCALAR_LENGTH];
+        let signature_share = SignatureShare::from_bytes(share_bytes)?;
+
+        Ok(SignerData { signature_share })
+    }
+}
+
+/// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
+/// coordinator, which aggregates them into the final threshold signature.
+pub struct SigningPackage {
+    pub(super) signer_data: SignerData,
+    pub(super) common_data: CommonData,
+}
+
+impl SigningPackage {
+    /// Serializes SigningPackage into bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        bytes.extend(self.signer_data.to_bytes());
+        bytes.extend(self.common_data.to_bytes());
+
+        bytes
+    }
+
+    /// Deserializes SigningPackage from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+        let signer_data = SignerData::from_bytes(&bytes[..SCALAR_LENGTH])?;
+
+        let common_data = CommonData::from_bytes(&bytes[SCALAR_LENGTH..])?;
+
+        Ok(SigningPackage { common_data, signer_data })
     }
 }
 
@@ -428,6 +472,7 @@ mod tests {
     use rand_core::OsRng;
     use crate::{
         olaf::{
+            frost::types::{CommonData, SignerData},
             simplpedpop::{Parameters, SPPOutput},
             Identifier, ThresholdPublicKey, VerifyingShare, GENERATOR,
         },
@@ -477,22 +522,20 @@ mod tests {
         let context = b"context".to_vec();
         let signature_share = SignatureShare { share: Scalar::random(&mut rng) };
 
-        let signing_package = SigningPackage {
-            message: message.clone(),
-            context: context.clone(),
-            signing_commitments: signing_commitments.clone(),
-            signature_share: signature_share.clone(),
-            spp_output: spp_output.clone(),
-        };
+        let common_data = CommonData { message, context, signing_commitments, spp_output };
+        let signer_data = SignerData { signature_share };
+
+        let signing_package =
+            SigningPackage { signer_data: signer_data.clone(), common_data: common_data.clone() };
 
         let signing_package_bytes = signing_package.to_bytes();
         let deserialized_signing_package =
             SigningPackage::from_bytes(&signing_package_bytes).unwrap();
 
-        assert!(deserialized_signing_package.message == message);
-        assert!(deserialized_signing_package.context == context);
-        assert!(deserialized_signing_package.signing_commitments == signing_commitments);
-        assert!(deserialized_signing_package.signature_share.share == signature_share.share);
-        assert!(deserialized_signing_package.spp_output == spp_output);
+        assert!(
+            deserialized_signing_package.signer_data.signature_share.share
+                == signer_data.signature_share.share
+        );
+        assert!(deserialized_signing_package.common_data == common_data);
     }
 }

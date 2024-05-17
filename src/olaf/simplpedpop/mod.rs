@@ -143,6 +143,10 @@ impl Keypair {
         &self,
         messages: &[AllMessage],
     ) -> SPPResult<(SPPOutputMessage, SigningKeypair)> {
+        if messages.is_empty() {
+            return Err(SPPError::EmptyMessages);
+        }
+
         let first_message = &messages[0];
         let parameters = &first_message.content.parameters;
         let threshold = parameters.threshold as usize;

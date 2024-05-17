@@ -7,10 +7,9 @@ mod types;
 pub mod errors;
 
 pub use self::types::{SigningPackage, SigningNonces, SigningCommitments};
-use self::types::SignatureShare;
+use self::types::{CommonData, SignatureShare, SignerData};
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
-use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use crate::{
     context::{SigningContext, SigningTranscript},
@@ -150,13 +149,15 @@ impl SigningKeypair {
             &challenge,
         );
 
-        let signing_package = SigningPackage {
+        let signer_data = SignerData { signature_share };
+        let common_data = CommonData {
             message,
             context,
             signing_commitments: all_signing_commitments,
-            signature_share,
             spp_output,
         };
+
+        let signing_package = SigningPackage { signer_data, common_data };
 
         Ok(signing_package)
     }
@@ -232,36 +233,30 @@ pub(super) fn compute_lagrange_coefficient(
 /// can avoid that step. However, at worst, this results in a denial of
 /// service attack due to publishing an invalid signature.
 pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROSTError> {
-    let parameters = &signing_packages[0].spp_output.parameters;
+    if signing_packages.is_empty() {
+        return Err(FROSTError::EmptySigningPackages);
+    }
+
+    let parameters = &signing_packages[0].common_data.spp_output.parameters;
 
     if signing_packages.len() < parameters.threshold as usize {
         return Err(FROSTError::InvalidNumberOfSigningPackages);
     }
 
-    let message = &signing_packages[0].message;
-    let context = &signing_packages[0].context;
-    let signing_commitments = &signing_packages[0].signing_commitments;
-    let threshold_public_key = &signing_packages[0].spp_output.threshold_public_key;
+    let common_data = &signing_packages[0].common_data;
+    let message = &common_data.message;
+    let context = &common_data.context;
+    let signing_commitments = &common_data.signing_commitments;
+    let threshold_public_key = &common_data.spp_output.threshold_public_key;
+    let spp_output = &common_data.spp_output;
     let mut signature_shares = Vec::new();
 
     for signing_package in signing_packages.iter() {
-        if &signing_package.message != message {
-            return Err(FROSTError::MismatchedMessage);
-        }
-        if &signing_package.context != context {
-            return Err(FROSTError::MismatchedContext);
-        }
-        if signing_package.signing_commitments != *signing_commitments {
-            return Err(FROSTError::MismatchedSigningCommitments);
-        }
-        if signing_package.spp_output != signing_packages[0].spp_output {
-            return Err(FROSTError::MismatchedSPPOutput);
+        if &signing_package.common_data != common_data {
+            return Err(FROSTError::MismatchedCommonData);
         }
 
-        signature_shares.push(signing_package.signature_share.clone());
-
-        let mut transcript = Transcript::new(b"spp output");
-        transcript.append_message(b"message", &signing_package.spp_output.to_bytes());
+        signature_shares.push(signing_package.signer_data.signature_share.clone());
     }
 
     let binding_factor_list: BindingFactorList =
@@ -282,11 +277,10 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
         .verify_simple(context, message, &signature)
         .map_err(FROSTError::InvalidSignature);
 
-    let identifiers: Vec<Identifier> =
-        signing_packages[0].spp_output.verifying_keys.iter().map(|x| x.0).collect();
+    let identifiers: Vec<Identifier> = spp_output.verifying_keys.iter().map(|x| x.0).collect();
 
     let verifying_shares: Vec<VerifyingShare> =
-        signing_packages[0].spp_output.verifying_keys.iter().map(|x| x.1).collect();
+        spp_output.verifying_keys.iter().map(|x| x.1).collect();
 
     let mut valid_shares = Vec::new();
 
@@ -300,9 +294,7 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
 
         // Verify the signature shares.
         for (j, signature_share) in signature_shares.iter().enumerate() {
-            for (i, (identifier, verifying_share)) in
-                signing_packages[0].spp_output.verifying_keys.iter().enumerate()
-            {
+            for (i, (identifier, verifying_share)) in spp_output.verifying_keys.iter().enumerate() {
                 let lambda_i = compute_lagrange_coefficient(&identifiers, None, *identifier);
 
                 let binding_factor =

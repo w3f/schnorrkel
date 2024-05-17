@@ -50,14 +50,10 @@ pub enum FROSTError {
     SPPOutputDeserializationError(SPPError),
     /// The number of signing packages must be at least equal to the threshold.
     InvalidNumberOfSigningPackages,
-    /// The messages of all signing packages must be equal.
-    MismatchedMessage,
-    /// The contexts of all signing packages must be equal.
-    MismatchedContext,
-    /// The signing commitments of all signing packages must be equal.
-    MismatchedSigningCommitments,
-    /// The output of the SimplPedPoP protocol of all signing packages be equal.
-    MismatchedSPPOutput,
+    /// The common data of all the signing packages must be the same.
+    MismatchedCommonData,
+    /// The signing packages are empty.
+    EmptySigningPackages,
 }
 
 #[cfg(test)]
@@ -131,8 +127,8 @@ mod tests {
             signing_packages.push(signing_package);
         }
 
-        signing_packages[0].signature_share.share += Scalar::ONE;
-        signing_packages[1].signature_share.share += Scalar::ONE;
+        signing_packages[0].signer_data.signature_share.share += Scalar::ONE;
+        signing_packages[1].signer_data.signature_share.share += Scalar::ONE;
 
         let result = aggregate(&signing_packages);
 

@@ -97,7 +97,7 @@ mod olaf_benches {
                         .sign(
                             context.to_vec(),
                             message.to_vec(),
-                            spp_outputs[0].0.clone(),
+                            spp_outputs[0].0.clone().spp_output(),
                             all_signing_commitments.clone(),
                             &all_signing_nonces[0],
                         )
@@ -111,7 +111,7 @@ mod olaf_benches {
                     .sign(
                         context.to_vec(),
                         message.to_vec(),
-                        spp_output.0.clone(),
+                        spp_output.0.clone().spp_output(),
                         all_signing_commitments.clone(),
                         &all_signing_nonces[i],
                     )

@@ -47,6 +47,8 @@ pub enum SPPError {
     EncryptionError(chacha20poly1305::Error),
     /// Invalid Proof of Possession.
     InvalidProofOfPossession(SignatureError),
+    /// The messages are empty.
+    EmptyMessages,
 }
 
 #[cfg(test)]
