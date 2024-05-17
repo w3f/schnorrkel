@@ -28,13 +28,11 @@ pub(super) struct SignatureShare {
 }
 
 impl SignatureShare {
-    /// Serializes the `SignatureShare` into bytes.
-    pub(super) fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
+    fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
         self.share.to_bytes()
     }
 
-    /// Deserializes the `SignatureShare` from bytes.
-    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
+    fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
         let mut share_bytes = [0; SCALAR_LENGTH];
         share_bytes.copy_from_slice(&bytes[..SCALAR_LENGTH]);
         let share = scalar_from_canonical_bytes(share_bytes)
@@ -160,10 +158,7 @@ impl Nonce {
 
     /// Generates a nonce from the given random bytes.
     /// This function allows testing and MUST NOT be made public.
-    pub(super) fn nonce_generate_from_random_bytes(
-        secret: &SecretKey,
-        random_bytes: &[u8],
-    ) -> Self {
+    fn nonce_generate_from_random_bytes(secret: &SecretKey, random_bytes: &[u8]) -> Self {
         let mut transcript = Transcript::new(b"nonce_generate_from_random_bytes");
 
         transcript.append_message(b"random bytes", random_bytes);
@@ -178,13 +173,12 @@ impl Nonce {
 pub(super) struct NonceCommitment(pub(super) RistrettoPoint);
 
 impl NonceCommitment {
-    /// Serializes the `NonceCommitment` into bytes.
-    pub(super) fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH] {
+    fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH] {
         self.0.compress().to_bytes()
     }
 
     /// Deserializes the `NonceCommitment` from bytes.
-    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<NonceCommitment> {
+    fn from_bytes(bytes: &[u8]) -> FROSTResult<NonceCommitment> {
         let compressed = CompressedRistretto::from_slice(&bytes[..COMPRESSED_RISTRETTO_LENGTH])
             .map_err(FROSTError::DeserializationError)?;
 
@@ -245,7 +239,7 @@ impl SigningNonces {
     /// SigningNonces MUST NOT be repeated in different FROST signings.
     /// Thus, if you're using this method (because e.g. you're writing it
     /// to disk between rounds), be careful so that does not happen.
-    pub(super) fn from_nonces(hiding: Nonce, binding: Nonce) -> Self {
+    fn from_nonces(hiding: Nonce, binding: Nonce) -> Self {
         let hiding_commitment = (&hiding).into();
         let binding_commitment = (&binding).into();
         let commitments = SigningCommitments::new(hiding_commitment, binding_commitment);
@@ -265,14 +259,11 @@ pub struct SigningCommitments {
 }
 
 impl SigningCommitments {
-    /// Create new SigningCommitments
-    pub(super) fn new(hiding: NonceCommitment, binding: NonceCommitment) -> Self {
+    fn new(hiding: NonceCommitment, binding: NonceCommitment) -> Self {
         Self { hiding, binding }
     }
 
-    /// Serializes the `SigningCommitments` into bytes.
-    pub(super) fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
-        // TODO: Add tests
+    fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
         let mut bytes = [0u8; COMPRESSED_RISTRETTO_LENGTH * 2];
 
         let hiding_bytes = self.hiding.to_bytes();
@@ -284,8 +275,7 @@ impl SigningCommitments {
         bytes
     }
 
-    /// Deserializes the `SigningCommitments` from bytes.
-    pub(super) fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
+    fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
         let hiding = NonceCommitment::from_bytes(&bytes[..COMPRESSED_RISTRETTO_LENGTH])?;
         let binding = NonceCommitment::from_bytes(&bytes[COMPRESSED_RISTRETTO_LENGTH..])?;
 

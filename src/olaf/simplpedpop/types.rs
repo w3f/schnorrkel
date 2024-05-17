@@ -164,11 +164,11 @@ impl Parameters {
 
 /// The polynomial commitment of a participant, used to verify the secret shares without revealing the polynomial.
 pub struct PolynomialCommitment {
-    pub(crate) coefficients_commitments: Vec<RistrettoPoint>,
+    pub(super) coefficients_commitments: Vec<RistrettoPoint>,
 }
 
 impl PolynomialCommitment {
-    pub(crate) fn evaluate(&self, identifier: &Scalar) -> RistrettoPoint {
+    pub(super) fn evaluate(&self, identifier: &Scalar) -> RistrettoPoint {
         let i = identifier;
 
         let (_, result) = self
@@ -181,7 +181,7 @@ impl PolynomialCommitment {
         result
     }
 
-    pub(crate) fn sum_polynomial_commitments(
+    pub(super) fn sum_polynomial_commitments(
         polynomials_commitments: &[&PolynomialCommitment],
     ) -> PolynomialCommitment {
         let max_length = polynomials_commitments

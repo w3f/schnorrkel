@@ -259,6 +259,10 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
         signature_shares.push(signing_package.signer_data.signature_share.clone());
     }
 
+    if signature_shares.len() != signing_commitments.len() {
+        return Err(FROSTError::MismatchedSignatureSharesAndSigningCommitments);
+    }
+
     let binding_factor_list: BindingFactorList =
         BindingFactorList::compute(signing_commitments, threshold_public_key, message);
 
@@ -297,8 +301,7 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
             for (i, (identifier, verifying_share)) in spp_output.verifying_keys.iter().enumerate() {
                 let lambda_i = compute_lagrange_coefficient(&identifiers, None, *identifier);
 
-                let binding_factor =
-                    &binding_factor_list.0.get(i).ok_or(FROSTError::InvalidIdentifier)?.1;
+                let binding_factor = &binding_factor_list.0.get(i).expect("This never fails because signature_shares.len() == signing_commitments.len().").1;
 
                 let R_share = signing_commitments[j].to_group_commitment_share(binding_factor);
 
