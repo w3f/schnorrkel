@@ -109,7 +109,7 @@ impl SecretPolynomial {
 
 /// The parameters of a given execution of the SimplPedPoP protocol.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Parameters {
+pub(crate) struct Parameters {
     pub(crate) participants: u16,
     pub(crate) threshold: u16,
 }
@@ -163,7 +163,8 @@ impl Parameters {
 }
 
 /// The polynomial commitment of a participant, used to verify the secret shares without revealing the polynomial.
-pub struct PolynomialCommitment {
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct PolynomialCommitment {
     pub(super) coefficients_commitments: Vec<RistrettoPoint>,
 }
 
@@ -204,25 +205,29 @@ impl PolynomialCommitment {
     }
 }
 
-#[derive(Clone)]
-pub struct EncryptedSecretShare(pub(super) Vec<u8>);
-
-impl EncryptedSecretShare {}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EncryptedSecretShare(pub(super) Vec<u8>);
 
 /// AllMessage packs together messages for all participants.
 ///
 /// We'd save bandwidth by having separate messages for each
 /// participant, but typical thresholds lie between 1/2 and 2/3,
 /// so this doubles or tripples bandwidth usage.
+#[derive(Debug, PartialEq, Eq)]
 pub struct AllMessage {
     pub(super) content: MessageContent,
     pub(super) signature: Signature,
+    pub(super) proof_of_possession: Signature,
 }
 
 impl AllMessage {
     /// Creates a new message.
-    pub(crate) fn new(content: MessageContent, signature: Signature) -> Self {
-        Self { content, signature }
+    pub(crate) fn new(
+        content: MessageContent,
+        signature: Signature,
+        proof_of_possession: Signature,
+    ) -> Self {
+        Self { content, signature, proof_of_possession }
     }
     /// Serialize AllMessage
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -230,6 +235,7 @@ impl AllMessage {
 
         bytes.extend(self.content.to_bytes());
         bytes.extend(self.signature.to_bytes());
+        bytes.extend(self.proof_of_possession.to_bytes());
 
         bytes
     }
@@ -243,13 +249,18 @@ impl AllMessage {
 
         let signature = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
             .map_err(SPPError::InvalidSignature)?;
+        cursor += SIGNATURE_LENGTH;
 
-        Ok(AllMessage { content, signature })
+        let proof_of_possession = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
+            .map_err(SPPError::InvalidSignature)?;
+
+        Ok(AllMessage { content, signature, proof_of_possession })
     }
 }
 
 /// The contents of the message destined to all participants.
-pub struct MessageContent {
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct MessageContent {
     pub(super) sender: PublicKey,
     pub(super) encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
     pub(super) parameters: Parameters,
@@ -257,7 +268,6 @@ pub struct MessageContent {
     pub(super) polynomial_commitment: PolynomialCommitment,
     pub(super) encrypted_secret_shares: Vec<EncryptedSecretShare>,
     pub(super) ephemeral_key: PublicKey,
-    pub(super) proof_of_possession: Signature,
 }
 
 impl MessageContent {
@@ -270,7 +280,6 @@ impl MessageContent {
         polynomial_commitment: PolynomialCommitment,
         encrypted_secret_shares: Vec<EncryptedSecretShare>,
         ephemeral_key: PublicKey,
-        proof_of_possession: Signature,
     ) -> Self {
         Self {
             sender,
@@ -280,7 +289,6 @@ impl MessageContent {
             polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key,
-            proof_of_possession,
         }
     }
 
@@ -303,7 +311,6 @@ impl MessageContent {
         }
 
         bytes.extend(&self.ephemeral_key.to_bytes());
-        bytes.extend(&self.proof_of_possession.to_bytes());
 
         bytes
     }
@@ -359,10 +366,6 @@ impl MessageContent {
 
         let ephemeral_key = PublicKey::from_bytes(&bytes[cursor..cursor + PUBLIC_KEY_LENGTH])
             .map_err(SPPError::InvalidPublicKey)?;
-        cursor += PUBLIC_KEY_LENGTH;
-
-        let proof_of_possession = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
-            .map_err(SPPError::InvalidSignature)?;
 
         Ok(MessageContent {
             sender,
@@ -372,7 +375,6 @@ impl MessageContent {
             polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key,
-            proof_of_possession,
         })
     }
 }
@@ -592,8 +594,8 @@ mod tests {
             EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
             EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
         ];
-        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
         let signature = sender.sign(Transcript::new(b"sig"));
+        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
         let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
 
         let message_content = MessageContent::new(
@@ -604,58 +606,15 @@ mod tests {
             polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key,
-            proof_of_possession,
         );
 
-        let message = AllMessage::new(message_content, signature);
+        let message = AllMessage::new(message_content, signature, proof_of_possession);
 
         let bytes = message.to_bytes();
 
         let deserialized_message = AllMessage::from_bytes(&bytes).expect("Failed to deserialize");
 
-        assert_eq!(message.content.sender, deserialized_message.content.sender);
-
-        assert_eq!(message.content.encryption_nonce, deserialized_message.content.encryption_nonce);
-
-        assert_eq!(
-            message.content.parameters.participants,
-            deserialized_message.content.parameters.participants
-        );
-
-        assert_eq!(
-            message.content.parameters.threshold,
-            deserialized_message.content.parameters.threshold
-        );
-
-        assert_eq!(message.content.recipients_hash, deserialized_message.content.recipients_hash);
-
-        assert!(message
-            .content
-            .polynomial_commitment
-            .coefficients_commitments
-            .iter()
-            .zip(
-                deserialized_message
-                    .content
-                    .polynomial_commitment
-                    .coefficients_commitments
-                    .iter()
-            )
-            .all(|(a, b)| a.compress() == b.compress()));
-
-        assert!(message
-            .content
-            .encrypted_secret_shares
-            .iter()
-            .zip(deserialized_message.content.encrypted_secret_shares.iter())
-            .all(|(a, b)| a.0 == b.0));
-
-        assert_eq!(
-            message.content.proof_of_possession,
-            deserialized_message.content.proof_of_possession
-        );
-
-        assert_eq!(message.signature, deserialized_message.signature);
+        assert_eq!(message, deserialized_message);
     }
 
     #[test]
