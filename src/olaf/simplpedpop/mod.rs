@@ -4,8 +4,8 @@
 mod types;
 pub mod errors;
 
-pub use self::types::{AllMessage, SPPOutputMessage, SPPOutput};
-pub(crate) use self::types::{PolynomialCommitment, MessageContent, Parameters};
+pub use self::types::{AllMessage, SPPOutputMessage, SPPOutput, Parameters};
+pub(crate) use self::types::{PolynomialCommitment, MessageContent};
 use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;

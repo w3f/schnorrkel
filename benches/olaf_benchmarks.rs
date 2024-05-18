@@ -11,6 +11,8 @@ mod olaf_benches {
     fn benchmark_simplpedpop(c: &mut Criterion) {
         let mut group = c.benchmark_group("SimplPedPoP");
 
+        group.sample_size(10);
+
         for &n in [3, 10, 100, 1000].iter() {
             let participants = n;
             let threshold = (n * 2 + 2) / 3;
@@ -47,6 +49,8 @@ mod olaf_benches {
 
     fn benchmark_frost(c: &mut Criterion) {
         let mut group = c.benchmark_group("FROST");
+
+        group.sample_size(10);
 
         for &n in [3, 10, 100, 1000].iter() {
             let participants = n;

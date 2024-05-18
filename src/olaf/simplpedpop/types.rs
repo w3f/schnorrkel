@@ -115,7 +115,6 @@ pub struct Parameters {
 }
 
 impl Parameters {
-    /// Create new parameters.
     pub(crate) fn generate(participants: u16, threshold: u16) -> Parameters {
         Parameters { participants, threshold }
     }
@@ -141,7 +140,6 @@ impl Parameters {
         t.commit_bytes(b"participants", &self.participants.to_le_bytes());
     }
 
-    /// Serializes `Parameters` into a byte array.
     pub(super) fn to_bytes(&self) -> [u8; U16_LENGTH * 2] {
         let mut bytes = [0u8; U16_LENGTH * 2];
         bytes[0..U16_LENGTH].copy_from_slice(&self.participants.to_le_bytes());
@@ -149,7 +147,6 @@ impl Parameters {
         bytes
     }
 
-    /// Constructs `Parameters` from a byte array.
     pub(super) fn from_bytes(bytes: &[u8]) -> SPPResult<Parameters> {
         if bytes.len() != U16_LENGTH * 2 {
             return Err(SPPError::InvalidParameters);
@@ -163,6 +160,7 @@ impl Parameters {
 }
 
 /// The polynomial commitment of a participant, used to verify the secret shares without revealing the polynomial.
+#[derive(Debug, PartialEq, Eq)]
 pub struct PolynomialCommitment {
     pub(super) coefficients_commitments: Vec<RistrettoPoint>,
 }
@@ -204,7 +202,7 @@ impl PolynomialCommitment {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncryptedSecretShare(pub(super) Vec<u8>);
 
 impl EncryptedSecretShare {}
@@ -214,6 +212,7 @@ impl EncryptedSecretShare {}
 /// We'd save bandwidth by having separate messages for each
 /// participant, but typical thresholds lie between 1/2 and 2/3,
 /// so this doubles or tripples bandwidth usage.
+#[derive(Debug, PartialEq, Eq)]
 pub struct AllMessage {
     pub(super) content: MessageContent,
     pub(super) signature: Signature,
@@ -249,6 +248,7 @@ impl AllMessage {
 }
 
 /// The contents of the message destined to all participants.
+#[derive(Debug, PartialEq, Eq)]
 pub struct MessageContent {
     pub(super) sender: PublicKey,
     pub(super) encryption_nonce: [u8; ENCRYPTION_NONCE_LENGTH],
@@ -613,49 +613,7 @@ mod tests {
 
         let deserialized_message = AllMessage::from_bytes(&bytes).expect("Failed to deserialize");
 
-        assert_eq!(message.content.sender, deserialized_message.content.sender);
-
-        assert_eq!(message.content.encryption_nonce, deserialized_message.content.encryption_nonce);
-
-        assert_eq!(
-            message.content.parameters.participants,
-            deserialized_message.content.parameters.participants
-        );
-
-        assert_eq!(
-            message.content.parameters.threshold,
-            deserialized_message.content.parameters.threshold
-        );
-
-        assert_eq!(message.content.recipients_hash, deserialized_message.content.recipients_hash);
-
-        assert!(message
-            .content
-            .polynomial_commitment
-            .coefficients_commitments
-            .iter()
-            .zip(
-                deserialized_message
-                    .content
-                    .polynomial_commitment
-                    .coefficients_commitments
-                    .iter()
-            )
-            .all(|(a, b)| a.compress() == b.compress()));
-
-        assert!(message
-            .content
-            .encrypted_secret_shares
-            .iter()
-            .zip(deserialized_message.content.encrypted_secret_shares.iter())
-            .all(|(a, b)| a.0 == b.0));
-
-        assert_eq!(
-            message.content.proof_of_possession,
-            deserialized_message.content.proof_of_possession
-        );
-
-        assert_eq!(message.signature, deserialized_message.signature);
+        assert_eq!(message, deserialized_message);
     }
 
     #[test]
@@ -695,15 +653,44 @@ mod tests {
         let deserialized_spp_output_message =
             SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
 
-        assert_eq!(
-            deserialized_spp_output_message.spp_output, spp_output_message.spp_output,
-            "Group public keys do not match"
-        );
+        assert_eq!(deserialized_spp_output_message, spp_output_message);
+    }
 
-        assert_eq!(
-            deserialized_spp_output_message.signature, spp_output_message.signature,
-            "Signatures do not match"
-        );
+    #[test]
+    fn test_spp_output_message_verification() {
+        let mut rng = OsRng;
+        let group_public_key = RistrettoPoint::random(&mut rng);
+        let verifying_keys = vec![
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+            (
+                Identifier(Scalar::random(&mut rng)),
+                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
+            ),
+        ];
+        let parameters = Parameters::generate(2, 2);
+
+        let spp_output = SPPOutput {
+            parameters,
+            threshold_public_key: ThresholdPublicKey(PublicKey::from_point(group_public_key)),
+            verifying_keys,
+        };
+
+        let keypair = Keypair::generate();
+        let mut transcript = Transcript::new(b"spp output");
+        transcript.append_message(b"message", &spp_output.to_bytes());
+        let signature = keypair.sign(transcript);
+
+        let spp_output_message =
+            SPPOutputMessage { signer: VerifyingShare(keypair.public), spp_output, signature };
+
+        spp_output_message.verify_signature().unwrap()
     }
 
     #[test]
