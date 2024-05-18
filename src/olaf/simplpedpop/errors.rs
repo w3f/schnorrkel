@@ -1,7 +1,7 @@
 //! Errors of the SimplPedPoP protocol.
 
 use core::array::TryFromSliceError;
-use crate::SignatureError;
+use crate::{PublicKey, SignatureError};
 
 /// A result for the SimplPedPoP protocol.
 pub type SPPResult<T> = Result<T, SPPError>;
@@ -28,7 +28,10 @@ pub enum SPPError {
     /// Invalid identifier.
     InvalidIdentifier,
     /// Invalid secret share.
-    InvalidSecretShare,
+    InvalidSecretShare {
+        /// The sender of the invalid secret share.
+        culprit: PublicKey,
+    },
     /// Deserialization Error.
     DeserializationError(TryFromSliceError),
     /// The parameters of all messages must be equal.
@@ -245,7 +248,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                SPPError::InvalidSecretShare => assert!(true),
+                SPPError::InvalidSecretShare { culprit } => {
+                    assert_eq!(culprit, messages[1].content.sender);
+                },
                 _ => panic!("Expected DKGError::InvalidSecretShare, but got {:?}", e),
             },
         }

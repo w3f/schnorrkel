@@ -1,11 +1,13 @@
 //! Implementation of the SimplPedPoP protocol (<https://eprint.iacr.org/2023/899>), a spp based on PedPoP, which in turn is based
 //! on Pedersen's spp. All of them have as the fundamental building block the Shamir's Secret Sharing scheme.
 
+#![allow(clippy::result_large_err)]
+
 mod types;
 pub mod errors;
 
-pub use self::types::{AllMessage, SPPOutputMessage, SPPOutput, Parameters};
-pub(crate) use self::types::{PolynomialCommitment, MessageContent};
+pub use self::types::{AllMessage, SPPOutputMessage, SPPOutput};
+pub(crate) use self::types::{PolynomialCommitment, MessageContent, Parameters};
 use alloc::vec::Vec;
 use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
 use merlin::Transcript;
@@ -110,16 +112,6 @@ impl Keypair {
 
         let secret_key = SecretKey { key: secret, nonce };
 
-        let secret_commitment = polynomial_commitment
-            .coefficients_commitments
-            .first()
-            .expect("This never fails because the minimum threshold is 2");
-
-        let mut pop_transcript = Transcript::new(b"pop");
-        pop_transcript
-            .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-        let proof_of_possession = secret_key.sign(pop_transcript, pk);
-
         let message_content = MessageContent::new(
             self.public,
             encryption_nonce,
@@ -128,14 +120,17 @@ impl Keypair {
             polynomial_commitment,
             encrypted_secret_shares,
             ephemeral_key.public,
-            proof_of_possession,
         );
 
         let mut signature_transcript = Transcript::new(b"signature");
-        signature_transcript.append_message(b"message", &message_content.to_bytes());
+        signature_transcript.append_message(b"message_sig", &message_content.to_bytes());
         let signature = self.sign(signature_transcript);
 
-        Ok(AllMessage::new(message_content, signature))
+        let mut pop_transcript = Transcript::new(b"pop");
+        pop_transcript.append_message(b"message_pop", &message_content.to_bytes());
+        let proof_of_possession = secret_key.sign(pop_transcript, pk);
+
+        Ok(AllMessage::new(message_content, signature, proof_of_possession))
     }
 
     /// Second round of the SimplPedPoP protocol.
@@ -191,7 +186,7 @@ impl Keypair {
                     .expect("This never fails because the minimum threshold is 2"),
             );
             public_keys.push(public_key);
-            proofs_of_possession.push(content.proof_of_possession);
+            proofs_of_possession.push(message.proof_of_possession);
 
             senders.push(content.sender);
             signatures.push(message.signature);
@@ -210,20 +205,17 @@ impl Keypair {
             }
 
             let mut signature_transcript = Transcript::new(b"signature");
-            signature_transcript.append_message(b"message", &content.to_bytes());
+            signature_transcript.append_message(b"message_sig", &content.to_bytes());
             signatures_transcripts.push(signature_transcript);
 
             let mut pop_transcript = Transcript::new(b"pop");
+            pop_transcript.append_message(b"message_pop", &content.to_bytes());
+            pops_transcripts.push(pop_transcript);
 
             let secret_commitment = polynomial_commitment
                 .coefficients_commitments
                 .first()
                 .expect("This never fails because the minimum threshold is 2");
-
-            pop_transcript
-                .append_message(b"secret commitment", secret_commitment.compress().as_bytes());
-
-            pops_transcripts.push(pop_transcript);
 
             total_polynomial_commitment = PolynomialCommitment::sum_polynomial_commitments(&[
                 &total_polynomial_commitment,
@@ -267,7 +259,10 @@ impl Keypair {
                 }
             }
 
-            total_secret_share += secret_shares.get(j).ok_or(SPPError::InvalidSecretShare)?.0;
+            total_secret_share += secret_shares
+                .get(j)
+                .ok_or(SPPError::InvalidSecretShare { culprit: message.content.sender })?
+                .0;
             group_point += secret_commitment;
         }
 
