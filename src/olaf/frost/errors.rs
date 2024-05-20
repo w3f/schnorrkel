@@ -21,7 +21,7 @@ pub enum FROSTError {
     MissingOwnSigningCommitment,
     /// Commitment equals the identity
     IdentitySigningCommitment,
-    /// The number of veriyfing shares must be equal to the number of participants.
+    /// The number of veriyfing shares must be equal to the number of signers.
     IncorrectNumberOfVerifyingShares,
     /// Error deserializing the signature share.
     SignatureShareDeserializationError,
@@ -54,7 +54,6 @@ pub enum FROSTError {
 mod tests {
     use alloc::vec::Vec;
     use curve25519_dalek::{traits::Identity, RistrettoPoint, Scalar};
-    use rand::Rng;
     use rand_core::OsRng;
     use crate::{
         olaf::{
@@ -63,23 +62,13 @@ mod tests {
                 types::{NonceCommitment, SigningCommitments},
                 SigningPackage,
             },
-            simplpedpop::{AllMessage, Parameters},
-            SigningKeypair, MINIMUM_THRESHOLD,
+            simplpedpop::AllMessage,
+            test_utils::generate_parameters,
+            SigningKeypair,
         },
         Keypair, PublicKey,
     };
     use super::FROSTError;
-
-    const MAXIMUM_PARTICIPANTS: u16 = 2;
-    const MINIMUM_PARTICIPANTS: u16 = 2;
-
-    fn generate_parameters() -> Parameters {
-        let mut rng = rand::thread_rng();
-        let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
-        let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
-
-        Parameters { participants, threshold }
-    }
 
     #[test]
     fn test_empty_signing_packages() {
@@ -125,7 +114,7 @@ mod tests {
         let mut all_signing_commitments = Vec::new();
         let mut all_signing_nonces = Vec::new();
 
-        for spp_output in &spp_outputs[..threshold] {
+        for spp_output in &spp_outputs {
             let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
@@ -637,8 +626,6 @@ mod tests {
             all_signing_commitments.push(signing_commitments);
         }
 
-        all_signing_commitments.pop();
-
         let message = b"message";
         let context = b"context";
 
@@ -646,7 +633,11 @@ mod tests {
             context.to_vec(),
             message.to_vec(),
             spp_outputs[0].0.spp_output.clone(),
-            all_signing_commitments.clone(),
+            all_signing_commitments
+                .into_iter()
+                .take(parameters.threshold as usize - 1)
+                .collect::<Vec<SigningCommitments>>()
+                .clone(),
             &all_signing_nonces[0],
         );
 

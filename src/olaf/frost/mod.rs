@@ -93,8 +93,13 @@ impl SigningKeypair {
         signer_nonces: &SigningNonces,
     ) -> FROSTResult<SigningPackage> {
         let threshold_public_key = &spp_output.threshold_public_key;
+        let len = all_signing_commitments.len();
 
-        if spp_output.verifying_keys.len() != spp_output.parameters.participants as usize {
+        if len < spp_output.parameters.threshold as usize {
+            return Err(FROSTError::InvalidNumberOfSigningCommitments);
+        }
+
+        if spp_output.verifying_keys.len() != len {
             return Err(FROSTError::IncorrectNumberOfVerifyingShares);
         }
 
@@ -346,13 +351,9 @@ fn compute_challenge(
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use rand::Rng;
     use rand_core::OsRng;
     use crate::{
-        olaf::{
-            simplpedpop::{AllMessage, Parameters},
-            MINIMUM_THRESHOLD,
-        },
+        olaf::{simplpedpop::AllMessage, test_utils::generate_parameters},
         Keypair, PublicKey,
     };
     use super::{
@@ -360,17 +361,7 @@ mod tests {
         types::{SigningCommitments, SigningNonces},
     };
 
-    const MAXIMUM_PARTICIPANTS: u16 = 2;
-    const MINIMUM_PARTICIPANTS: u16 = 2;
     const NONCES: u8 = 10;
-
-    fn generate_parameters() -> Parameters {
-        let mut rng = rand::thread_rng();
-        let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
-        let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
-
-        Parameters { participants, threshold }
-    }
 
     #[test]
     fn test_n_of_n_frost_with_simplpedpop() {
@@ -448,7 +439,11 @@ mod tests {
         let mut spp_outputs = Vec::new();
 
         for kp in keypairs.iter() {
-            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            let mut spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+
+            spp_output.0.spp_output.verifying_keys =
+                spp_output.0.spp_output.verifying_keys.into_iter().take(threshold).collect();
+
             spp_outputs.push(spp_output);
         }
 
@@ -466,7 +461,7 @@ mod tests {
         let message = b"message";
         let context = b"context";
 
-        for (i, spp_output) in spp_outputs.iter().enumerate() {
+        for (i, spp_output) in spp_outputs[..threshold].iter().enumerate() {
             let signing_package = spp_output
                 .1
                 .sign(

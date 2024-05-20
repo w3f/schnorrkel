@@ -458,15 +458,17 @@ impl GroupCommitment {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::{RistrettoPoint, Scalar};
+    use alloc::vec::Vec;
+    use curve25519_dalek::Scalar;
     use rand_core::OsRng;
     use crate::{
         olaf::{
             frost::types::{CommonData, SignerData},
-            simplpedpop::{Parameters, SPPOutput},
-            Identifier, ThresholdPublicKey, VerifyingShare, GENERATOR,
+            simplpedpop::AllMessage,
+            test_utils::generate_parameters,
+            GENERATOR,
         },
-        PublicKey,
+        Keypair, PublicKey,
     };
 
     use super::{NonceCommitment, SignatureShare, SigningCommitments, SigningPackage};
@@ -474,28 +476,22 @@ mod tests {
     #[test]
     fn test_signing_package_serialization() {
         let mut rng = OsRng;
-        let group_public_key = RistrettoPoint::random(&mut rng);
-        let verifying_keys = vec![
-            (
-                Identifier(Scalar::random(&mut rng)),
-                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            ),
-            (
-                Identifier(Scalar::random(&mut rng)),
-                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            ),
-            (
-                Identifier(Scalar::random(&mut rng)),
-                VerifyingShare(PublicKey::from_point(RistrettoPoint::random(&mut rng))),
-            ),
-        ];
-        let parameters = Parameters::generate(2, 2);
+        let parameters = generate_parameters();
+        let participants = parameters.participants as usize;
+        let threshold = parameters.threshold as usize;
 
-        let spp_output = SPPOutput {
-            parameters,
-            threshold_public_key: ThresholdPublicKey(PublicKey::from_point(group_public_key)),
-            verifying_keys,
-        };
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+        let mut all_messages = Vec::new();
+        for i in 0..participants {
+            let message: AllMessage = keypairs[i]
+                .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                .unwrap();
+            all_messages.push(message);
+        }
+
+        let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap().0.spp_output;
 
         let signing_commitments = vec![
             SigningCommitments {
