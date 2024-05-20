@@ -21,7 +21,7 @@ use super::errors::{FROSTError, FROSTResult};
 
 /// A participant's signature share, which the coordinator will aggregate with all other signer's
 /// shares into the joint signature.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct SignatureShare {
     /// This participant's signature over the message.
     pub(super) share: Scalar,
@@ -133,7 +133,7 @@ impl BindingFactorList {
 }
 
 /// A scalar that is a signing nonce.
-#[derive(ZeroizeOnDrop)]
+#[derive(Debug, Clone, ZeroizeOnDrop, PartialEq, Eq)]
 pub(super) struct Nonce(pub(super) Scalar);
 
 impl Nonce {
@@ -165,6 +165,14 @@ impl Nonce {
         transcript.append_message(b"secret", secret.key.as_bytes());
 
         Self(transcript.challenge_scalar(b"nonce"))
+    }
+
+    fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
+        self.0.to_bytes()
+    }
+
+    fn from_bytes(bytes: [u8; SCALAR_LENGTH]) -> Self {
+        Nonce(Scalar::from_bytes_mod_order(bytes))
     }
 }
 
@@ -205,7 +213,7 @@ impl From<&Nonce> for NonceCommitment {
 /// Note that [`SigningNonces`] must be used *only once* for a signing
 /// operation; re-using nonces will result in leakage of a signer's long-lived
 /// signing key.
-#[derive(ZeroizeOnDrop)]
+#[derive(Debug, Clone, ZeroizeOnDrop, PartialEq, Eq)]
 pub struct SigningNonces {
     pub(super) hiding: Nonce,
     pub(super) binding: Nonce,
@@ -230,6 +238,38 @@ impl SigningNonces {
         let binding = Nonce::new(secret, rng);
 
         Self::from_nonces(hiding, binding)
+    }
+
+    /// Serializes SigningNonces into bytes.
+    pub fn to_bytes(self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        bytes.extend(self.hiding.to_bytes());
+        bytes.extend(self.binding.to_bytes());
+        bytes.extend(self.commitments.to_bytes());
+
+        bytes
+    }
+
+    /// Deserializes SigningNonces from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+        let mut cursor = 0;
+
+        let mut hiding_bytes = [0; 32];
+        hiding_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
+
+        let hiding = Nonce::from_bytes(hiding_bytes);
+        cursor += SCALAR_LENGTH;
+
+        let mut binding_bytes = [0; 32];
+        binding_bytes.copy_from_slice(&bytes[cursor..cursor + SCALAR_LENGTH]);
+
+        let binding = Nonce::from_bytes(binding_bytes);
+        cursor += SCALAR_LENGTH;
+
+        let commitments = SigningCommitments::from_bytes(&bytes[cursor..])?;
+
+        Ok(Self { hiding, binding, commitments })
     }
 
     /// Generates a new [`SigningNonces`] from a pair of [`Nonce`].
@@ -263,7 +303,8 @@ impl SigningCommitments {
         Self { hiding, binding }
     }
 
-    fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
+    /// Serializes SigningCommitments into bytes.
+    pub fn to_bytes(self) -> [u8; COMPRESSED_RISTRETTO_LENGTH * 2] {
         let mut bytes = [0u8; COMPRESSED_RISTRETTO_LENGTH * 2];
 
         let hiding_bytes = self.hiding.to_bytes();
@@ -275,7 +316,8 @@ impl SigningCommitments {
         bytes
     }
 
-    fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
+    /// Deserializes SigningCommitments from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
         let hiding = NonceCommitment::from_bytes(&bytes[..COMPRESSED_RISTRETTO_LENGTH])?;
         let binding = NonceCommitment::from_bytes(&bytes[COMPRESSED_RISTRETTO_LENGTH..])?;
 
@@ -358,7 +400,7 @@ impl CommonData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct SignerData {
     pub(super) signature_share: SignatureShare,
 }
@@ -384,6 +426,7 @@ impl SignerData {
 
 /// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
 /// coordinator, which aggregates them into the final threshold signature.
+#[derive(PartialEq, Eq)]
 pub struct SigningPackage {
     pub(super) signer_data: SignerData,
     pub(super) common_data: CommonData,
@@ -459,22 +502,15 @@ impl GroupCommitment {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use curve25519_dalek::Scalar;
     use rand_core::OsRng;
     use crate::{
-        olaf::{
-            frost::types::{CommonData, SignerData},
-            simplpedpop::AllMessage,
-            test_utils::generate_parameters,
-            GENERATOR,
-        },
+        olaf::{simplpedpop::AllMessage, test_utils::generate_parameters},
         Keypair, PublicKey,
     };
-
-    use super::{NonceCommitment, SignatureShare, SigningCommitments, SigningPackage};
+    use super::{SigningCommitments, SigningNonces, SigningPackage};
 
     #[test]
-    fn test_signing_package_serialization() {
+    fn test_round1_serialization() {
         let mut rng = OsRng;
         let parameters = generate_parameters();
         let participants = parameters.participants as usize;
@@ -491,37 +527,72 @@ mod tests {
             all_messages.push(message);
         }
 
-        let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap().0.spp_output;
+        let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap();
 
-        let signing_commitments = vec![
-            SigningCommitments {
-                hiding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
-                binding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
-            },
-            SigningCommitments {
-                hiding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
-                binding: NonceCommitment(Scalar::random(&mut rng) * GENERATOR),
-            },
-        ];
+        let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut rng);
 
-        let message = b"message".to_vec();
-        let context = b"context".to_vec();
-        let signature_share = SignatureShare { share: Scalar::random(&mut rng) };
+        let nonces_bytes = signing_nonces.clone().to_bytes();
+        let commitments_bytes = signing_commitments.clone().to_bytes();
 
-        let common_data = CommonData { message, context, signing_commitments, spp_output };
-        let signer_data = SignerData { signature_share };
+        let deserialized_nonces = SigningNonces::from_bytes(&nonces_bytes).unwrap();
+        let deserialized_commitments = SigningCommitments::from_bytes(&commitments_bytes).unwrap();
 
-        let signing_package =
-            SigningPackage { signer_data: signer_data.clone(), common_data: common_data.clone() };
+        assert_eq!(signing_nonces, deserialized_nonces);
+        assert_eq!(signing_commitments, deserialized_commitments);
+    }
+
+    #[test]
+    fn test_round2_serialization() {
+        let mut rng = OsRng;
+        let parameters = generate_parameters();
+        let participants = parameters.participants as usize;
+        let threshold = parameters.threshold as usize;
+
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+        let mut all_messages = Vec::new();
+        for i in 0..participants {
+            let message: AllMessage = keypairs[i]
+                .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                .unwrap();
+            all_messages.push(message);
+        }
+
+        let mut spp_outputs = Vec::new();
+
+        for kp in keypairs.iter() {
+            let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
+            spp_outputs.push(spp_output);
+        }
+
+        let mut all_signing_commitments = Vec::new();
+        let mut all_signing_nonces = Vec::new();
+
+        for spp_output in &spp_outputs {
+            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut rng);
+            all_signing_nonces.push(signing_nonces);
+            all_signing_commitments.push(signing_commitments);
+        }
+
+        let message = b"message";
+        let context = b"context";
+
+        let signing_package = spp_outputs[0]
+            .1
+            .sign(
+                context.to_vec(),
+                message.to_vec(),
+                spp_outputs[0].0.spp_output.clone(),
+                all_signing_commitments.clone(),
+                &all_signing_nonces[0],
+            )
+            .unwrap();
 
         let signing_package_bytes = signing_package.to_bytes();
         let deserialized_signing_package =
             SigningPackage::from_bytes(&signing_package_bytes).unwrap();
 
-        assert!(
-            deserialized_signing_package.signer_data.signature_share.share
-                == signer_data.signature_share.share
-        );
-        assert!(deserialized_signing_package.common_data == common_data);
+        assert!(deserialized_signing_package == signing_package);
     }
 }

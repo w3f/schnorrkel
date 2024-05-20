@@ -61,6 +61,7 @@ impl SigningKeypair {
     /// operation.
     ///
     /// [`commit`]: https://www.ietf.org/archive/id/draft-irtf-cfrg-frost-14.html#name-round-one-commitment.
+    // TODO: remove randomness
     pub fn commit<R>(&self, rng: &mut R) -> (SigningNonces, SigningCommitments)
     where
         R: CryptoRng + RngCore,

@@ -60,7 +60,7 @@ impl SecretShare {
             .decrypt(nonce, &encrypted_secret_share.0[..])
             .map_err(SPPError::DecryptionError)?;
 
-        let mut bytes = [0; 32];
+        let mut bytes = [0; SCALAR_LENGTH];
         bytes.copy_from_slice(&plaintext);
 
         Ok(SecretShare(Scalar::from_bytes_mod_order(bytes)))
