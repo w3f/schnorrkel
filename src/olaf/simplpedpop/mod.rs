@@ -302,23 +302,12 @@ impl Keypair {
 
 #[cfg(test)]
 mod tests {
-    use crate::olaf::simplpedpop::types::{AllMessage, Parameters};
-    use crate::olaf::MINIMUM_THRESHOLD;
+    use crate::olaf::simplpedpop::types::AllMessage;
+    use crate::olaf::test_utils::generate_parameters;
     use crate::{Keypair, PublicKey};
     use alloc::vec::Vec;
-    use rand::Rng;
 
-    const MAXIMUM_PARTICIPANTS: u16 = 10;
-    const MINIMUM_PARTICIPANTS: u16 = 2;
     const PROTOCOL_RUNS: usize = 1;
-
-    fn generate_parameters() -> Parameters {
-        let mut rng = rand::thread_rng();
-        let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
-        let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
-
-        Parameters { participants, threshold }
-    }
 
     #[test]
     fn test_simplpedpop_protocol() {

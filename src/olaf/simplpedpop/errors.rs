@@ -23,6 +23,10 @@ pub enum SPPError {
     InvalidThresholdPublicKey,
     /// Invalid signature.
     InvalidSignature(SignatureError),
+    /// Error deserializing signature.
+    ErrorDeserializingSignature(SignatureError),
+    /// Error deserializing proof of possession.
+    ErrorDeserializingProofOfPossession(SignatureError),
     /// Invalid coefficient commitment of the polynomial commitment.
     InvalidCoefficientCommitment,
     /// Invalid identifier.
@@ -60,25 +64,12 @@ mod tests {
     use crate::olaf::simplpedpop::types::{
         AllMessage, EncryptedSecretShare, CHACHA20POLY1305_LENGTH, RECIPIENTS_HASH_LENGTH,
     };
-    use crate::olaf::simplpedpop::Parameters;
-    use crate::olaf::MINIMUM_THRESHOLD;
+    use crate::olaf::test_utils::generate_parameters;
     use crate::{Keypair, PublicKey};
     use alloc::vec::Vec;
     use curve25519_dalek::ristretto::RistrettoPoint;
     use curve25519_dalek::traits::Identity;
     use merlin::Transcript;
-    use rand::Rng;
-
-    const MAXIMUM_PARTICIPANTS: u16 = 10;
-    const MINIMUM_PARTICIPANTS: u16 = 2;
-
-    fn generate_parameters() -> Parameters {
-        let mut rng = rand::thread_rng();
-        let participants = rng.gen_range(MINIMUM_PARTICIPANTS..=MAXIMUM_PARTICIPANTS);
-        let threshold = rng.gen_range(MINIMUM_THRESHOLD..=participants);
-
-        Parameters { participants, threshold }
-    }
 
     #[test]
     fn test_invalid_number_of_messages() {

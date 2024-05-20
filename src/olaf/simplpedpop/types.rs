@@ -23,7 +23,7 @@ use super::errors::{SPPError, SPPResult};
 pub(super) const U16_LENGTH: usize = 2;
 pub(super) const ENCRYPTION_NONCE_LENGTH: usize = 12;
 pub(super) const RECIPIENTS_HASH_LENGTH: usize = 16;
-pub(super) const CHACHA20POLY1305_LENGTH: usize = 64;
+pub(super) const CHACHA20POLY1305_LENGTH: usize = 48;
 pub(super) const CHACHA20POLY1305_KEY_LENGTH: usize = 32;
 pub(super) const VEC_LENGTH: usize = 2;
 
@@ -115,7 +115,6 @@ pub(crate) struct Parameters {
 }
 
 impl Parameters {
-    /// Create new parameters.
     pub(crate) fn generate(participants: u16, threshold: u16) -> Parameters {
         Parameters { participants, threshold }
     }
@@ -141,7 +140,6 @@ impl Parameters {
         t.commit_bytes(b"participants", &self.participants.to_le_bytes());
     }
 
-    /// Serializes `Parameters` into a byte array.
     pub(super) fn to_bytes(&self) -> [u8; U16_LENGTH * 2] {
         let mut bytes = [0u8; U16_LENGTH * 2];
         bytes[0..U16_LENGTH].copy_from_slice(&self.participants.to_le_bytes());
@@ -149,7 +147,6 @@ impl Parameters {
         bytes
     }
 
-    /// Constructs `Parameters` from a byte array.
     pub(super) fn from_bytes(bytes: &[u8]) -> SPPResult<Parameters> {
         if bytes.len() != U16_LENGTH * 2 {
             return Err(SPPError::InvalidParameters);
@@ -248,11 +245,11 @@ impl AllMessage {
         cursor += content.to_bytes().len();
 
         let signature = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
-            .map_err(SPPError::InvalidSignature)?;
+            .map_err(SPPError::ErrorDeserializingSignature)?;
         cursor += SIGNATURE_LENGTH;
 
         let proof_of_possession = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
-            .map_err(SPPError::InvalidSignature)?;
+            .map_err(SPPError::ErrorDeserializingProofOfPossession)?;
 
         Ok(AllMessage { content, signature, proof_of_possession })
     }
@@ -342,7 +339,7 @@ impl MessageContent {
 
         let mut coefficients_commitments = Vec::with_capacity(participants as usize);
 
-        for _ in 0..participants {
+        for _ in 0..parameters.threshold {
             let point = CompressedRistretto::from_slice(
                 &bytes[cursor..cursor + COMPRESSED_RISTRETTO_LENGTH],
             )
@@ -422,7 +419,7 @@ impl SPPOutputMessage {
 
         cursor = bytes.len() - SIGNATURE_LENGTH;
         let signature = Signature::from_bytes(&bytes[cursor..cursor + SIGNATURE_LENGTH])
-            .map_err(SPPError::InvalidSignature)?;
+            .map_err(SPPError::ErrorDeserializingSignature)?;
 
         Ok(SPPOutputMessage { signer, spp_output, signature })
     }
@@ -532,7 +529,7 @@ impl SPPOutput {
 mod tests {
     use merlin::Transcript;
     use rand_core::OsRng;
-    use crate::{context::SigningTranscript, Keypair};
+    use crate::{context::SigningTranscript, olaf::test_utils::generate_parameters, Keypair};
     use super::*;
     use curve25519_dalek::RistrettoPoint;
 
@@ -583,32 +580,15 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize_all_message() {
-        let sender = Keypair::generate();
-        let encryption_nonce = [1u8; ENCRYPTION_NONCE_LENGTH];
-        let parameters = Parameters { participants: 2, threshold: 2 };
-        let recipients_hash = [2u8; RECIPIENTS_HASH_LENGTH];
-        let coefficients_commitments =
-            vec![RistrettoPoint::random(&mut OsRng), RistrettoPoint::random(&mut OsRng)];
-        let polynomial_commitment = PolynomialCommitment { coefficients_commitments };
-        let encrypted_secret_shares = vec![
-            EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
-            EncryptedSecretShare(vec![1; CHACHA20POLY1305_LENGTH]),
-        ];
-        let signature = sender.sign(Transcript::new(b"sig"));
-        let proof_of_possession = sender.sign(Transcript::new(b"pop"));
-        let ephemeral_key = PublicKey::from_point(RistrettoPoint::random(&mut OsRng));
+        let parameters = generate_parameters();
 
-        let message_content = MessageContent::new(
-            sender.public,
-            encryption_nonce,
-            parameters,
-            recipients_hash,
-            polynomial_commitment,
-            encrypted_secret_shares,
-            ephemeral_key,
-        );
+        let keypairs: Vec<Keypair> =
+            (0..parameters.participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
 
-        let message = AllMessage::new(message_content, signature, proof_of_possession);
+        let message: AllMessage = keypairs[0]
+            .simplpedpop_contribute_all(parameters.threshold as u16, public_keys.clone())
+            .unwrap();
 
         let bytes = message.to_bytes();
 
@@ -619,6 +599,33 @@ mod tests {
 
     #[test]
     fn test_spp_output_message_serialization() {
+        let parameters = generate_parameters();
+        let participants = parameters.participants as usize;
+        let threshold = parameters.threshold as usize;
+
+        let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
+        let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+        let mut all_messages = Vec::new();
+        for i in 0..participants {
+            let message: AllMessage = keypairs[i]
+                .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
+                .unwrap();
+            all_messages.push(message);
+        }
+
+        let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap();
+
+        let bytes = spp_output.0.to_bytes();
+
+        let deserialized_spp_output_message =
+            SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
+
+        assert_eq!(deserialized_spp_output_message, spp_output.0);
+    }
+
+    #[test]
+    fn test_spp_output_message_verification() {
         let mut rng = OsRng;
         let group_public_key = RistrettoPoint::random(&mut rng);
         let verifying_keys = vec![
@@ -644,25 +651,14 @@ mod tests {
         };
 
         let keypair = Keypair::generate();
-        let signature = keypair.sign(Transcript::new(b"test"));
+        let mut transcript = Transcript::new(b"spp output");
+        transcript.append_message(b"message", &spp_output.to_bytes());
+        let signature = keypair.sign(transcript);
 
         let spp_output_message =
             SPPOutputMessage { signer: VerifyingShare(keypair.public), spp_output, signature };
 
-        let bytes = spp_output_message.to_bytes();
-
-        let deserialized_spp_output_message =
-            SPPOutputMessage::from_bytes(&bytes).expect("Deserialization failed");
-
-        assert_eq!(
-            deserialized_spp_output_message.spp_output, spp_output_message.spp_output,
-            "Group public keys do not match"
-        );
-
-        assert_eq!(
-            deserialized_spp_output_message.signature, spp_output_message.signature,
-            "Signatures do not match"
-        );
+        spp_output_message.verify_signature().unwrap()
     }
 
     #[test]
