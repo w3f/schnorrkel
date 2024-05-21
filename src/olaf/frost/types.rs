@@ -196,12 +196,6 @@ impl NonceCommitment {
     }
 }
 
-impl From<Nonce> for NonceCommitment {
-    fn from(nonce: Nonce) -> Self {
-        From::from(&nonce)
-    }
-}
-
 impl From<&Nonce> for NonceCommitment {
     fn from(nonce: &Nonce) -> Self {
         Self(GENERATOR * nonce.0)
@@ -502,7 +496,6 @@ impl GroupCommitment {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use rand_core::OsRng;
     use crate::{
         olaf::{simplpedpop::AllMessage, test_utils::generate_parameters},
         Keypair, PublicKey,
@@ -511,7 +504,6 @@ mod tests {
 
     #[test]
     fn test_round1_serialization() {
-        let mut rng = OsRng;
         let parameters = generate_parameters();
         let participants = parameters.participants as usize;
         let threshold = parameters.threshold as usize;
@@ -529,7 +521,7 @@ mod tests {
 
         let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap();
 
-        let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut rng);
+        let (signing_nonces, signing_commitments) = spp_output.1.commit();
 
         let nonces_bytes = signing_nonces.clone().to_bytes();
         let commitments_bytes = signing_commitments.clone().to_bytes();
@@ -543,7 +535,6 @@ mod tests {
 
     #[test]
     fn test_round2_serialization() {
-        let mut rng = OsRng;
         let parameters = generate_parameters();
         let participants = parameters.participants as usize;
         let threshold = parameters.threshold as usize;
@@ -570,7 +561,7 @@ mod tests {
         let mut all_signing_nonces = Vec::new();
 
         for spp_output in &spp_outputs {
-            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut rng);
+            let (signing_nonces, signing_commitments) = spp_output.1.commit();
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
         }

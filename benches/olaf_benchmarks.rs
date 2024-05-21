@@ -1,7 +1,6 @@
 use criterion::criterion_main;
 
 mod olaf_benches {
-    use rand_core::OsRng;
     use criterion::{criterion_group, BenchmarkId, Criterion};
     use schnorrkel::olaf::frost::aggregate;
     use schnorrkel::keys::{PublicKey, Keypair};
@@ -78,14 +77,14 @@ mod olaf_benches {
             let mut all_signing_nonces: Vec<SigningNonces> = Vec::new();
 
             for spp_output in &spp_outputs {
-                let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
+                let (signing_nonces, signing_commitments) = spp_output.1.commit();
                 all_signing_nonces.push(signing_nonces);
                 all_signing_commitments.push(signing_commitments);
             }
 
             group.bench_function(BenchmarkId::new("round1", participants), |b| {
                 b.iter(|| {
-                    spp_outputs[0].1.commit(&mut OsRng);
+                    spp_outputs[0].1.commit();
                 })
             });
 

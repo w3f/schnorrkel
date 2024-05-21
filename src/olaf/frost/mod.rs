@@ -10,7 +10,7 @@ pub use self::types::{SigningPackage, SigningNonces, SigningCommitments};
 use self::types::{CommonData, SignatureShare, SignerData};
 use alloc::vec::Vec;
 use curve25519_dalek::Scalar;
-use rand_core::{CryptoRng, RngCore};
+use getrandom_or_panic::getrandom_or_panic;
 use crate::{
     context::{SigningContext, SigningTranscript},
     Signature,
@@ -32,20 +32,14 @@ impl SigningKeypair {
     /// perform the first round. Batching entails generating more than one
     /// nonce/commitment pair at a time.  Nonces should be stored in secret storage
     /// for later use, whereas the commitments are published.
-    pub fn preprocess<R>(
-        &self,
-        num_nonces: u8,
-        rng: &mut R,
-    ) -> (Vec<SigningNonces>, Vec<SigningCommitments>)
-    where
-        R: CryptoRng + RngCore,
-    {
+    pub fn preprocess(&self, num_nonces: u8) -> (Vec<SigningNonces>, Vec<SigningCommitments>) {
+        let mut rng = getrandom_or_panic();
         let mut signing_nonces: Vec<SigningNonces> = Vec::with_capacity(num_nonces as usize);
         let mut signing_commitments: Vec<SigningCommitments> =
             Vec::with_capacity(num_nonces as usize);
 
         for _ in 0..num_nonces {
-            let nonces = SigningNonces::new(&self.0.secret, rng);
+            let nonces = SigningNonces::new(&self.0.secret, &mut rng);
             signing_commitments.push(SigningCommitments::from(&nonces));
             signing_nonces.push(nonces);
         }
@@ -62,11 +56,8 @@ impl SigningKeypair {
     ///
     /// [`commit`]: https://www.ietf.org/archive/id/draft-irtf-cfrg-frost-14.html#name-round-one-commitment.
     // TODO: remove randomness
-    pub fn commit<R>(&self, rng: &mut R) -> (SigningNonces, SigningCommitments)
-    where
-        R: CryptoRng + RngCore,
-    {
-        let (mut vec_signing_nonces, mut vec_signing_commitments) = self.preprocess(1, rng);
+    pub fn commit(&self) -> (SigningNonces, SigningCommitments) {
+        let (mut vec_signing_nonces, mut vec_signing_commitments) = self.preprocess(1);
         (
             vec_signing_nonces.pop().expect("must have 1 element"),
             vec_signing_commitments.pop().expect("must have 1 element"),
@@ -352,7 +343,6 @@ fn compute_challenge(
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use rand_core::OsRng;
     use crate::{
         olaf::{simplpedpop::AllMessage, test_utils::generate_parameters},
         Keypair, PublicKey,
@@ -392,7 +382,7 @@ mod tests {
         let mut all_signing_nonces = Vec::new();
 
         for spp_output in &spp_outputs {
-            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
+            let (signing_nonces, signing_commitments) = spp_output.1.commit();
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
         }
@@ -452,7 +442,7 @@ mod tests {
         let mut all_signing_nonces = Vec::new();
 
         for spp_output in &spp_outputs[..threshold] {
-            let (signing_nonces, signing_commitments) = spp_output.1.commit(&mut OsRng);
+            let (signing_nonces, signing_commitments) = spp_output.1.commit();
             all_signing_nonces.push(signing_nonces);
             all_signing_commitments.push(signing_commitments);
         }
@@ -508,7 +498,7 @@ mod tests {
         let mut all_commitments_map: Vec<Vec<SigningCommitments>> = Vec::new();
 
         for spp_output in &spp_outputs {
-            let (nonces, commitments) = spp_output.1.preprocess(NONCES, &mut OsRng);
+            let (nonces, commitments) = spp_output.1.preprocess(NONCES);
 
             all_nonces_map.push(nonces);
             all_commitments_map.push(commitments);

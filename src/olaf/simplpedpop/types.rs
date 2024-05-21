@@ -295,8 +295,7 @@ impl MessageContent {
 
         bytes.extend(self.sender.to_bytes());
         bytes.extend(&self.encryption_nonce);
-        bytes.extend(self.parameters.participants.to_le_bytes());
-        bytes.extend(self.parameters.threshold.to_le_bytes());
+        bytes.extend(self.parameters.to_bytes());
         bytes.extend(&self.recipients_hash);
 
         for point in &self.polynomial_commitment.coefficients_commitments {
