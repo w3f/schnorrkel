@@ -594,7 +594,7 @@ mod tests {
     }
 
     #[test]
-    fn test_incorrect_number_of_signing_commitments_error() {
+    fn test_invalid_number_of_signing_commitments_error() {
         let parameters = generate_parameters();
         let participants = parameters.participants as usize;
         let threshold = parameters.threshold as usize;
@@ -647,7 +647,7 @@ mod tests {
                 FROSTError::InvalidNumberOfSigningCommitments => assert!(true),
                 _ => {
                     panic!(
-                        "Expected FROSTError::IncorrectNumberOfSigningCommitments, but got {:?}",
+                        "Expected FROSTError::InvalidNumberOfSigningCommitments, but got {:?}",
                         e
                     )
                 },

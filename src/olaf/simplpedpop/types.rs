@@ -464,8 +464,7 @@ impl SPPOutput {
 
         bytes.extend(self.parameters.to_bytes());
 
-        let compressed_public_key = self.threshold_public_key.0.as_compressed();
-        bytes.extend(compressed_public_key.to_bytes().iter());
+        bytes.extend(self.threshold_public_key.0.to_bytes());
 
         let key_count = self.verifying_keys.len() as u16;
         bytes.extend(key_count.to_le_bytes());

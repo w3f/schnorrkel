@@ -317,9 +317,15 @@ mod tests {
             let threshold = parameters.threshold as usize;
 
             let keypairs: Vec<Keypair> = (0..participants).map(|_| Keypair::generate()).collect();
-            let public_keys: Vec<PublicKey> = keypairs.iter().map(|kp| kp.public).collect();
+
+            let recipients_keypairs: Vec<Keypair> =
+                (0..participants).map(|_| Keypair::generate()).collect();
+
+            let public_keys: Vec<PublicKey> =
+                recipients_keypairs.iter().map(|kp| kp.public).collect();
 
             let mut all_messages = Vec::new();
+
             for i in 0..participants {
                 let message: AllMessage = keypairs[i]
                     .simplpedpop_contribute_all(threshold as u16, public_keys.clone())
@@ -329,7 +335,7 @@ mod tests {
 
             let mut spp_outputs = Vec::new();
 
-            for kp in keypairs.iter() {
+            for kp in recipients_keypairs.iter() {
                 let spp_output = kp.simplpedpop_recipient_all(&all_messages).unwrap();
                 spp_output.0.verify_signature().unwrap();
                 spp_outputs.push(spp_output);
