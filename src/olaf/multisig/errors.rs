@@ -1,4 +1,4 @@
-//! Errors of the FROST protocol.
+//! Errors of the two-round threshold multisig protocol.
 
 use core::array::TryFromSliceError;
 
@@ -57,7 +57,7 @@ mod tests {
     use rand_core::OsRng;
     use crate::{
         olaf::{
-            frost::{
+            multisig::{
                 aggregate,
                 types::{NonceCommitment, SigningCommitments},
                 SigningPackage,

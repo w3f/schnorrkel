@@ -4,8 +4,8 @@
 /// Implementation of the SimplPedPoP protocol.
 pub mod simplpedpop;
 
-/// Implementation of the FROST protocol.
-pub mod frost;
+/// Implementation of the two-round non-deterministic multisig protocol.
+pub mod multisig;
 
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use merlin::Transcript;

@@ -2,9 +2,9 @@ use criterion::criterion_main;
 
 mod olaf_benches {
     use criterion::{criterion_group, BenchmarkId, Criterion};
-    use schnorrkel::olaf::frost::aggregate;
+    use schnorrkel::olaf::multisig::aggregate;
     use schnorrkel::keys::{PublicKey, Keypair};
-    use schnorrkel::olaf::frost::{SigningPackage, SigningNonces, SigningCommitments};
+    use schnorrkel::olaf::multisig::{SigningPackage, SigningNonces, SigningCommitments};
     use schnorrkel::olaf::simplpedpop::AllMessage;
 
     fn benchmark_simplpedpop(c: &mut Criterion) {
@@ -46,8 +46,8 @@ mod olaf_benches {
         group.finish();
     }
 
-    fn benchmark_frost(c: &mut Criterion) {
-        let mut group = c.benchmark_group("FROST");
+    fn benchmark_multisig(c: &mut Criterion) {
+        let mut group = c.benchmark_group("multisig");
 
         group.sample_size(10);
 
@@ -138,7 +138,7 @@ mod olaf_benches {
         config = Criterion::default();
         targets =
             benchmark_simplpedpop,
-            benchmark_frost,
+            benchmark_multisig,
     }
 }
 
