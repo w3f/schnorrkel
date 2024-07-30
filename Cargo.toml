@@ -58,6 +58,7 @@ harness = false
 
 [features]
 default = ["std", "getrandom", "aead"]
+rand_chacha = []
 preaudit_deprecated = []
 nightly = []
 alloc = [
