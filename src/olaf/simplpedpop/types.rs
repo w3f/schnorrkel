@@ -60,7 +60,7 @@ impl SecretShare {
             .decrypt(nonce, &encrypted_secret_share.0[..])
             .map_err(SPPError::DecryptionError)?;
 
-        let mut bytes = [0; 32];
+        let mut bytes = [0; SCALAR_LENGTH];
         bytes.copy_from_slice(&plaintext);
 
         Ok(SecretShare(Scalar::from_bytes_mod_order(bytes)))
@@ -295,8 +295,7 @@ impl MessageContent {
 
         bytes.extend(self.sender.to_bytes());
         bytes.extend(&self.encryption_nonce);
-        bytes.extend(self.parameters.participants.to_le_bytes());
-        bytes.extend(self.parameters.threshold.to_le_bytes());
+        bytes.extend(self.parameters.to_bytes());
         bytes.extend(&self.recipients_hash);
 
         for point in &self.polynomial_commitment.coefficients_commitments {
@@ -465,8 +464,7 @@ impl SPPOutput {
 
         bytes.extend(self.parameters.to_bytes());
 
-        let compressed_public_key = self.threshold_public_key.0.as_compressed();
-        bytes.extend(compressed_public_key.to_bytes().iter());
+        bytes.extend(self.threshold_public_key.0.to_bytes());
 
         let key_count = self.verifying_keys.len() as u16;
         bytes.extend(key_count.to_le_bytes());

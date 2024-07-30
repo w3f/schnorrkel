@@ -4,6 +4,9 @@
 /// Implementation of the SimplPedPoP protocol.
 pub mod simplpedpop;
 
+/// Implementation of the FROST protocol.
+pub mod frost;
+
 use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, RistrettoPoint, Scalar};
 use merlin::Transcript;
 use zeroize::ZeroizeOnDrop;
@@ -16,7 +19,7 @@ pub(crate) const SCALAR_LENGTH: usize = 32;
 
 /// The threshold public key generated in the SimplPedPoP protocol, used to validate the threshold signatures of the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct ThresholdPublicKey(pub(crate) PublicKey);
+pub struct ThresholdPublicKey(pub PublicKey);
 
 /// The verifying share of a participant generated in the SimplPedPoP protocol, used to verify its signatures shares in the FROST protocol.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
