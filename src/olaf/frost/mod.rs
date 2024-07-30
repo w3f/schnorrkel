@@ -1,4 +1,10 @@
-//! Implementation of the FROST protocol (<https://eprint.iacr.org/2020/852>).
+//! Two-nonce non-deterministic MultiSig
+//!
+//! Intentionally prohibits the dangerous precomputed nonces
+//! for which FROST was designed, but otherwise similar to
+//! 2-round non-deterministic MultiSig protocols like
+//! FROST, MuSig2, DWMS, etc.
+//! See https://eprint.iacr.org/2020/852 or others
 
 #![allow(non_snake_case)]
 #![allow(clippy::result_large_err)]
@@ -16,7 +22,7 @@ use crate::{
     Signature,
 };
 use self::{
-    errors::{FROSTError, FROSTResult},
+    errors::{MultiSigError, MultiSigResult},
     types::{BindingFactor, BindingFactorList, GroupCommitment},
 };
 use super::{simplpedpop::SPPOutput, Identifier, SigningKeypair, ThresholdPublicKey, VerifyingShare};
@@ -83,20 +89,20 @@ impl SigningKeypair {
         spp_output: SPPOutput,
         all_signing_commitments: Vec<SigningCommitments>,
         signer_nonces: &SigningNonces,
-    ) -> FROSTResult<SigningPackage> {
+    ) -> MultiSigResult<SigningPackage> {
         let threshold_public_key = &spp_output.threshold_public_key;
         let len = all_signing_commitments.len();
 
         if len < spp_output.parameters.threshold as usize {
-            return Err(FROSTError::InvalidNumberOfSigningCommitments);
+            return Err(MultiSigError::InvalidNumberOfSigningCommitments);
         }
 
         if spp_output.verifying_keys.len() != len {
-            return Err(FROSTError::IncorrectNumberOfVerifyingShares);
+            return Err(MultiSigError::IncorrectNumberOfVerifyingShares);
         }
 
         if !all_signing_commitments.contains(&signer_nonces.commitments) {
-            return Err(FROSTError::MissingOwnSigningCommitment);
+            return Err(MultiSigError::MissingOwnSigningCommitment);
         }
 
         let mut identifiers = Vec::new();
@@ -116,11 +122,11 @@ impl SigningKeypair {
         }
 
         if !shares.contains(&&own_verifying_share) {
-            return Err(FROSTError::InvalidOwnVerifyingShare);
+            return Err(MultiSigError::InvalidOwnVerifyingShare);
         }
 
         if all_signing_commitments.len() < spp_output.parameters.threshold as usize {
-            return Err(FROSTError::InvalidNumberOfSigningCommitments);
+            return Err(MultiSigError::InvalidNumberOfSigningCommitments);
         }
 
         let binding_factor_list: BindingFactorList = BindingFactorList::compute(
@@ -229,15 +235,15 @@ pub(super) fn compute_lagrange_coefficient(
 /// signature, if the coordinator themselves is a signer and misbehaves, they
 /// can avoid that step. However, at worst, this results in a denial of
 /// service attack due to publishing an invalid signature.
-pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROSTError> {
+pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, MultiSigError> {
     if signing_packages.is_empty() {
-        return Err(FROSTError::EmptySigningPackages);
+        return Err(MultiSigError::EmptySigningPackages);
     }
 
     let parameters = &signing_packages[0].common_data.spp_output.parameters;
 
     if signing_packages.len() < parameters.threshold as usize {
-        return Err(FROSTError::InvalidNumberOfSigningPackages);
+        return Err(MultiSigError::InvalidNumberOfSigningPackages);
     }
 
     let common_data = &signing_packages[0].common_data;
@@ -250,14 +256,14 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
 
     for signing_package in signing_packages.iter() {
         if &signing_package.common_data != common_data {
-            return Err(FROSTError::MismatchedCommonData);
+            return Err(MultiSigError::MismatchedCommonData);
         }
 
         signature_shares.push(signing_package.signer_data.signature_share.clone());
     }
 
     if signature_shares.len() != signing_commitments.len() {
-        return Err(FROSTError::MismatchedSignatureSharesAndSigningCommitments);
+        return Err(MultiSigError::MismatchedSignatureSharesAndSigningCommitments);
     }
 
     let binding_factor_list: BindingFactorList =
@@ -276,7 +282,7 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
     let verification_result = threshold_public_key
         .0
         .verify_simple(context, message, &signature)
-        .map_err(FROSTError::InvalidSignature);
+        .map_err(MultiSigError::InvalidSignature);
 
     let identifiers: Vec<Identifier> = spp_output.verifying_keys.iter().map(|x| x.0).collect();
 
@@ -317,7 +323,7 @@ pub fn aggregate(signing_packages: &[SigningPackage]) -> Result<Signature, FROST
             }
         }
 
-        return Err(FROSTError::InvalidSignatureShare { culprit: invalid_shares });
+        return Err(MultiSigError::InvalidSignatureShare { culprit: invalid_shares });
     }
 
     Ok(signature)

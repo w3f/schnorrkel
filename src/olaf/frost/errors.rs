@@ -10,11 +10,11 @@ use crate::{
 };
 
 /// A result for the SimplPedPoP protocol.
-pub type FROSTResult<T> = Result<T, FROSTError>;
+pub type MultiSigResult<T> = Result<T, MultiSigError>;
 
 /// An error ocurred during the execution of the SimplPedPoP protocol.
 #[derive(Debug)]
-pub enum FROSTError {
+pub enum MultiSigError {
     /// The number of signing commitments must be at least equal to the threshold.
     InvalidNumberOfSigningCommitments,
     /// The participant's signing commitment is missing.
@@ -68,7 +68,7 @@ mod tests {
         },
         Keypair, PublicKey,
     };
-    use super::FROSTError;
+    use super::MultiSigError;
 
     #[test]
     fn test_empty_signing_packages() {
@@ -79,9 +79,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::EmptySigningPackages => assert!(true),
+                MultiSigError::EmptySigningPackages => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::EmptySigningPackages, but got {:?}", e)
+                    panic!("Expected MultiSigError::EmptySigningPackages, but got {:?}", e)
                 },
             },
         }
@@ -148,7 +148,7 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::InvalidSignatureShare { culprit } => {
+                MultiSigError::InvalidSignatureShare { culprit } => {
                     assert_eq!(
                         culprit,
                         vec![
@@ -157,7 +157,7 @@ mod tests {
                         ]
                     );
                 },
-                _ => panic!("Expected FROSTError::InvalidSignatureShare, but got {:?}", e),
+                _ => panic!("Expected MultiSigError::InvalidSignatureShare, but got {:?}", e),
             },
         }
     }
@@ -222,9 +222,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::MismatchedSignatureSharesAndSigningCommitments => assert!(true),
+                MultiSigError::MismatchedSignatureSharesAndSigningCommitments => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::MismatchedSignatureSharesAndSigningCommitments, but got {:?}", e)
+                    panic!("Expected MultiSigError::MismatchedSignatureSharesAndSigningCommitments, but got {:?}", e)
                 },
             },
         }
@@ -290,9 +290,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::MismatchedCommonData => assert!(true),
+                MultiSigError::MismatchedCommonData => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::MismatchedCommonData, but got {:?}", e)
+                    panic!("Expected MultiSigError::MismatchedCommonData, but got {:?}", e)
                 },
             },
         }
@@ -354,9 +354,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::InvalidNumberOfSigningPackages => assert!(true),
+                MultiSigError::InvalidNumberOfSigningPackages => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::InvalidNumberOfSigningPackages, but got {:?}", e)
+                    panic!("Expected MultiSigError::InvalidNumberOfSigningPackages, but got {:?}", e)
                 },
             },
         }
@@ -411,9 +411,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::InvalidOwnVerifyingShare => assert!(true),
+                MultiSigError::InvalidOwnVerifyingShare => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::InvalidOwnVerifyingShare, but got {:?}", e)
+                    panic!("Expected MultiSigError::InvalidOwnVerifyingShare, but got {:?}", e)
                 },
             },
         }
@@ -468,9 +468,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::IncorrectNumberOfVerifyingShares => assert!(true),
+                MultiSigError::IncorrectNumberOfVerifyingShares => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::IncorrectNumberOfVerifyingShares, but got {:?}", e)
+                    panic!("Expected MultiSigError::IncorrectNumberOfVerifyingShares, but got {:?}", e)
                 },
             },
         }
@@ -528,9 +528,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::MissingOwnSigningCommitment => assert!(true),
+                MultiSigError::MissingOwnSigningCommitment => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::MissingOwnSigningCommitment, but got {:?}", e)
+                    panic!("Expected MultiSigError::MissingOwnSigningCommitment, but got {:?}", e)
                 },
             },
         }
@@ -585,9 +585,9 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::IdentitySigningCommitment => assert!(true),
+                MultiSigError::IdentitySigningCommitment => assert!(true),
                 _ => {
-                    panic!("Expected FROSTError::IdentitySigningCommitment, but got {:?}", e)
+                    panic!("Expected MultiSigError::IdentitySigningCommitment, but got {:?}", e)
                 },
             },
         }
@@ -644,10 +644,10 @@ mod tests {
         match result {
             Ok(_) => panic!("Expected an error, but got Ok."),
             Err(e) => match e {
-                FROSTError::InvalidNumberOfSigningCommitments => assert!(true),
+                MultiSigError::InvalidNumberOfSigningCommitments => assert!(true),
                 _ => {
                     panic!(
-                        "Expected FROSTError::InvalidNumberOfSigningCommitments, but got {:?}",
+                        "Expected MultiSigError::InvalidNumberOfSigningCommitments, but got {:?}",
                         e
                     )
                 },

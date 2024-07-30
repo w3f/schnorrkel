@@ -1,4 +1,4 @@
-//! Types of the FROST protocol.
+//! Two-nonce non-deterministic MultiSig
 
 use alloc::vec::Vec;
 use curve25519_dalek::{
@@ -17,7 +17,7 @@ use crate::{
     },
     scalar_from_canonical_bytes, SecretKey,
 };
-use super::errors::{FROSTError, FROSTResult};
+use super::errors::{MultiSigError, MultiSigResult};
 
 /// A participant's signature share, which the coordinator will aggregate with all other signer's
 /// shares into the joint signature.
@@ -32,11 +32,11 @@ impl SignatureShare {
         self.share.to_bytes()
     }
 
-    fn from_bytes(bytes: &[u8]) -> FROSTResult<SignatureShare> {
+    fn from_bytes(bytes: &[u8]) -> MultiSigResult<SignatureShare> {
         let mut share_bytes = [0; SCALAR_LENGTH];
         share_bytes.copy_from_slice(&bytes[..SCALAR_LENGTH]);
         let share = scalar_from_canonical_bytes(share_bytes)
-            .ok_or(FROSTError::SignatureShareDeserializationError)?;
+            .ok_or(MultiSigError::SignatureShareDeserializationError)?;
 
         Ok(SignatureShare { share })
     }
@@ -186,11 +186,11 @@ impl NonceCommitment {
     }
 
     /// Deserializes the `NonceCommitment` from bytes.
-    fn from_bytes(bytes: &[u8]) -> FROSTResult<NonceCommitment> {
+    fn from_bytes(bytes: &[u8]) -> MultiSigResult<NonceCommitment> {
         let compressed = CompressedRistretto::from_slice(&bytes[..COMPRESSED_RISTRETTO_LENGTH])
-            .map_err(FROSTError::DeserializationError)?;
+            .map_err(MultiSigError::DeserializationError)?;
 
-        let point = compressed.decompress().ok_or(FROSTError::InvalidNonceCommitment)?;
+        let point = compressed.decompress().ok_or(MultiSigError::InvalidNonceCommitment)?;
 
         Ok(NonceCommitment(point))
     }
@@ -246,7 +246,7 @@ impl SigningNonces {
     }
 
     /// Deserializes SigningNonces from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> MultiSigResult<Self> {
         let mut cursor = 0;
 
         let mut hiding_bytes = [0; 32];
@@ -311,7 +311,7 @@ impl SigningCommitments {
     }
 
     /// Deserializes SigningCommitments from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<SigningCommitments> {
+    pub fn from_bytes(bytes: &[u8]) -> MultiSigResult<SigningCommitments> {
         let hiding = NonceCommitment::from_bytes(&bytes[..COMPRESSED_RISTRETTO_LENGTH])?;
         let binding = NonceCommitment::from_bytes(&bytes[COMPRESSED_RISTRETTO_LENGTH..])?;
 
@@ -362,7 +362,7 @@ impl CommonData {
     }
 
     /// Deserializes CommonData from bytes.
-    fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+    fn from_bytes(bytes: &[u8]) -> MultiSigResult<Self> {
         let mut cursor = 0;
 
         let message_len =
@@ -388,7 +388,7 @@ impl CommonData {
         }
 
         let spp_output = SPPOutput::from_bytes(&bytes[cursor..])
-            .map_err(FROSTError::SPPOutputDeserializationError)?;
+            .map_err(MultiSigError::SPPOutputDeserializationError)?;
 
         Ok(CommonData { message, context, signing_commitments, spp_output })
     }
@@ -410,7 +410,7 @@ impl SignerData {
     }
 
     /// Deserializes SignerData from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> MultiSigResult<Self> {
         let share_bytes = &bytes[..SCALAR_LENGTH];
         let signature_share = SignatureShare::from_bytes(share_bytes)?;
 
@@ -418,7 +418,7 @@ impl SignerData {
     }
 }
 
-/// The signing package that each signer produces in the signing round of the FROST protocol and sends to the
+/// The signing package that each signer produces in the signing round of the multi-signature protocol and sends to the
 /// coordinator, which aggregates them into the final threshold signature.
 #[derive(PartialEq, Eq)]
 pub struct SigningPackage {
@@ -438,7 +438,7 @@ impl SigningPackage {
     }
 
     /// Deserializes SigningPackage from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> FROSTResult<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> MultiSigResult<Self> {
         let signer_data = SignerData::from_bytes(&bytes[..SCALAR_LENGTH])?;
 
         let common_data = CommonData::from_bytes(&bytes[SCALAR_LENGTH..])?;
@@ -455,7 +455,7 @@ impl GroupCommitment {
     pub(super) fn compute(
         signing_commitments: &[SigningCommitments],
         binding_factor_list: &BindingFactorList,
-    ) -> Result<GroupCommitment, FROSTError> {
+    ) -> Result<GroupCommitment, MultiSigError> {
         let identity = RistrettoPoint::identity();
 
         let mut group_commitment = RistrettoPoint::identity();
@@ -471,7 +471,7 @@ impl GroupCommitment {
             // The following check prevents a party from accidentally revealing their share.
             // Note that the '&&' operator would be sufficient.
             if identity == commitment.binding.0 || identity == commitment.hiding.0 {
-                return Err(FROSTError::IdentitySigningCommitment);
+                return Err(MultiSigError::IdentitySigningCommitment);
             }
 
             let binding_factor = &binding_factor_list.0[i];
