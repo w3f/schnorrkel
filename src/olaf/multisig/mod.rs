@@ -38,7 +38,9 @@ impl SigningKeypair {
     /// perform the first round. Batching entails generating more than one
     /// nonce/commitment pair at a time.  Nonces should be stored in secret storage
     /// for later use, whereas the commitments are published.
-    pub fn preprocess(&self, num_nonces: u8) -> (Vec<SigningNonces>, Vec<SigningCommitments>) {
+    ///
+    /// TODO:  Already made private, next remove Vec or make HAZMAT
+    fn preprocess(&self, num_nonces: u8) -> (Vec<SigningNonces>, Vec<SigningCommitments>) {
         let mut rng = getrandom_or_panic();
         let mut signing_nonces: Vec<SigningNonces> = Vec::with_capacity(num_nonces as usize);
         let mut signing_commitments: Vec<SigningCommitments> =
@@ -476,6 +478,7 @@ mod tests {
         aggregate(&signing_packages).unwrap();
     }
 
+    // Test is likely HAZMAT
     #[test]
     fn test_preprocessing_frost_with_simplpedpop() {
         let parameters = generate_parameters();

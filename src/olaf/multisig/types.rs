@@ -133,7 +133,7 @@ impl BindingFactorList {
 }
 
 /// A scalar that is a signing nonce.
-#[derive(Debug, Clone, ZeroizeOnDrop, PartialEq, Eq)]
+#[derive(Debug, ZeroizeOnDrop, PartialEq, Eq)]
 pub(super) struct Nonce(pub(super) Scalar);
 
 impl Nonce {
@@ -167,6 +167,7 @@ impl Nonce {
         Self(transcript.challenge_scalar(b"nonce"))
     }
 
+    /* HAZMAT
     fn to_bytes(&self) -> [u8; SCALAR_LENGTH] {
         self.0.to_bytes()
     }
@@ -174,6 +175,7 @@ impl Nonce {
     fn from_bytes(bytes: [u8; SCALAR_LENGTH]) -> Self {
         Nonce(Scalar::from_bytes_mod_order(bytes))
     }
+    */
 }
 
 /// A group element that is a commitment to a signing nonce share.
@@ -207,7 +209,7 @@ impl From<&Nonce> for NonceCommitment {
 /// Note that [`SigningNonces`] must be used *only once* for a signing
 /// operation; re-using nonces will result in leakage of a signer's long-lived
 /// signing key.
-#[derive(Debug, Clone, ZeroizeOnDrop, PartialEq, Eq)]
+#[derive(Debug, ZeroizeOnDrop, PartialEq, Eq)]
 pub struct SigningNonces {
     pub(super) hiding: Nonce,
     pub(super) binding: Nonce,
@@ -234,6 +236,7 @@ impl SigningNonces {
         Self::from_nonces(hiding, binding)
     }
 
+    /* HAZMAT
     /// Serializes SigningNonces into bytes.
     pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -265,6 +268,7 @@ impl SigningNonces {
 
         Ok(Self { hiding, binding, commitments })
     }
+    */
 
     /// Generates a new [`SigningNonces`] from a pair of [`Nonce`].
     ///
@@ -500,7 +504,7 @@ mod tests {
         olaf::{simplpedpop::AllMessage, test_utils::generate_parameters},
         Keypair, PublicKey,
     };
-    use super::{SigningCommitments, SigningNonces, SigningPackage};
+    use super::{SigningCommitments, SigningPackage}; // SigningNonces
 
     #[test]
     fn test_round1_serialization() {
@@ -521,15 +525,15 @@ mod tests {
 
         let spp_output = keypairs[0].simplpedpop_recipient_all(&all_messages).unwrap();
 
-        let (signing_nonces, signing_commitments) = spp_output.1.commit();
+        let (_signing_nonces, signing_commitments) = spp_output.1.commit();
 
-        let nonces_bytes = signing_nonces.clone().to_bytes();
+        // HAZMAT:  let nonces_bytes = signing_nonces.clone().to_bytes();
         let commitments_bytes = signing_commitments.clone().to_bytes();
 
-        let deserialized_nonces = SigningNonces::from_bytes(&nonces_bytes).unwrap();
+        // HAZMAT:  let deserialized_nonces = SigningNonces::from_bytes(&nonces_bytes).unwrap();
         let deserialized_commitments = SigningCommitments::from_bytes(&commitments_bytes).unwrap();
 
-        assert_eq!(signing_nonces, deserialized_nonces);
+        // HAZMAT:  assert_eq!(signing_nonces, deserialized_nonces);
         assert_eq!(signing_commitments, deserialized_commitments);
     }
 
