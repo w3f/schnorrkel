@@ -57,7 +57,7 @@ required-features = ["alloc", "aead"]
 harness = false
 
 [features]
-default = ["std", "getrandom"]
+default = ["std", "getrandom", "aead"]
 preaudit_deprecated = []
 nightly = []
 alloc = [
