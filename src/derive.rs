@@ -192,6 +192,22 @@ impl Keypair {
     ///
     /// We expect the trait methods of `Keypair as Derivation` to be
     /// more useful since signing anything requires the public key too.
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use schnorrkel::{Keypair,derive::{CHAIN_CODE_LENGTH, ChainCode}};
+    /// # use crate::schnorrkel::derive::Derivation;
+    ///
+    /// let t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+    /// let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]); // This is an example. In practice, we should use a random value.
+    /// let keypair: Keypair = Keypair::generate();
+    /// # let t1 = t.clone();
+    /// let (secret_key, chaincode1) = keypair.derive_secret_key(t, chaincode);
+    /// # let derived_keypair = keypair.derived_key(t1, chaincode).0;
+    /// # assert_eq!(chaincode.0.len(), chaincode1.0.len());
+    /// # assert_eq!(secret_key, derived_keypair.secret);
+    /// ```
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where
         T: SigningTranscript,
