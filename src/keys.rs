@@ -781,8 +781,8 @@ impl Keypair {
     /// # Inputs
     ///
     /// * `bytes`: an `&[u8]` consisting of byte representations of
-    /// first a `SecretKey` and then the corresponding ristretto
-    /// `PublicKey`.
+    ///   first a `SecretKey` and then the corresponding ristretto
+    ///   `PublicKey`.
     ///
     /// # Examples
     ///

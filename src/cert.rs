@@ -62,7 +62,7 @@ use crate::context::SigningTranscript;
 /// this and securely sending it to the certificate holder.
 #[derive(Clone, Copy)] // Debug, Eq, PartialEq
 pub struct AdaptorCertSecret(pub [u8; 64]);
-/// TODO: Serde serialization/deserialization
+// TODO: Serde serialization/deserialization
 
 impl From<AdaptorCertSecret> for AdaptorCertPublic {
     fn from(secret: AdaptorCertSecret) -> AdaptorCertPublic {
@@ -79,7 +79,7 @@ impl From<AdaptorCertSecret> for AdaptorCertPublic {
 /// when the certificate holder accepts the implicit certificate.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct AdaptorCertPublic(pub [u8; 32]);
-/// TODO: Serde serialization/deserialization
+// TODO: Serde serialization/deserialization
 
 impl AdaptorCertPublic {
     fn derive_e<T: SigningTranscript>(&self, mut t: T) -> Scalar {
