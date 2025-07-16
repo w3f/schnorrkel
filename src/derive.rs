@@ -54,6 +54,30 @@ pub struct ChainCode(pub [u8; CHAIN_CODE_LENGTH]);
 pub trait Derivation: Sized {
     /// Derive key with subkey identified by a byte array
     /// presented via a `SigningTranscript`, and a chain code.
+    /// 
+    /// This trait allow the derivation of a key from another, according to BIP32 rules.
+    /// The derivation can be performed on a full Keypair, or each of its constituent keys.
+    /// These two ways are equivalent.
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use schnorrkel::{Keypair,derive::{CHAIN_CODE_LENGTH, ChainCode, Derivation}};
+    ///
+    /// let t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+    /// let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]); // This is an example. In practice, we should use a random value.
+    /// 
+    /// let keypair: Keypair = Keypair::generate();
+    /// let public_key = &keypair.public;
+    /// let secret_key = &keypair.secret;
+    /// 
+    /// let (derived_keypair, _) = keypair.derived_key(t.clone(), chaincode);
+    /// let (derived_public_key, _) = public_key.derived_key(t.clone(), chaincode);
+    /// let (derived_secret_key, _) = secret_key.derived_key(t.clone(), chaincode);
+    /// 
+    /// assert_eq!(derived_public_key, derived_keypair.public);
+    /// assert_eq!(derived_secret_key, derived_keypair.secret);
+    /// ```
     fn derived_key<T>(&self, t: T, cc: ChainCode) -> (Self, ChainCode)
     where
         T: SigningTranscript;
@@ -61,6 +85,19 @@ pub trait Derivation: Sized {
     /// Derive key with subkey identified by a byte array
     /// and a chain code.  We do not include a context here
     /// because the chain code could serve this purpose.
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use schnorrkel::{Keypair,derive::{CHAIN_CODE_LENGTH, ChainCode, Derivation}};
+    ///
+    /// let t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+    /// let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]); // This is an example. In practice, we should use a random value.
+    /// 
+    /// let keypair: Keypair = Keypair::generate();
+    /// let bytes = [0u8, 120u8, 243u8, 31u8, 67u8, 8u8];
+    /// let (derived_keypair, _) = keypair.derived_key_simple(chaincode, &bytes);
+    /// ```
     fn derived_key_simple<B: AsRef<[u8]>>(&self, cc: ChainCode, i: B) -> (Self, ChainCode) {
         let mut t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
         t.append_message(b"sign-bytes", i.as_ref());
@@ -192,6 +229,22 @@ impl Keypair {
     ///
     /// We expect the trait methods of `Keypair as Derivation` to be
     /// more useful since signing anything requires the public key too.
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use schnorrkel::{Keypair,derive::{CHAIN_CODE_LENGTH, ChainCode}};
+    /// # use crate::schnorrkel::derive::Derivation;
+    ///
+    /// let t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+    /// let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]); // This is an example. In practice, we should use a random value.
+    /// let keypair: Keypair = Keypair::generate();
+    /// # let t1 = t.clone();
+    /// let (secret_key, chaincode1) = keypair.derive_secret_key(t, chaincode);
+    /// # let derived_keypair = keypair.derived_key(t1, chaincode).0;
+    /// # assert_eq!(chaincode.0.len(), chaincode1.0.len());
+    /// # assert_eq!(secret_key, derived_keypair.secret);
+    /// ```
     pub fn derive_secret_key<T>(&self, mut t: T, cc: ChainCode) -> (SecretKey, ChainCode)
     where
         T: SigningTranscript,
@@ -264,6 +317,23 @@ pub struct ExtendedKey<K> {
 impl<K: Derivation> ExtendedKey<K> {
     /// Derive key with subkey identified by a byte array
     /// presented as a hash, and a chain code.
+    /// 
+    /// # Example:
+    /// 
+    /// ```
+    /// use schnorrkel::{Keypair,derive::{CHAIN_CODE_LENGTH, ChainCode, Derivation, ExtendedKey}};
+    ///
+    /// let t = merlin::Transcript::new(b"SchnorrRistrettoHDKD");
+    /// let chaincode = ChainCode([0u8; CHAIN_CODE_LENGTH]); // This is an example. In practice, we should use a random value.
+    /// let keypair: Keypair = Keypair::generate();
+    /// 
+    /// let extended = ExtendedKey::<Keypair> {key: keypair, chaincode};
+    /// # let t1 = t.clone();
+    /// let ExtendedKey {key: extended_derived_keypair, .. } = extended.derived_key(t.clone());
+    /// # let (derived_keypair, _) = extended.key.derived_key(t1, extended.chaincode);
+    /// # assert_eq!(derived_keypair.public, extended_derived_keypair.public);
+    /// # assert_eq!(derived_keypair.secret, extended_derived_keypair.secret);
+    /// ```
     pub fn derived_key<T>(&self, t: T) -> ExtendedKey<K>
     where
         T: SigningTranscript,
