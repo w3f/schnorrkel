@@ -11,7 +11,7 @@
 //!
 //! *Warning*  We warn that our VRF construction supports malleable
 //! outputs via the `*malleable*` methods.  These are insecure when
-//! used in  conjunction with our HDKD provided in dervie.rs.
+//! used in  conjunction with our HDKD provided in derive.rs.
 //! Attackers could translate malleable VRF outputs from one soft subkey
 //! to another soft subkey, gaining early knowledge of the VRF output.
 //! We suggest using either non-malleable VRFs or using implicit
@@ -98,7 +98,7 @@ use crate::context::SigningTranscript;
 use crate::points::RistrettoBoth;
 // use crate::errors::SignatureError;
 
-/// Value for `kusama` paramater to `*dleq*` methods that yields the VRF for kusama.
+/// Value for `kusama` parameter to `*dleq*` methods that yields the VRF for kusama.
 ///
 /// Greg Maxwell argue that nonce generation should hash all parameters
 /// that challenge generation does in https://moderncrypto.org/mail-archive/curves/2020/001012.html
@@ -130,7 +130,7 @@ pub const VRF_PROOF_BATCHABLE_LENGTH: usize = 96;
 /// `SigningTranscript` helper trait that manages VRF output malleability.
 ///
 /// In short, `VRFSigningTranscript` acts like a default argument
-/// `malleabe : bool = false` for every mathod that uses it instead of
+/// `malleabe : bool = false` for every method that uses it instead of
 /// `SigningTranscript`.
 pub trait VRFSigningTranscript {
     /// Real underlying `SigningTranscript`
@@ -155,7 +155,7 @@ where
 /// VRF SigningTranscript for malleable VRF outputs.
 ///
 /// *Warning*  We caution that malleable VRF outputs are insecure when
-/// used in conjunction with HDKD, as provided in dervie.rs. 
+/// used in conjunction with HDKD, as provided in derive.rs. 
 /// Attackers could translate malleable VRF outputs from one soft subkey 
 /// to another soft subkey, gaining early knowledge of the VRF output.
 /// We think most VRF applications for which HDKH sounds suitable
@@ -179,7 +179,7 @@ where
 /// Create a malleable VRF input point by hashing a transcript to a point.
 ///
 /// *Warning*  We caution that malleable VRF inputs are insecure when
-/// used in conjunction with HDKD, as provided in dervie.rs.
+/// used in conjunction with HDKD, as provided in derive.rs.
 /// Attackers could translate malleable VRF outputs from one soft subkey
 /// to another soft subkey, gaining early knowledge of the VRF output.
 /// We think most VRF applications for which HDKH sounds suitable
@@ -640,7 +640,7 @@ serde_boilerplate!(VRFProofBatchable);
 impl Keypair {
     /// Produce DLEQ proof.
     ///
-    /// We assume the `VRFInOut` paramater has been computed correctly
+    /// We assume the `VRFInOut` parameter has been computed correctly
     /// by multiplying every input point by `self.secret`, like by
     /// using one of the `vrf_create_*` methods on `SecretKey`.
     /// If so, we produce a proof that this multiplication was done correctly.
