@@ -36,7 +36,7 @@ const ASSERT_MESSAGE: &str =
 ///
 /// # Panics
 ///
-/// This function will panic if the `messages, `signatures`, and `public_keys`
+/// This function will panic if the `messages`, `signatures`, and `public_keys`
 /// slices are not equal length.
 ///
 /// # Returns
