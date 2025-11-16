@@ -52,7 +52,6 @@ harness = false
 default = ["std", "getrandom"]
 preaudit_deprecated = []
 nightly = []
-rand_chacha = []
 alloc = ["curve25519-dalek/alloc", "rand_core/alloc", "getrandom_or_panic/alloc", "serde_bytes/alloc"]
 std = ["alloc", "getrandom", "serde_bytes/std", "rand_core/std", "getrandom_or_panic/std"]
 asm = ["sha2/asm"]
