@@ -223,6 +223,7 @@
 #![warn(rust_2018_idioms)]
 #![deny(missing_docs)] // refuse to compile if documentation is missing
 #![allow(clippy::needless_lifetimes)]
+#![allow(clippy::manual_is_multiple_of)]
 
 #[cfg(feature = "std")]
 #[macro_use]
