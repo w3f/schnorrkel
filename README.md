@@ -1,4 +1,4 @@
-# schnorrkel [![](https://img.shields.io/crates/v/schnorrkel.svg)](https://crates.io/crates/schnorrkel) [![](https://docs.rs/schnorrkel/badge.svg)](https://docs.rs/schnorrkel) [![](https://travis-ci.org/w3f/schnorrkel.svg?branch=master)](https://travis-ci.org/w3f/schnorrkel?branch=master)
+# schnorrkel [![](https://img.shields.io/crates/v/schnorrkel.svg)](https://crates.io/crates/schnorrkel) [![](https://docs.rs/schnorrkel/badge.svg)](https://docs.rs/schnorrkel) [![](https://github.com/w3f/schnorrkel/actions/workflows/rust.yml/badge.svg)](https://github.com/w3f/schnorrkel/actions)
 
 
 Schnorrkel implements Schnorr signature on [Ristretto](https://ristretto.group) compressed Ed25519 points, as well as [related](https://github.com/sipa/bips/blob/bip-taproot/bip-0340.mediawiki) protocols like HDKD, [MuSig](https://eprint.iacr.org/2018/068), and a verifiable random function (VRF).  
