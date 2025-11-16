@@ -30,6 +30,7 @@
 
 // See also https://github.com/lovesh/signature-schemes/issues/2
 
+#![allow(clippy::manual_is_multiple_of)]
 
 use core::borrow::{Borrow};  // BorrowMut
 
